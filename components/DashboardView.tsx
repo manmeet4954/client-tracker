@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Circle,
   Trash2, Plus, CalendarPlus, Target, Pencil, Check,
@@ -12,7 +13,14 @@ import { AgendaItem } from '@/types';
 export default function DashboardView({ clientId }: { clientId: string }) {
   const { dispatch } = useApp();
   const { data } = useClient(clientId);
-  const [month, setMonth] = useState(() => formatMonthKey(new Date()));
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const month = searchParams.get('month') ?? formatMonthKey(new Date());
+  function setMonth(m: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('month', m);
+    router.replace(`?${params.toString()}`);
+  }
   const [newItem, setNewItem] = useState('');
   const [newDue, setNewDue] = useState('');
   const [editingTarget, setEditingTarget] = useState(false);
