@@ -69,6 +69,14 @@ export interface MonthData {
   agenda: AgendaItem[];
 }
 
+export interface EvergreenIdea {
+  id: string;
+  title: string;
+  format: string;
+  notes: string;
+  createdAt: string;
+}
+
 export interface ClientData {
   cards: KanbanCard[];
   customFields: CustomFieldDef[];
@@ -76,6 +84,7 @@ export interface ClientData {
   references: Reference[];
   brand: BrandOverview;
   postTarget: number; // monthly post target (e.g. 12), 0 = not set
+  evergreenIdeas: EvergreenIdea[]; // standalone reusable content ideas, not linked to Kanban
 }
 
 export interface Client {

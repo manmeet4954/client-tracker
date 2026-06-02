@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Menu } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import { useClient } from '@/contexts/AppContext';
 
 const TABS = [
   { label: 'Dashboard', href: '', icon: LayoutDashboard },
   { label: 'Kanban', href: '/kanban', icon: Kanban },
+  { label: 'Evergreen', href: '/evergreen', icon: Repeat },
   { label: 'References', href: '/references', icon: BookMarked },
   { label: 'Brand', href: '/brand', icon: Palette },
 ];

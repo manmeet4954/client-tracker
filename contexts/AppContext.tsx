@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
-  Reference, BrandOverview, CustomFieldDef, ColumnId,
+  Reference, BrandOverview, CustomFieldDef, ColumnId, EvergreenIdea,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +27,7 @@ function defaultClientData(): ClientData {
     references: [],
     brand: { ...defaultBrand },
     postTarget: 0,
+    evergreenIdeas: [],
   };
 }
 
@@ -63,7 +64,10 @@ export type Action =
   | { type: 'SET_POST_TARGET'; payload: { clientId: string; target: number } }
   | { type: 'ADD_FIELD'; payload: { clientId: string; field: CustomFieldDef } }
   | { type: 'UPDATE_FIELD'; payload: { clientId: string; field: CustomFieldDef } }
-  | { type: 'DELETE_FIELD'; payload: { clientId: string; fieldId: string } };
+  | { type: 'DELETE_FIELD'; payload: { clientId: string; fieldId: string } }
+  | { type: 'ADD_EVERGREEN'; payload: { clientId: string; idea: EvergreenIdea } }
+  | { type: 'UPDATE_EVERGREEN'; payload: { clientId: string; idea: EvergreenIdea } }
+  | { type: 'DELETE_EVERGREEN'; payload: { clientId: string; ideaId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -217,6 +221,23 @@ function reducer(state: AppState, action: Action): AppState {
     case 'DELETE_FIELD':
       return updateClient(action.payload.clientId, {
         customFields: cd(action.payload.clientId).customFields.filter(f => f.id !== action.payload.fieldId),
+      });
+
+    case 'ADD_EVERGREEN':
+      return updateClient(action.payload.clientId, {
+        evergreenIdeas: [action.payload.idea, ...(cd(action.payload.clientId).evergreenIdeas ?? [])],
+      });
+
+    case 'UPDATE_EVERGREEN':
+      return updateClient(action.payload.clientId, {
+        evergreenIdeas: (cd(action.payload.clientId).evergreenIdeas ?? []).map(i =>
+          i.id === action.payload.idea.id ? action.payload.idea : i
+        ),
+      });
+
+    case 'DELETE_EVERGREEN':
+      return updateClient(action.payload.clientId, {
+        evergreenIdeas: (cd(action.payload.clientId).evergreenIdeas ?? []).filter(i => i.id !== action.payload.ideaId),
       });
 
     default:
