@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import {
   DndContext, DragEndEvent, DragStartEvent, DragOverlay,
   PointerSensor, useSensor, useSensors, useDroppable, useDraggable,
@@ -44,16 +43,8 @@ class SmartPointerSensor extends PointerSensor {
 }
 
 export default function KanbanView({ clientId }: { clientId: string }) {
-  const { dispatch } = useApp();
+  const { dispatch, selectedMonth: month, setSelectedMonth: setMonth } = useApp();
   const { data } = useClient(clientId);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const month = searchParams.get('month') ?? formatMonthKey(new Date());
-  function setMonth(m: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('month', m);
-    router.replace(`?${params.toString()}`);
-  }
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [editCard, setEditCard] = useState<KanbanCard | null>(null);
   const [addColumn, setAddColumn] = useState<ColumnId | null>(null);

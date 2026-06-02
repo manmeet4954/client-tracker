@@ -227,6 +227,8 @@ function reducer(state: AppState, action: Action): AppState {
 interface CtxValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
+  selectedMonth: string;
+  setSelectedMonth: (month: string) => void;
 }
 
 const AppContext = createContext<CtxValue | null>(null);
@@ -234,6 +236,7 @@ const AppContext = createContext<CtxValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, SEED);
   const [loaded, setLoaded] = React.useState(false);
+  const [selectedMonth, setSelectedMonth] = React.useState(() => formatMonthKey(new Date()));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load from Supabase on mount, fall back to localStorage
@@ -276,7 +279,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   if (!loaded) return null;
 
-  return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={{ state, dispatch, selectedMonth, setSelectedMonth }}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {
