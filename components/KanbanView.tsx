@@ -119,8 +119,8 @@ export default function KanbanView({ clientId }: { clientId: string }) {
 
       {/* Board */}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex-1 overflow-x-auto p-4 md:p-6">
-          <div className="flex gap-3 md:gap-4 min-w-max h-full">
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+          <div className="flex gap-3 md:gap-4 min-w-max items-stretch">
             {COLUMNS.map(col => (
               <KanbanColumn
                 key={col.id}
@@ -199,6 +199,11 @@ function KanbanColumn({ columnId, label, cards, activeCardId, onAddCard, onEditC
       </div>
       <div ref={setNodeRef}
         className={`flex-1 min-h-[300px] rounded-b-xl border-x border-b border-stone-200 p-2 space-y-2 transition-colors ${isOver ? 'bg-accent-light border-accent/40' : 'bg-stone-50'}`}>
+        <button onClick={onAddCard}
+          className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors">
+          <Plus size={13} />
+          Add idea
+        </button>
         {cards.map(card => (
           <DraggableCard key={card.id} card={card} isDraggingActive={activeCardId === card.id}
             onEdit={() => onEditCard(card)}
@@ -206,11 +211,6 @@ function KanbanColumn({ columnId, label, cards, activeCardId, onAddCard, onEditC
             onMove={(col) => onMoveCard(card.id, col)}
           />
         ))}
-        <button onClick={onAddCard}
-          className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors">
-          <Plus size={13} />
-          Add idea
-        </button>
       </div>
     </div>
   );
@@ -282,12 +282,13 @@ function DraggableCard({ card, isDraggingActive, onEdit, onDelete, onMove }: {
         </div>
       </div>
 
-      {/* Action bar */}
+      {/* Action bar — collapses to 0 height until hover/tap so the card hugs its content */}
       <div
-        className="flex items-center gap-1 mt-2 pt-2 border-t border-stone-100 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="overflow-hidden max-h-0 group-hover:max-h-12 group-hover:overflow-visible transition-all duration-200"
         onPointerDown={e => e.stopPropagation()}
         data-no-dnd="true"
       >
+        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-stone-100 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={onEdit}
           className="flex items-center gap-1 px-2 py-0.5 text-xs text-stone-500 hover:text-stone-900 hover:bg-stone-50 rounded transition-colors">
           <Pencil size={11} /> Edit
@@ -319,6 +320,7 @@ function DraggableCard({ card, isDraggingActive, onEdit, onDelete, onMove }: {
           className="flex items-center gap-1 px-2 py-0.5 text-xs text-stone-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-auto">
           <Trash2 size={11} />
         </button>
+        </div>
       </div>
     </div>
   );
