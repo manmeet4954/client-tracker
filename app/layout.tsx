@@ -3,8 +3,19 @@ import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
 
 export const metadata: Metadata = {
-  title: 'Client Dashboard',
-  description: 'Manage your clients, content, and brand strategy',
+  title: 'My Clients',
+  description: 'Client content tracker — kanban, brand, studio',
+  themeColor: '#1c1917',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'My Clients',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
