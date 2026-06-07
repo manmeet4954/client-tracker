@@ -7,29 +7,22 @@ export default function AppleIcon() {
   return new ImageResponse(
     <div
       style={{
-        background: '#1c1917',
+        background: 'linear-gradient(135deg, #8B5CF6 0%, #F97316 100%)',
         width: 180,
         height: 180,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        gap: 10,
+        padding: '0 18px',
+        gap: 0,
       }}
     >
-      {/* Three dots */}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <div style={{ width: 17, height: 17, borderRadius: '50%', background: '#8B5CF6' }} />
-        <div style={{ width: 17, height: 17, borderRadius: '50%', background: '#10B981' }} />
-        <div style={{ width: 17, height: 17, borderRadius: '50%', background: '#F43F5E' }} />
+      <div style={{ color: '#fff', fontSize: 68, fontWeight: 800, lineHeight: 1, letterSpacing: -2, display: 'flex' }}>
+        My
       </div>
-
-      {/* Name */}
-      <div style={{ display: 'flex', alignItems: 'baseline' }}>
-        <span style={{ color: '#f7f7f5', fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>
-          My Clients
-        </span>
-        <span style={{ color: '#ea4711', fontSize: 28, fontWeight: 700, lineHeight: 0 }}>.</span>
+      <div style={{ color: '#fff', fontSize: 30, fontWeight: 800, lineHeight: 1.1, letterSpacing: -0.5, display: 'flex' }}>
+        Clients.
       </div>
     </div>,
     { width: 180, height: 180 }

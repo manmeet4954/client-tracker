@@ -7,29 +7,22 @@ export default function Icon() {
   return new ImageResponse(
     <div
       style={{
-        background: '#1c1917',
+        background: 'linear-gradient(135deg, #8B5CF6 0%, #F97316 100%)',
         width: 512,
         height: 512,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        gap: 28,
+        padding: '0 54px',
+        gap: 0,
       }}
     >
-      {/* Three client dots */}
-      <div style={{ display: 'flex', gap: 18 }}>
-        <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#8B5CF6' }} />
-        <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#10B981' }} />
-        <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#F43F5E' }} />
+      <div style={{ color: '#fff', fontSize: 196, fontWeight: 800, lineHeight: 1, letterSpacing: -6, display: 'flex' }}>
+        My
       </div>
-
-      {/* App name */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
-        <span style={{ color: '#f7f7f5', fontSize: 68, fontWeight: 700, letterSpacing: -2 }}>
-          My Clients
-        </span>
-        <span style={{ color: '#ea4711', fontSize: 80, fontWeight: 700, lineHeight: 0 }}>.</span>
+      <div style={{ color: '#fff', fontSize: 86, fontWeight: 800, lineHeight: 1.1, letterSpacing: -2, display: 'flex' }}>
+        Clients.
       </div>
     </div>,
     { width: 512, height: 512 }
