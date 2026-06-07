@@ -80,7 +80,7 @@ function defaultLayer(type: LType, accent: string, dims: Aspect): Omit<StudioLay
   const cx = Math.round(dims.w / 2);
   const cy = Math.round(dims.h / 2);
   switch (type) {
-    case 'text':  return { type, x: cx - 200, y: cy - 50, w: 400, h: 100, rot: 0, opacity: 1, text: 'Your text here', font: FONTS[0].css, size: 80, weight: 700, align: 'left', color: INK };
+    case 'text':  return { type, x: cx - 200, y: cy - 50, w: 400, h: 100, rot: 0, opacity: 1, text: 'Your text here', font: DEFAULT_FONTS[0].css, size: 80, weight: 700, align: 'left', color: INK };
     case 'icon':  return { type, x: cx - 60,  y: cy - 60, w: 120, h: 120, rot: 0, opacity: 1, icon: 'Star', color: accent, fill: false };
     case 'shape': return { type, x: cx - 80,  y: cy - 80, w: 160, h: 160, rot: 0, opacity: 1, shape: 'rect', color: accent, fill: true };
     case 'image': return { type, x: cx - 160, y: cy - 120, w: 320, h: 240, rot: 0, opacity: 1, src: '', frame: 'none' };
@@ -103,7 +103,7 @@ function ElementBody({ layer, isEditing, onCommitText }: {
         onBlur={e => { if (isEditing) onCommitText(e.currentTarget.textContent ?? ''); }}
         style={{
           width: '100%', height: '100%',
-          fontFamily: layer.font ?? FONTS[0].css,
+          fontFamily: layer.font ?? DEFAULT_FONTS[0].css,
           fontSize: layer.size ?? 80,
           fontWeight: layer.weight ?? 700,
           color: layer.color ?? INK,
