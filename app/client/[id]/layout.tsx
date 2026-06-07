@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import { useClient } from '@/contexts/AppContext';
 
@@ -13,6 +13,7 @@ const TABS = [
   { label: 'Evergreen', href: '/evergreen', icon: Repeat },
   { label: 'References', href: '/references', icon: BookMarked },
   { label: 'Brand', href: '/brand', icon: Palette },
+  { label: 'Studio', href: '/studio', icon: Sparkles },
 ];
 
 export default function ClientLayout({

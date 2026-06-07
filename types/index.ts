@@ -85,6 +85,7 @@ export interface ClientData {
   brand: BrandOverview;
   postTarget: number; // monthly post target (e.g. 12), 0 = not set
   evergreenIdeas: EvergreenIdea[]; // standalone reusable content ideas, not linked to Kanban
+  studioCompositions: StudioComposition[]; // saved freeform studio canvases
 }
 
 export interface Client {
@@ -97,4 +98,43 @@ export interface Client {
 export interface AppState {
   clients: Client[];
   clientData: Record<string, ClientData>;
+}
+
+// ── Studio types ──────────────────────────────────────────────────────────
+
+export type LType = 'text' | 'icon' | 'shape' | 'image';
+
+export interface StudioLayer {
+  id: string;
+  type: LType;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rot: number;
+  opacity: number;
+  // text
+  text?: string;
+  font?: string;
+  size?: number;
+  weight?: number;
+  align?: 'left' | 'center' | 'right';
+  color?: string;
+  // icon / shape
+  fill?: boolean;
+  icon?: string;     // lucide icon name
+  shape?: 'circle' | 'rect' | 'ring' | 'line';
+  // image
+  src?: string;
+  frame?: 'none' | 'browser' | 'phone';
+}
+
+export interface StudioComposition {
+  id: string;
+  name: string;
+  aspectKey: string;
+  bg: string;
+  layers: StudioLayer[];
+  createdAt: string;
+  updatedAt: string;
 }

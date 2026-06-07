@@ -1,0 +1,487 @@
+'use client';
+
+import { useRef, useState } from 'react';
+import { Download, RefreshCw } from 'lucide-react';
+
+// ── Constants ─────────────────────────────────────────────────────────────
+
+const BG_DARK = '#0d0d0d';
+const INK     = '#f7f7f5';
+
+const ASPECTS = [
+  { key: '1:1',  label: '1:1',  w: 1080, h: 1080 },
+  { key: '4:5',  label: '4:5',  w: 1080, h: 1350 },
+  { key: '16:9', label: '16:9', w: 1080, h: 608  },
+  { key: '9:16', label: '9:16', w: 608,  h: 1080 },
+] as const;
+type Aspect = typeof ASPECTS[number];
+
+const PREVIEW_MAX = 440;
+
+const BG_PRESETS = [
+  { key: 'dark',     label: 'Dark'     },
+  { key: 'glow',     label: 'Glow'     },
+  { key: 'grid',     label: 'Grid'     },
+  { key: 'gradient', label: 'Gradient' },
+  { key: 'light',    label: 'Light'    },
+];
+
+function bgCss(preset: string, accent: string): React.CSSProperties {
+  switch (preset) {
+    case 'glow':
+      return { background: BG_DARK, backgroundImage: `radial-gradient(55% 60% at 80% 15%, ${accent}45 0%, transparent 70%)` };
+    case 'grid':
+      return { background: BG_DARK, backgroundImage: 'linear-gradient(rgba(247,247,245,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(247,247,245,0.05) 1px,transparent 1px)', backgroundSize: '54px 54px' };
+    case 'gradient':
+      return { background: `linear-gradient(145deg,${BG_DARK} 0%,${accent}30 100%)` };
+    case 'light':
+      return { background: '#f0efed' };
+    default:
+      return { background: BG_DARK };
+  }
+}
+
+// ── Template definitions ───────────────────────────────────────────────────
+
+type TemplateKey = 'quote' | 'stat' | 'list' | 'steps' | 'announce' | 'testimonial';
+
+interface Fields {
+  eyebrow: string;
+  title: string;
+  sub: string;
+  footer: string;
+  items: string;
+  stat: string;
+  author: string;
+}
+
+const TEMPLATES: { key: TemplateKey; label: string; desc: string }[] = [
+  { key: 'quote',       label: 'Quote',       desc: 'Power statement' },
+  { key: 'stat',        label: 'Stat',        desc: 'Big number / metric' },
+  { key: 'list',        label: 'List',        desc: 'Tips or takeaways' },
+  { key: 'steps',       label: 'Steps',       desc: 'Step-by-step how-to' },
+  { key: 'announce',    label: 'Announce',    desc: 'Launch or update' },
+  { key: 'testimonial', label: 'Testimonial', desc: 'Client review' },
+];
+
+const DEFAULTS: Record<TemplateKey, Fields> = {
+  quote: {
+    eyebrow: 'CONTENT STRATEGY',
+    title: 'Great content\nis not about\nbeing perfect.',
+    sub: "It's about being consistent.",
+    footer: '',
+    items: '',
+    stat: '',
+    author: '',
+  },
+  stat: {
+    eyebrow: 'MAY 2026',
+    stat: '12',
+    title: 'posts this month',
+    sub: 'Consistent, on-brand, every week.',
+    footer: '',
+    items: '',
+    author: '',
+  },
+  list: {
+    eyebrow: '5 THINGS',
+    title: 'That actually\ngrow your account.',
+    sub: '',
+    footer: '',
+    items: 'Post consistently, not daily\nKnow your audience deeply\nUse hooks that stop the scroll\nEngage before you expect engagement\nTrack what works and double down',
+    stat: '',
+    author: '',
+  },
+  steps: {
+    eyebrow: 'HOW IT WORKS',
+    title: '3 steps to better content.',
+    sub: '',
+    footer: '',
+    items: "Research your audience's pain points\nCreate value-first content\nRepurpose what performs",
+    stat: '',
+    author: '',
+  },
+  announce: {
+    eyebrow: 'NOW OPEN',
+    title: 'New batch\nstarting soon.',
+    sub: 'Limited spots available.',
+    footer: 'DM us to book your spot',
+    items: '',
+    stat: '',
+    author: '',
+  },
+  testimonial: {
+    eyebrow: 'CLIENT LOVE',
+    title: '"The quality of content\ncompletely changed."',
+    sub: '',
+    footer: '',
+    items: '',
+    stat: '',
+    author: 'Priya S. — Studio Member',
+  },
+};
+
+// ── Card body renderers ────────────────────────────────────────────────────
+
+function CardBody({ template, f, accent, dims, bgPreset }: {
+  template: TemplateKey;
+  f: Fields;
+  accent: string;
+  dims: Aspect;
+  bgPreset: string;
+}) {
+  const isLight = bgPreset === 'light';
+  const ink     = isLight ? '#1c1917' : INK;
+  const inkFade = isLight ? 'rgba(28,25,23,0.5)' : 'rgba(247,247,245,0.5)';
+  const pad     = Math.round(dims.w * 0.074);
+  const w       = dims.w;
+
+  const box: React.CSSProperties = {
+    padding: pad, width: '100%', height: '100%',
+    display: 'flex', flexDirection: 'column', justifyContent: 'center',
+    position: 'relative', boxSizing: 'border-box',
+    fontFamily: "'Space Grotesk', 'Inter', sans-serif",
+  };
+  const eyebrowStyle: React.CSSProperties = {
+    fontSize: Math.round(w * 0.022), fontWeight: 500,
+    letterSpacing: '0.12em', color: accent,
+    textTransform: 'uppercase', marginBottom: Math.round(w * 0.028),
+  };
+  const titleStyle: React.CSSProperties = {
+    fontSize: Math.round(w * 0.078), fontWeight: 700,
+    color: ink, lineHeight: 1.06, whiteSpace: 'pre-line',
+    marginBottom: Math.round(w * 0.022),
+  };
+  const subStyle: React.CSSProperties = {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: Math.round(w * 0.030), fontWeight: 400,
+    color: inkFade, lineHeight: 1.5,
+  };
+  const dividerStyle: React.CSSProperties = {
+    width: Math.round(w * 0.09), height: 3,
+    background: accent, borderRadius: 2,
+    marginBottom: Math.round(w * 0.032),
+  };
+  const footerStyle: React.CSSProperties = {
+    fontFamily: "'Inter', sans-serif",
+    fontSize: Math.round(w * 0.022), fontWeight: 500,
+    color: accent, position: 'absolute', bottom: pad, left: pad,
+  };
+
+  if (template === 'quote') {
+    return (
+      <div style={box}>
+        {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
+        <div style={dividerStyle} />
+        <div style={titleStyle}>
+          {f.title}<span style={{ color: accent }}>.</span>
+        </div>
+        {f.sub && <div style={{ ...subStyle, marginTop: Math.round(w * 0.016) }}>— {f.sub}</div>}
+        {f.footer && <div style={footerStyle}>{f.footer}</div>}
+      </div>
+    );
+  }
+
+  if (template === 'stat') {
+    return (
+      <div style={box}>
+        {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
+        <div style={{ fontSize: Math.round(w * 0.22), fontWeight: 700, color: accent, lineHeight: 0.88, marginBottom: Math.round(w * 0.016) }}>
+          {f.stat}
+        </div>
+        <div style={{ ...titleStyle, fontSize: Math.round(w * 0.058), marginBottom: Math.round(w * 0.018) }}>
+          {f.title}
+        </div>
+        {f.sub && <div style={subStyle}>{f.sub}</div>}
+        {f.footer && <div style={footerStyle}>{f.footer}</div>}
+      </div>
+    );
+  }
+
+  if (template === 'list') {
+    const items = f.items.split('\n').filter(Boolean);
+    return (
+      <div style={box}>
+        {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
+        <div style={{ ...titleStyle, fontSize: Math.round(w * 0.062), marginBottom: Math.round(w * 0.034) }}>
+          {f.title}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(w * 0.016) }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: Math.round(w * 0.020) }}>
+              <span style={{ color: accent, fontWeight: 700, fontSize: Math.round(w * 0.030), flexShrink: 0, lineHeight: 1.45, minWidth: Math.round(w * 0.042) }}>
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: Math.round(w * 0.032), color: ink, lineHeight: 1.45 }}>
+                {item}
+              </span>
+            </div>
+          ))}
+        </div>
+        {f.footer && <div style={footerStyle}>{f.footer}</div>}
+      </div>
+    );
+  }
+
+  if (template === 'steps') {
+    const items = f.items.split('\n').filter(Boolean);
+    return (
+      <div style={box}>
+        {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
+        <div style={{ ...titleStyle, fontSize: Math.round(w * 0.062), marginBottom: Math.round(w * 0.040) }}>
+          {f.title}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ display: 'flex', gap: Math.round(w * 0.030), paddingBottom: Math.round(w * 0.028) }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                <div style={{ width: Math.round(w * 0.050), height: Math.round(w * 0.050), borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: Math.round(w * 0.026), color: '#fff', flexShrink: 0 }}>
+                  {i + 1}
+                </div>
+                {i < items.length - 1 && <div style={{ width: 2, flex: 1, background: `${accent}40`, marginTop: 4 }} />}
+              </div>
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: Math.round(w * 0.034), color: ink, lineHeight: 1.5, paddingTop: Math.round(w * 0.008) }}>
+                {item}
+              </div>
+            </div>
+          ))}
+        </div>
+        {f.footer && <div style={footerStyle}>{f.footer}</div>}
+      </div>
+    );
+  }
+
+  if (template === 'announce') {
+    return (
+      <div style={{ ...box, justifyContent: 'center' }}>
+        {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
+        <div style={{ ...dividerStyle, width: Math.round(w * 0.12) }} />
+        <div style={{ ...titleStyle, fontSize: Math.round(w * 0.088) }}>
+          {f.title}
+        </div>
+        {f.sub && <div style={{ ...subStyle, marginTop: Math.round(w * 0.018) }}>{f.sub}</div>}
+        {f.footer && (
+          <div style={{ position: 'absolute', bottom: pad, left: pad, fontSize: Math.round(w * 0.026), fontWeight: 600, color: accent }}>
+            {f.footer}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (template === 'testimonial') {
+    return (
+      <div style={box}>
+        {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
+        <div style={{ fontSize: Math.round(w * 0.20), fontWeight: 700, color: accent, lineHeight: 0.75, marginBottom: Math.round(w * 0.014) }}>
+          "
+        </div>
+        <div style={{ ...titleStyle, fontSize: Math.round(w * 0.060), fontStyle: 'italic' }}>
+          {f.title}
+        </div>
+        {f.author && (
+          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: Math.round(w * 0.026), color: inkFade, marginTop: Math.round(w * 0.022) }}>
+            — {f.author}
+          </div>
+        )}
+        {f.footer && <div style={footerStyle}>{f.footer}</div>}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ── Field components ───────────────────────────────────────────────────────
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-stone-400 mb-1">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────
+
+export default function StudioTemplates({ clientId, accent }: { clientId: string; accent: string }) {
+  const [template, setTemplate]   = useState<TemplateKey>('quote');
+  const [fields, setFields]       = useState<Record<TemplateKey, Fields>>(DEFAULTS);
+  const [aspect, setAspect]       = useState<Aspect>(ASPECTS[0]);
+  const [bg, setBg]               = useState('dark');
+  const [exporting, setExporting] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const f    = fields[template];
+  const setF = (patch: Partial<Fields>) => setFields(prev => ({ ...prev, [template]: { ...prev[template], ...patch } }));
+  const reset = () => setFields(prev => ({ ...prev, [template]: DEFAULTS[template] }));
+
+  const scale = Math.min(PREVIEW_MAX / aspect.w, PREVIEW_MAX / aspect.h, 1);
+
+  async function exportPng() {
+    if (!cardRef.current) return;
+    setExporting(true);
+    await new Promise(r => setTimeout(r, 40));
+    try {
+      const { toPng } = await import('html-to-image');
+      if ((document as any).fonts?.ready) await (document as any).fonts.ready;
+      const url = await toPng(cardRef.current, {
+        width: aspect.w, height: aspect.h,
+        pixelRatio: 2, cacheBust: true,
+        backgroundColor: bg === 'light' ? '#f0efed' : BG_DARK,
+      });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `studio-${template}-${aspect.key.replace(':', 'x')}.png`;
+      a.click();
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div className="h-full flex overflow-hidden bg-[#F7F7F5]">
+      {/* ── Left: Controls ─────────────────────────────────────── */}
+      <div className="w-72 bg-white border-r border-stone-200 flex flex-col overflow-y-auto shrink-0">
+        {/* Template picker */}
+        <div className="p-4 border-b border-stone-100">
+          <p className="text-xs font-medium text-stone-400 mb-2 uppercase tracking-wide">Template</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {TEMPLATES.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTemplate(t.key)}
+                className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
+                  template === t.key
+                    ? 'border-accent bg-accent/5 text-stone-900 font-medium'
+                    : 'border-stone-200 text-stone-600 hover:border-stone-300 hover:bg-stone-50'
+                }`}
+              >
+                <div className="font-medium">{t.label}</div>
+                <div className="text-stone-400 text-[11px]">{t.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Aspect + BG */}
+        <div className="p-4 border-b border-stone-100 space-y-3">
+          <FieldRow label="Aspect Ratio">
+            <div className="flex gap-1 flex-wrap">
+              {ASPECTS.map(a => (
+                <button key={a.key} onClick={() => setAspect(a)}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                    aspect.key === a.key ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-200 text-stone-600 hover:border-stone-300'
+                  }`}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </FieldRow>
+          <FieldRow label="Background">
+            <div className="flex gap-1 flex-wrap">
+              {BG_PRESETS.map(p => (
+                <button key={p.key} onClick={() => setBg(p.key)}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                    bg === p.key ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-200 text-stone-600 hover:border-stone-300'
+                  }`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </FieldRow>
+        </div>
+
+        {/* Fields */}
+        <div className="p-4 space-y-3 flex-1">
+          <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">Content</p>
+
+          <FieldRow label="Eyebrow">
+            <input value={f.eyebrow} onChange={e => setF({ eyebrow: e.target.value })}
+              className="input-base text-xs" placeholder="CATEGORY or DATE" />
+          </FieldRow>
+
+          {template === 'stat' && (
+            <FieldRow label="Big Number">
+              <input value={f.stat} onChange={e => setF({ stat: e.target.value })}
+                className="input-base text-xs" placeholder="e.g. 12 or 3×" />
+            </FieldRow>
+          )}
+
+          <FieldRow label={template === 'quote' || template === 'testimonial' ? 'Quote / Text' : 'Title'}>
+            <textarea value={f.title} onChange={e => setF({ title: e.target.value })}
+              rows={3} className="input-base text-xs resize-none"
+              placeholder="Your main text (use Enter for line breaks)" />
+          </FieldRow>
+
+          {(template === 'list' || template === 'steps') && (
+            <FieldRow label={template === 'list' ? 'Items (one per line)' : 'Steps (one per line)'}>
+              <textarea value={f.items} onChange={e => setF({ items: e.target.value })}
+                rows={5} className="input-base text-xs resize-none"
+                placeholder="One item per line" />
+            </FieldRow>
+          )}
+
+          {template !== 'list' && template !== 'steps' && (
+            <FieldRow label="Subtitle / Context">
+              <input value={f.sub} onChange={e => setF({ sub: e.target.value })}
+                className="input-base text-xs" placeholder="Supporting line (optional)" />
+            </FieldRow>
+          )}
+
+          {template === 'testimonial' && (
+            <FieldRow label="Author">
+              <input value={f.author} onChange={e => setF({ author: e.target.value })}
+                className="input-base text-xs" placeholder="Name — Role" />
+            </FieldRow>
+          )}
+
+          <FieldRow label="Footer / CTA">
+            <input value={f.footer} onChange={e => setF({ footer: e.target.value })}
+              className="input-base text-xs" placeholder="Bottom label (optional)" />
+          </FieldRow>
+        </div>
+
+        {/* Actions */}
+        <div className="p-4 border-t border-stone-100 flex gap-2">
+          <button onClick={reset} className="btn-secondary flex items-center gap-1.5 text-xs flex-1 justify-center">
+            <RefreshCw size={12} /> Reset
+          </button>
+          <button onClick={exportPng} disabled={exporting}
+            className="btn-primary flex items-center gap-1.5 text-xs flex-1 justify-center">
+            <Download size={12} />
+            {exporting ? 'Exporting…' : 'Export PNG'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Right: Canvas preview ───────────────────────────────── */}
+      <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
+        <div>
+          {/* Outer wrapper reserves space in layout */}
+          <div style={{ width: Math.round(aspect.w * scale), height: Math.round(aspect.h * scale) }}>
+            {/* Inner full-size canvas, scaled to preview */}
+            <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+              <div
+                ref={cardRef}
+                style={{
+                  width: aspect.w,
+                  height: aspect.h,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  ...bgCss(bg, accent),
+                }}
+              >
+                <CardBody template={template} f={f} accent={accent} dims={aspect} bgPreset={bg} />
+              </div>
+            </div>
+          </div>
+          <p className="text-center text-xs text-stone-400 mt-3">
+            {aspect.w} × {aspect.h}px · hover card to see actions
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

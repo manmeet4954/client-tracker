@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
-  Reference, BrandOverview, CustomFieldDef, ColumnId, EvergreenIdea,
+  Reference, BrandOverview, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -28,6 +28,7 @@ function defaultClientData(): ClientData {
     brand: { ...defaultBrand },
     postTarget: 0,
     evergreenIdeas: [],
+    studioCompositions: [],
   };
 }
 
@@ -67,7 +68,9 @@ export type Action =
   | { type: 'DELETE_FIELD'; payload: { clientId: string; fieldId: string } }
   | { type: 'ADD_EVERGREEN'; payload: { clientId: string; idea: EvergreenIdea } }
   | { type: 'UPDATE_EVERGREEN'; payload: { clientId: string; idea: EvergreenIdea } }
-  | { type: 'DELETE_EVERGREEN'; payload: { clientId: string; ideaId: string } };
+  | { type: 'DELETE_EVERGREEN'; payload: { clientId: string; ideaId: string } }
+  | { type: 'SAVE_STUDIO_COMP'; payload: { clientId: string; comp: StudioComposition } }
+  | { type: 'DELETE_STUDIO_COMP'; payload: { clientId: string; compId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -238,6 +241,20 @@ function reducer(state: AppState, action: Action): AppState {
     case 'DELETE_EVERGREEN':
       return updateClient(action.payload.clientId, {
         evergreenIdeas: (cd(action.payload.clientId).evergreenIdeas ?? []).filter(i => i.id !== action.payload.ideaId),
+      });
+
+    case 'SAVE_STUDIO_COMP': {
+      const existing = (cd(action.payload.clientId).studioCompositions ?? []);
+      const idx = existing.findIndex(c => c.id === action.payload.comp.id);
+      const updated = idx >= 0
+        ? existing.map(c => c.id === action.payload.comp.id ? action.payload.comp : c)
+        : [action.payload.comp, ...existing];
+      return updateClient(action.payload.clientId, { studioCompositions: updated });
+    }
+
+    case 'DELETE_STUDIO_COMP':
+      return updateClient(action.payload.clientId, {
+        studioCompositions: (cd(action.payload.clientId).studioCompositions ?? []).filter(c => c.id !== action.payload.compId),
       });
 
     default:

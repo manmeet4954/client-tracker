@@ -18,7 +18,8 @@
     "lucide-react": "^0.400.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
-    "@supabase/supabase-js": "^2.45.0"
+    "@supabase/supabase-js": "^2.45.0",
+    "html-to-image": "^1.11.11"
   },
   "devDependencies": {
     "typescript": "^5",
