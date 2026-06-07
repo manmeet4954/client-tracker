@@ -124,12 +124,14 @@ const DEFAULTS: Record<TemplateKey, Fields> = {
 
 // ── Card body renderers ────────────────────────────────────────────────────
 
-function CardBody({ template, f, accent, dims, bgPreset }: {
+function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont }: {
   template: TemplateKey;
   f: Fields;
   accent: string;
   dims: Aspect;
   bgPreset: string;
+  headlineFont: string;
+  bodyFont: string;
 }) {
   const isLight = bgPreset === 'light';
   const ink     = isLight ? '#1c1917' : INK;
@@ -141,20 +143,22 @@ function CardBody({ template, f, accent, dims, bgPreset }: {
     padding: pad, width: '100%', height: '100%',
     display: 'flex', flexDirection: 'column', justifyContent: 'center',
     position: 'relative', boxSizing: 'border-box',
-    fontFamily: "'Space Grotesk', 'Inter', sans-serif",
+    fontFamily: headlineFont,
   };
   const eyebrowStyle: React.CSSProperties = {
+    fontFamily: bodyFont,
     fontSize: Math.round(w * 0.022), fontWeight: 500,
     letterSpacing: '0.12em', color: accent,
     textTransform: 'uppercase', marginBottom: Math.round(w * 0.028),
   };
   const titleStyle: React.CSSProperties = {
+    fontFamily: headlineFont,
     fontSize: Math.round(w * 0.078), fontWeight: 700,
     color: ink, lineHeight: 1.06, whiteSpace: 'pre-line',
     marginBottom: Math.round(w * 0.022),
   };
   const subStyle: React.CSSProperties = {
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: bodyFont,
     fontSize: Math.round(w * 0.030), fontWeight: 400,
     color: inkFade, lineHeight: 1.5,
   };
@@ -164,7 +168,7 @@ function CardBody({ template, f, accent, dims, bgPreset }: {
     marginBottom: Math.round(w * 0.032),
   };
   const footerStyle: React.CSSProperties = {
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: bodyFont,
     fontSize: Math.round(w * 0.022), fontWeight: 500,
     color: accent, position: 'absolute', bottom: pad, left: pad,
   };
@@ -213,7 +217,7 @@ function CardBody({ template, f, accent, dims, bgPreset }: {
               <span style={{ color: accent, fontWeight: 700, fontSize: Math.round(w * 0.030), flexShrink: 0, lineHeight: 1.45, minWidth: Math.round(w * 0.042) }}>
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: Math.round(w * 0.032), color: ink, lineHeight: 1.45 }}>
+              <span style={{ fontFamily: bodyFont, fontSize: Math.round(w * 0.032), color: ink, lineHeight: 1.45 }}>
                 {item}
               </span>
             </div>
@@ -241,7 +245,7 @@ function CardBody({ template, f, accent, dims, bgPreset }: {
                 </div>
                 {i < items.length - 1 && <div style={{ width: 2, flex: 1, background: `${accent}40`, marginTop: 4 }} />}
               </div>
-              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: Math.round(w * 0.034), color: ink, lineHeight: 1.5, paddingTop: Math.round(w * 0.008) }}>
+              <div style={{ fontFamily: bodyFont, fontSize: Math.round(w * 0.034), color: ink, lineHeight: 1.5, paddingTop: Math.round(w * 0.008) }}>
                 {item}
               </div>
             </div>
@@ -281,7 +285,7 @@ function CardBody({ template, f, accent, dims, bgPreset }: {
           {f.title}
         </div>
         {f.author && (
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: Math.round(w * 0.026), color: inkFade, marginTop: Math.round(w * 0.022) }}>
+          <div style={{ fontFamily: bodyFont, fontSize: Math.round(w * 0.026), color: inkFade, marginTop: Math.round(w * 0.022) }}>
             — {f.author}
           </div>
         )}
@@ -359,6 +363,12 @@ export default function StudioTemplates({ clientId, accent, brandKit }: { client
   // Brand kit accent: use first non-white/non-black color if available
   const kitAccent = brandKit.colors.find(c => !['#ffffff', '#fff', '#000000', '#000'].includes(c.hex.toLowerCase()))?.hex ?? accent;
 
+  // Resolve headline + body fonts for template canvas rendering
+  const kitHeadline = brandKit.fonts.find(f => /headline/i.test(f.role)) ?? brandKit.fonts[0];
+  const kitBody     = brandKit.fonts.find(f => /body/i.test(f.role)) ?? brandKit.fonts[1] ?? kitHeadline;
+  const headlineFont = kitHeadline ? toCssFamily(kitHeadline.name) : "'Space Grotesk', 'Inter', sans-serif";
+  const bodyFont     = kitBody     ? toCssFamily(kitBody.name)     : "'Inter', sans-serif";
+
   const f     = fields[template];
   const setF  = (patch: Partial<Fields>) => setFields(p => ({ ...p, [template]: { ...p[template], ...patch } }));
   const reset = () => setFields(p => ({ ...p, [template]: DEFAULTS[template] }));
@@ -390,7 +400,7 @@ export default function StudioTemplates({ clientId, accent, brandKit }: { client
           <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <div ref={cardRef}
               style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, kitAccent) }}>
-              <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} />
+              <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} headlineFont={headlineFont} bodyFont={bodyFont} />
             </div>
           </div>
         </div>
@@ -527,7 +537,7 @@ export default function StudioTemplates({ clientId, accent, brandKit }: { client
             <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
               <div ref={cardRef}
                 style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, kitAccent) }}>
-                <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} />
+                <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} headlineFont={headlineFont} bodyFont={bodyFont} />
               </div>
             </div>
           </div>
