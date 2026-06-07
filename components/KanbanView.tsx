@@ -120,7 +120,7 @@ export default function KanbanView({ clientId }: { clientId: string }) {
       {/* Board */}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-auto p-4 md:p-6">
-          <div className="flex gap-3 md:gap-4 min-w-max items-stretch">
+          <div className="flex flex-col md:flex-row gap-3 md:gap-4 md:min-w-max md:items-stretch">
             {COLUMNS.map(col => (
               <KanbanColumn
                 key={col.id}
@@ -191,14 +191,14 @@ function KanbanColumn({ columnId, label, cards, activeCardId, onAddCard, onEditC
   const { setNodeRef, isOver } = useDroppable({ id: columnId });
 
   return (
-    <div className="flex flex-col w-56 md:w-64 shrink-0">
+    <div className="flex flex-col w-full md:w-64 md:shrink-0">
       <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl border ${style.border} ${style.bg}`}>
         <span className={`w-2 h-2 rounded-full ${style.dot}`} />
         <span className="font-medium text-sm text-stone-800 flex-1 truncate">{label}</span>
         <span className="text-xs text-stone-500 bg-white px-1.5 py-0.5 rounded-full font-medium">{cards.length}</span>
       </div>
       <div ref={setNodeRef}
-        className={`flex-1 min-h-[300px] rounded-b-xl border-x border-b border-stone-200 p-2 space-y-2 transition-colors ${isOver ? 'bg-accent-light border-accent/40' : 'bg-stone-50'}`}>
+        className={`flex-1 min-h-[80px] md:min-h-[300px] rounded-b-xl border-x border-b border-stone-200 p-2 space-y-2 transition-colors ${isOver ? 'bg-accent-light border-accent/40' : 'bg-stone-50'}`}>
         <button onClick={onAddCard}
           className="w-full flex items-center gap-1.5 px-3 py-2 text-sm text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors">
           <Plus size={13} />
