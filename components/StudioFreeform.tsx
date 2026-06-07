@@ -468,7 +468,24 @@ export default function StudioFreeform({ clientId, accent }: { clientId: string;
   // ── Render ────────────────────────────────────────────────────
 
   return (
-    <div className="h-full flex overflow-hidden bg-[#F7F7F5]">
+    <div className="h-full flex flex-col">
+
+      {/* ── Mobile notice ─────────────────────────────────────── */}
+      <div className="md:hidden flex-1 flex flex-col items-center justify-center p-8 text-center gap-4 bg-[#F7F7F5]">
+        <div className="w-14 h-14 rounded-2xl bg-white border border-stone-200 flex items-center justify-center shadow-sm">
+          <LIcon name="MousePointer2" size={24} color="#78716c" />
+        </div>
+        <div>
+          <p className="font-semibold text-stone-700 mb-1">Freeform editor</p>
+          <p className="text-sm text-stone-400 max-w-xs leading-relaxed">
+            The drag-and-drop layer editor works best on a larger screen.<br />
+            Open this on your laptop or tablet.
+          </p>
+        </div>
+      </div>
+
+      {/* ── Full editor (desktop only) ────────────────────────── */}
+      <div className="hidden md:flex flex-1 overflow-hidden bg-[#F7F7F5]">
 
       {/* ── Left panel ───────────────────────────────────────────── */}
       <div className="w-56 bg-white border-r border-stone-200 flex flex-col shrink-0 overflow-y-auto">
@@ -799,6 +816,8 @@ export default function StudioFreeform({ clientId, accent }: { clientId: string;
           onClose={() => setShowIconPicker(false)}
         />
       )}
+      </div>{/* end hidden md:flex wrapper */}
+
     </div>
   );
 }

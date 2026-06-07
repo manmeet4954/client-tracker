@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -306,18 +306,39 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function StudioTemplates({ clientId, accent }: { clientId: string; accent: string }) {
-  const [template, setTemplate]   = useState<TemplateKey>('quote');
-  const [fields, setFields]       = useState<Record<TemplateKey, Fields>>(DEFAULTS);
-  const [aspect, setAspect]       = useState<Aspect>(ASPECTS[0]);
-  const [bg, setBg]               = useState('dark');
-  const [exporting, setExporting] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [template, setTemplate]     = useState<TemplateKey>('quote');
+  const [fields, setFields]         = useState<Record<TemplateKey, Fields>>(DEFAULTS);
+  const [aspect, setAspect]         = useState<Aspect>(ASPECTS[0]);
+  const [bg, setBg]                 = useState('dark');
+  const [exporting, setExporting]   = useState(false);
+  const [canvasMaxW, setCanvasMaxW] = useState(440);
 
-  const f    = fields[template];
-  const setF = (patch: Partial<Fields>) => setFields(prev => ({ ...prev, [template]: { ...prev[template], ...patch } }));
-  const reset = () => setFields(prev => ({ ...prev, [template]: DEFAULTS[template] }));
+  const cardRef            = useRef<HTMLDivElement>(null);
+  const mobileContainerRef = useRef<HTMLDivElement>(null);
+  const desktopContainerRef = useRef<HTMLDivElement>(null);
 
-  const scale = Math.min(PREVIEW_MAX / aspect.w, PREVIEW_MAX / aspect.h, 1);
+  // Measure the visible canvas container (mobile vs desktop) to compute responsive scale
+  useEffect(() => {
+    const update = () => {
+      const isMobile = window.innerWidth < 768;
+      const el = isMobile ? mobileContainerRef.current : desktopContainerRef.current;
+      if (!el) return;
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      setCanvasMaxW(Math.max(100, Math.min(w - 40, h > 200 ? h - 40 : w - 40, 520)));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    if (mobileContainerRef.current)  ro.observe(mobileContainerRef.current);
+    if (desktopContainerRef.current) ro.observe(desktopContainerRef.current);
+    window.addEventListener('resize', update);
+    return () => { ro.disconnect(); window.removeEventListener('resize', update); };
+  }, []);
+
+  const f     = fields[template];
+  const setF  = (patch: Partial<Fields>) => setFields(p => ({ ...p, [template]: { ...p[template], ...patch } }));
+  const reset = () => setFields(p => ({ ...p, [template]: DEFAULTS[template] }));
+  const scale = Math.min(canvasMaxW / aspect.w, canvasMaxW / aspect.h, 1);
 
   async function exportPng() {
     if (!cardRef.current) return;
@@ -327,37 +348,63 @@ export default function StudioTemplates({ clientId, accent }: { clientId: string
       const { toPng } = await import('html-to-image');
       if ((document as any).fonts?.ready) await (document as any).fonts.ready;
       const url = await toPng(cardRef.current, {
-        width: aspect.w, height: aspect.h,
-        pixelRatio: 2, cacheBust: true,
+        width: aspect.w, height: aspect.h, pixelRatio: 2, cacheBust: true,
         backgroundColor: bg === 'light' ? '#f0efed' : BG_DARK,
       });
       const a = document.createElement('a');
       a.href = url;
       a.download = `studio-${template}-${aspect.key.replace(':', 'x')}.png`;
       a.click();
-    } finally {
-      setExporting(false);
-    }
+    } finally { setExporting(false); }
   }
 
+  // ── Canvas (mobile preview only — export always targets cardRef on desktop) ──
+  const canvasEl = (
+    <div ref={mobileContainerRef} className="flex items-center justify-center p-4 bg-[#F7F7F5]">
+      <div>
+        <div style={{ width: Math.round(aspect.w * scale), height: Math.round(aspect.h * scale) }}>
+          <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+            <div ref={cardRef}
+              style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, accent) }}>
+              <CardBody template={template} f={f} accent={accent} dims={aspect} bgPreset={bg} />
+            </div>
+          </div>
+        </div>
+        <p className="text-center text-xs text-stone-400 mt-2">{aspect.w} × {aspect.h}px</p>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="h-full flex overflow-hidden bg-[#F7F7F5]">
-      {/* ── Left: Controls ─────────────────────────────────────── */}
-      <div className="w-72 bg-white border-r border-stone-200 flex flex-col overflow-y-auto shrink-0">
-        {/* Template picker */}
-        <div className="p-4 border-b border-stone-100">
+    <div className="h-full bg-[#F7F7F5] overflow-y-auto md:overflow-hidden flex flex-col md:flex-row">
+
+      {/* ── Mobile: canvas at top ─────────────────────────────── */}
+      <div className="md:hidden">
+        {canvasEl}
+      </div>
+
+      {/* ── Controls panel ───────────────────────────────────── */}
+      <div className="w-full md:w-72 bg-white md:border-r border-stone-200 flex flex-col md:overflow-y-auto shrink-0">
+
+        {/* Template picker — horizontal scroll chips on mobile, grid on desktop */}
+        <div className="md:hidden flex overflow-x-auto gap-2 px-4 py-3 border-b border-stone-100 no-scrollbar">
+          {TEMPLATES.map(t => (
+            <button key={t.key} onClick={() => setTemplate(t.key)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs border font-medium transition-colors ${
+                template === t.key ? 'border-accent bg-accent/10 text-stone-900' : 'border-stone-200 text-stone-500 bg-white'
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="hidden md:block p-4 border-b border-stone-100">
           <p className="text-xs font-medium text-stone-400 mb-2 uppercase tracking-wide">Template</p>
           <div className="grid grid-cols-2 gap-1.5">
             {TEMPLATES.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTemplate(t.key)}
+              <button key={t.key} onClick={() => setTemplate(t.key)}
                 className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
-                  template === t.key
-                    ? 'border-accent bg-accent/5 text-stone-900 font-medium'
-                    : 'border-stone-200 text-stone-600 hover:border-stone-300 hover:bg-stone-50'
-                }`}
-              >
+                  template === t.key ? 'border-accent bg-accent/5 text-stone-900 font-medium' : 'border-stone-200 text-stone-600 hover:border-stone-300 hover:bg-stone-50'
+                }`}>
                 <div className="font-medium">{t.label}</div>
                 <div className="text-stone-400 text-[11px]">{t.desc}</div>
               </button>
@@ -365,32 +412,26 @@ export default function StudioTemplates({ clientId, accent }: { clientId: string
           </div>
         </div>
 
-        {/* Aspect + BG */}
-        <div className="p-4 border-b border-stone-100 space-y-3">
-          <FieldRow label="Aspect Ratio">
-            <div className="flex gap-1 flex-wrap">
+        {/* Aspect + BG — single compact row on mobile */}
+        <div className="px-4 py-3 border-b border-stone-100">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <div className="flex gap-1">
               {ASPECTS.map(a => (
                 <button key={a.key} onClick={() => setAspect(a)}
-                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                    aspect.key === a.key ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-200 text-stone-600 hover:border-stone-300'
-                  }`}>
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${aspect.key === a.key ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-200 text-stone-600'}`}>
                   {a.label}
                 </button>
               ))}
             </div>
-          </FieldRow>
-          <FieldRow label="Background">
             <div className="flex gap-1 flex-wrap">
               {BG_PRESETS.map(p => (
                 <button key={p.key} onClick={() => setBg(p.key)}
-                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                    bg === p.key ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-200 text-stone-600 hover:border-stone-300'
-                  }`}>
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${bg === p.key ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-200 text-stone-600'}`}>
                   {p.label}
                 </button>
               ))}
             </div>
-          </FieldRow>
+          </div>
         </div>
 
         {/* Fields */}
@@ -418,8 +459,7 @@ export default function StudioTemplates({ clientId, accent }: { clientId: string
           {(template === 'list' || template === 'steps') && (
             <FieldRow label={template === 'list' ? 'Items (one per line)' : 'Steps (one per line)'}>
               <textarea value={f.items} onChange={e => setF({ items: e.target.value })}
-                rows={5} className="input-base text-xs resize-none"
-                placeholder="One item per line" />
+                rows={4} className="input-base text-xs resize-none" placeholder="One item per line" />
             </FieldRow>
           )}
 
@@ -456,30 +496,18 @@ export default function StudioTemplates({ clientId, accent }: { clientId: string
         </div>
       </div>
 
-      {/* ── Right: Canvas preview ───────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
+      {/* ── Desktop: canvas on right ──────────────────────────── */}
+      <div ref={desktopContainerRef} className="hidden md:flex flex-1 items-center justify-center p-8 overflow-auto">
         <div>
-          {/* Outer wrapper reserves space in layout */}
           <div style={{ width: Math.round(aspect.w * scale), height: Math.round(aspect.h * scale) }}>
-            {/* Inner full-size canvas, scaled to preview */}
             <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-              <div
-                ref={cardRef}
-                style={{
-                  width: aspect.w,
-                  height: aspect.h,
-                  position: 'relative',
-                  overflow: 'hidden',
-                  ...bgCss(bg, accent),
-                }}
-              >
+              <div ref={cardRef}
+                style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, accent) }}>
                 <CardBody template={template} f={f} accent={accent} dims={aspect} bgPreset={bg} />
               </div>
             </div>
           </div>
-          <p className="text-center text-xs text-stone-400 mt-3">
-            {aspect.w} × {aspect.h}px · hover card to see actions
-          </p>
+          <p className="text-center text-xs text-stone-400 mt-3">{aspect.w} × {aspect.h}px</p>
         </div>
       </div>
     </div>
