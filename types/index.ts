@@ -65,6 +65,24 @@ export interface BrandOverview {
   services: BrandService[];
 }
 
+export interface BrandColor {
+  id: string;
+  name: string;   // e.g. "Green"
+  hex: string;    // e.g. "#25B763"
+}
+
+export interface BrandFont {
+  id: string;
+  name: string;    // e.g. "Manrope"
+  role: string;    // e.g. "Headlines"
+  weights: string; // e.g. "Light, Regular, Medium"
+}
+
+export interface BrandKit {
+  colors: BrandColor[];
+  fonts: BrandFont[];
+}
+
 export interface MonthData {
   agenda: AgendaItem[];
 }
@@ -83,9 +101,10 @@ export interface ClientData {
   monthData: Record<string, MonthData>;
   references: Reference[];
   brand: BrandOverview;
-  postTarget: number; // monthly post target (e.g. 12), 0 = not set
-  evergreenIdeas: EvergreenIdea[]; // standalone reusable content ideas, not linked to Kanban
-  studioCompositions: StudioComposition[]; // saved freeform studio canvases
+  brandKit: BrandKit;  // colors + fonts for this client
+  postTarget: number;
+  evergreenIdeas: EvergreenIdea[];
+  studioCompositions: StudioComposition[];
 }
 
 export interface Client {

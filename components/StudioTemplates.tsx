@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
+import { BrandKit } from '@/types';
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -305,7 +306,22 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export default function StudioTemplates({ clientId, accent }: { clientId: string; accent: string }) {
+const DEFAULT_FONTS = [
+  { label: 'Grotesk', css: "'Space Grotesk', sans-serif" },
+  { label: 'Inter',   css: "'Inter', sans-serif" },
+  { label: 'Mono',    css: "'JetBrains Mono', monospace" },
+  { label: 'Serif',   css: "'Lora', serif" },
+];
+
+function toCssFamily(name: string): string {
+  const serif = ['Newsreader', 'Lora', 'Merriweather', 'Playfair Display', 'Georgia'];
+  const mono  = ['JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Courier'];
+  if (serif.some(s => name.includes(s))) return `'${name}', serif`;
+  if (mono.some(s => name.includes(s))) return `'${name}', monospace`;
+  return `'${name}', sans-serif`;
+}
+
+export default function StudioTemplates({ clientId, accent, brandKit }: { clientId: string; accent: string; brandKit: BrandKit }) {
   const [template, setTemplate]     = useState<TemplateKey>('quote');
   const [fields, setFields]         = useState<Record<TemplateKey, Fields>>(DEFAULTS);
   const [aspect, setAspect]         = useState<Aspect>(ASPECTS[0]);
@@ -334,6 +350,14 @@ export default function StudioTemplates({ clientId, accent }: { clientId: string
     window.addEventListener('resize', update);
     return () => { ro.disconnect(); window.removeEventListener('resize', update); };
   }, []);
+
+  // Use brand kit fonts if available, otherwise defaults
+  const FONTS = brandKit.fonts.length > 0
+    ? brandKit.fonts.map(f => ({ label: `${f.name} — ${f.role}`, css: toCssFamily(f.name) }))
+    : DEFAULT_FONTS;
+
+  // Brand kit accent: use first non-white/non-black color if available
+  const kitAccent = brandKit.colors.find(c => !['#ffffff', '#fff', '#000000', '#000'].includes(c.hex.toLowerCase()))?.hex ?? accent;
 
   const f     = fields[template];
   const setF  = (patch: Partial<Fields>) => setFields(p => ({ ...p, [template]: { ...p[template], ...patch } }));
@@ -365,8 +389,8 @@ export default function StudioTemplates({ clientId, accent }: { clientId: string
         <div style={{ width: Math.round(aspect.w * scale), height: Math.round(aspect.h * scale) }}>
           <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <div ref={cardRef}
-              style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, accent) }}>
-              <CardBody template={template} f={f} accent={accent} dims={aspect} bgPreset={bg} />
+              style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, kitAccent) }}>
+              <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} />
             </div>
           </div>
         </div>
@@ -502,8 +526,8 @@ export default function StudioTemplates({ clientId, accent }: { clientId: string
           <div style={{ width: Math.round(aspect.w * scale), height: Math.round(aspect.h * scale) }}>
             <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
               <div ref={cardRef}
-                style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, accent) }}>
-                <CardBody template={template} f={f} accent={accent} dims={aspect} bgPreset={bg} />
+                style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, kitAccent) }}>
+                <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} />
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
-  Reference, BrandOverview, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
+  Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,8 @@ const defaultBrand: BrandOverview = {
   services: [],
 };
 
+const defaultBrandKit: BrandKit = { colors: [], fonts: [] };
+
 function defaultClientData(): ClientData {
   return {
     cards: [],
@@ -26,6 +28,7 @@ function defaultClientData(): ClientData {
     monthData: {},
     references: [],
     brand: { ...defaultBrand },
+    brandKit: { ...defaultBrandKit },
     postTarget: 0,
     evergreenIdeas: [],
     studioCompositions: [],
@@ -70,7 +73,8 @@ export type Action =
   | { type: 'UPDATE_EVERGREEN'; payload: { clientId: string; idea: EvergreenIdea } }
   | { type: 'DELETE_EVERGREEN'; payload: { clientId: string; ideaId: string } }
   | { type: 'SAVE_STUDIO_COMP'; payload: { clientId: string; comp: StudioComposition } }
-  | { type: 'DELETE_STUDIO_COMP'; payload: { clientId: string; compId: string } };
+  | { type: 'DELETE_STUDIO_COMP'; payload: { clientId: string; compId: string } }
+  | { type: 'UPDATE_BRAND_KIT'; payload: { clientId: string; brandKit: BrandKit } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -256,6 +260,9 @@ function reducer(state: AppState, action: Action): AppState {
       return updateClient(action.payload.clientId, {
         studioCompositions: (cd(action.payload.clientId).studioCompositions ?? []).filter(c => c.id !== action.payload.compId),
       });
+
+    case 'UPDATE_BRAND_KIT':
+      return updateClient(action.payload.clientId, { brandKit: action.payload.brandKit });
 
     default:
       return state;

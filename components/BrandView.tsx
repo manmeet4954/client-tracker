@@ -1,23 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Pencil, Check, X, Target, Briefcase, Users, Lightbulb, DollarSign } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Target, Briefcase, Users, Lightbulb, DollarSign, Palette, Type as TypeIcon } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
-import { BrandOverview, BrandService } from '@/types';
+import { BrandOverview, BrandService, BrandKit, BrandColor, BrandFont } from '@/types';
 import Modal from './Modal';
 
 export default function BrandView({ clientId }: { clientId: string }) {
   const { dispatch } = useApp();
   const { data } = useClient(clientId);
   const brand = data.brand;
+  const brandKit: BrandKit = data.brandKit ?? { colors: [], fonts: [] };
 
   function updateBrand(patch: Partial<BrandOverview>) {
     dispatch({ type: 'UPDATE_BRAND', payload: { clientId, brand: { ...brand, ...patch } } });
   }
+  function updateKit(patch: Partial<BrandKit>) {
+    dispatch({ type: 'UPDATE_BRAND_KIT', payload: { clientId, brandKit: { ...brandKit, ...patch } } });
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-5">
+      {/* Brand Kit */}
+      <BrandKitSection kit={brandKit} onUpdate={updateKit} />
+
       {/* Tagline */}
       <TaglineEditor tagline={brand.tagline} onSave={tagline => updateBrand({ tagline })} />
 
@@ -60,6 +67,220 @@ export default function BrandView({ clientId }: { clientId: string }) {
     </div>
   );
 }
+
+// ── Brand Kit ────────────────────────────────────────────────────────────────
+
+function toCssFamily(name: string): string {
+  const serif = ['Newsreader', 'Lora', 'Merriweather', 'Playfair Display', 'Georgia'];
+  const mono = ['JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Courier'];
+  if (serif.some(s => name.includes(s))) return `'${name}', serif`;
+  if (mono.some(s => name.includes(s))) return `'${name}', monospace`;
+  return `'${name}', sans-serif`;
+}
+
+function BrandKitSection({ kit, onUpdate }: { kit: BrandKit; onUpdate: (p: Partial<BrandKit>) => void }) {
+  const [colorModal, setColorModal] = useState<BrandColor | null | 'new'>(null);
+  const [fontModal, setFontModal]   = useState<BrandFont  | null | 'new'>(null);
+
+  function saveColor(c: BrandColor) {
+    const existing = kit.colors.find(x => x.id === c.id);
+    onUpdate({ colors: existing ? kit.colors.map(x => x.id === c.id ? c : x) : [...kit.colors, c] });
+    setColorModal(null);
+  }
+  function deleteColor(id: string) { onUpdate({ colors: kit.colors.filter(c => c.id !== id) }); }
+
+  function saveFont(f: BrandFont) {
+    const existing = kit.fonts.find(x => x.id === f.id);
+    onUpdate({ fonts: existing ? kit.fonts.map(x => x.id === f.id ? f : x) : [...kit.fonts, f] });
+    setFontModal(null);
+  }
+  function deleteFont(id: string) { onUpdate({ fonts: kit.fonts.filter(f => f.id !== id) }); }
+
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-stone-100 flex items-center gap-2">
+        <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+          <Palette size={14} className="text-violet-600" />
+        </div>
+        <h3 className="font-semibold text-stone-900 text-sm">Brand Kit</h3>
+        <span className="text-xs text-stone-400 ml-1">— colors and fonts used in Studio</span>
+      </div>
+
+      <div className="p-5 space-y-6">
+
+        {/* Colors */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Colors</p>
+            <button onClick={() => setColorModal('new')}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">
+              <Plus size={11} /> Add
+            </button>
+          </div>
+          {kit.colors.length === 0 ? (
+            <p className="text-sm text-stone-400 italic">No colors yet — add your brand palette.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {kit.colors.map(c => (
+                <div key={c.id} className="group flex flex-col items-center gap-1.5">
+                  <button
+                    onClick={() => setColorModal(c)}
+                    style={{ background: c.hex }}
+                    className="w-14 h-14 rounded-xl border border-stone-200 shadow-sm hover:scale-105 transition-transform"
+                  />
+                  <p className="text-xs font-medium text-stone-700 text-center max-w-[56px] truncate">{c.name}</p>
+                  <p className="text-[10px] text-stone-400 font-mono">{c.hex.toUpperCase()}</p>
+                  <button onClick={() => deleteColor(c.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500">
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Fonts */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Fonts</p>
+            <button onClick={() => setFontModal('new')}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">
+              <Plus size={11} /> Add
+            </button>
+          </div>
+          {kit.fonts.length === 0 ? (
+            <p className="text-sm text-stone-400 italic">No fonts yet — add your brand typefaces.</p>
+          ) : (
+            <div className="space-y-2">
+              {kit.fonts.map(f => (
+                <div key={f.id} className="group flex items-center gap-4 p-3 border border-stone-100 rounded-xl hover:border-stone-200 transition-colors">
+                  <div className="w-10 h-10 rounded-lg bg-stone-50 flex items-center justify-center shrink-0">
+                    <span style={{ fontFamily: toCssFamily(f.name), fontWeight: 600, fontSize: 18, color: '#292524' }}>Aa</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p style={{ fontFamily: toCssFamily(f.name) }} className="text-sm font-semibold text-stone-900">{f.name}</p>
+                    <p className="text-xs text-stone-400">{f.weights}</p>
+                  </div>
+                  <span className="text-xs px-2 py-0.5 bg-stone-100 text-stone-600 rounded-full shrink-0">{f.role}</span>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button onClick={() => setFontModal(f)} className="p-1 rounded text-stone-400 hover:text-stone-700 hover:bg-stone-100"><Pencil size={12} /></button>
+                    <button onClick={() => deleteFont(f.id)} className="p-1 rounded text-stone-400 hover:text-red-500 hover:bg-red-50"><Trash2 size={12} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Color modal */}
+      {colorModal !== null && (
+        <ColorModal
+          existing={colorModal === 'new' ? null : colorModal}
+          onClose={() => setColorModal(null)}
+          onSave={saveColor}
+        />
+      )}
+
+      {/* Font modal */}
+      {fontModal !== null && (
+        <FontModal
+          existing={fontModal === 'new' ? null : fontModal}
+          onClose={() => setFontModal(null)}
+          onSave={saveFont}
+        />
+      )}
+    </div>
+  );
+}
+
+function ColorModal({ existing, onClose, onSave }: { existing: BrandColor | null; onClose: () => void; onSave: (c: BrandColor) => void }) {
+  const [name, setName] = useState(existing?.name ?? '');
+  const [hex, setHex]   = useState(existing?.hex ?? '#000000');
+
+  function save() {
+    if (!name.trim()) return;
+    onSave({ id: existing?.id ?? generateId(), name: name.trim(), hex });
+  }
+
+  return (
+    <Modal open onClose={onClose} title={existing ? 'Edit Color' : 'Add Color'} size="sm">
+      <div className="p-5 space-y-4">
+        <div className="flex items-center gap-4">
+          <input type="color" value={hex} onChange={e => setHex(e.target.value)}
+            className="w-16 h-16 rounded-xl border border-stone-200 cursor-pointer shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1">Color Name</label>
+              <input autoFocus value={name} onChange={e => setName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && save()}
+                placeholder="e.g. Green" className="input-base w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1">Hex Code</label>
+              <input value={hex} onChange={e => setHex(e.target.value)}
+                placeholder="#25B763" className="input-base w-full font-mono" />
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={save} disabled={!name.trim()} className="btn-primary">{existing ? 'Save' : 'Add Color'}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function FontModal({ existing, onClose, onSave }: { existing: BrandFont | null; onClose: () => void; onSave: (f: BrandFont) => void }) {
+  const [name,    setName]    = useState(existing?.name ?? '');
+  const [role,    setRole]    = useState(existing?.role ?? 'Headlines');
+  const [weights, setWeights] = useState(existing?.weights ?? '');
+
+  const ROLES = ['Headlines', 'Body Copy', 'Emphasis', 'Accent', 'Other'];
+
+  function save() {
+    if (!name.trim()) return;
+    onSave({ id: existing?.id ?? generateId(), name: name.trim(), role, weights: weights.trim() });
+  }
+
+  return (
+    <Modal open onClose={onClose} title={existing ? 'Edit Font' : 'Add Font'} size="sm">
+      <div className="p-5 space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1">Font Name (Google Fonts)</label>
+          <input autoFocus value={name} onChange={e => setName(e.target.value)}
+            placeholder="e.g. Manrope" className="input-base w-full" />
+          {name && (
+            <p style={{ fontFamily: `'${name}', sans-serif` }}
+              className="mt-2 text-lg text-stone-700">The quick brown fox</p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1">Role</label>
+            <select value={role} onChange={e => setRole(e.target.value)} className="input-base w-full">
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1">Weights</label>
+            <input value={weights} onChange={e => setWeights(e.target.value)}
+              placeholder="e.g. Regular, Bold" className="input-base w-full" />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={save} disabled={!name.trim()} className="btn-primary">{existing ? 'Save' : 'Add Font'}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Tagline ────────────────────────────────────────────────────────────────────
 
 function TaglineEditor({ tagline, onSave }: { tagline: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);

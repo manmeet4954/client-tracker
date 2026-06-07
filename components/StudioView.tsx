@@ -1,16 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles, Layers } from 'lucide-react';
 import { useClient } from '@/contexts/AppContext';
 import StudioTemplates from './StudioTemplates';
 import StudioFreeform from './StudioFreeform';
+import { BrandKit } from '@/types';
 
 type Mode = 'templates' | 'freeform';
 
 export default function StudioView({ clientId }: { clientId: string }) {
-  const { client } = useClient(clientId);
+  const { client, data } = useClient(clientId);
   const [mode, setMode] = useState<Mode>('templates');
+  const brandKit: BrandKit = data.brandKit ?? { colors: [], fonts: [] };
+
+  // Dynamically inject Google Fonts for any custom brand fonts
+  useEffect(() => {
+    if (!brandKit.fonts.length) return;
+    const families = brandKit.fonts
+      .map(f => `family=${f.name.replace(/ /g, '+')}:wght@300;400;500;600;700`)
+      .join('&');
+    const href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+    const existing = document.head.querySelector(`link[href="${href}"]`);
+    if (existing) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  }, [JSON.stringify(brandKit.fonts)]);
 
   if (!client) return null;
 
@@ -48,8 +65,8 @@ export default function StudioView({ clientId }: { clientId: string }) {
       {/* Mode content */}
       <div className="flex-1 overflow-hidden">
         {mode === 'templates'
-          ? <StudioTemplates clientId={clientId} accent={client.color} />
-          : <StudioFreeform clientId={clientId} accent={client.color} />
+          ? <StudioTemplates clientId={clientId} accent={client.color} brandKit={brandKit} />
+          : <StudioFreeform clientId={clientId} accent={client.color} brandKit={brandKit} />
         }
       </div>
     </div>

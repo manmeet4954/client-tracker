@@ -9,7 +9,7 @@ import {
 import * as LucideAll from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
-import { StudioLayer, StudioComposition, LType } from '@/types';
+import { StudioLayer, StudioComposition, LType, BrandKit } from '@/types';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -38,12 +38,20 @@ function bgCss(preset: string, accent: string): React.CSSProperties {
   }
 }
 
-const FONTS = [
+const DEFAULT_FONTS = [
   { label: 'Grotesk', css: "'Space Grotesk', sans-serif" },
   { label: 'Inter',   css: "'Inter', sans-serif" },
   { label: 'Mono',    css: "'JetBrains Mono', monospace" },
   { label: 'Serif',   css: "'Lora', serif" },
 ];
+
+function toCssFamily(name: string): string {
+  const serif = ['Newsreader', 'Lora', 'Merriweather', 'Playfair Display', 'Georgia'];
+  const mono  = ['JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Courier'];
+  if (serif.some(s => name.includes(s))) return `'${name}', serif`;
+  if (mono.some(s => name.includes(s))) return `'${name}', monospace`;
+  return `'${name}', sans-serif`;
+}
 
 // Curated icon set for the picker
 const ICON_NAMES = [
@@ -275,7 +283,7 @@ function IconPicker({ onPick, onClose }: { onPick: (name: string) => void; onClo
 
 // ── Main freeform editor ───────────────────────────────────────────────────
 
-export default function StudioFreeform({ clientId, accent }: { clientId: string; accent: string }) {
+export default function StudioFreeform({ clientId, accent, brandKit }: { clientId: string; accent: string; brandKit: BrandKit }) {
   const { dispatch } = useApp();
   const { data } = useClient(clientId);
   const compositions = data.studioCompositions ?? [];
@@ -449,6 +457,11 @@ export default function StudioFreeform({ clientId, accent }: { clientId: string;
     setEditingId(null);
     setShowSaved(false);
   }
+
+  // ── Brand Kit: derive font list ───────────────────────────────
+  const FONTS = brandKit.fonts.length > 0
+    ? brandKit.fonts.map(f => ({ label: `${f.name} — ${f.role}`, css: toCssFamily(f.name) }))
+    : DEFAULT_FONTS;
 
   // ── Keyboard shortcut: delete key removes selected ────────────
 
