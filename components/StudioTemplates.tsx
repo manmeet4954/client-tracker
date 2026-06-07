@@ -122,9 +122,28 @@ const DEFAULTS: Record<TemplateKey, Fields> = {
   },
 };
 
+// ── Per-field style overrides ──────────────────────────────────────────────
+
+interface FieldStyle {
+  font?: string;
+  size?: number;
+  weight?: number;
+  color?: string;
+}
+
+const FIELD_META: Record<string, { label: string }> = {
+  eyebrow: { label: 'Eyebrow' },
+  title:   { label: 'Title / Quote' },
+  stat:    { label: 'Big Stat' },
+  sub:     { label: 'Subtitle' },
+  items:   { label: 'List Items' },
+  author:  { label: 'Author' },
+  footer:  { label: 'Footer / CTA' },
+};
+
 // ── Card body renderers ────────────────────────────────────────────────────
 
-function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont }: {
+function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont, fieldStyles = {} }: {
   template: TemplateKey;
   f: Fields;
   accent: string;
@@ -132,12 +151,16 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
   bgPreset: string;
   headlineFont: string;
   bodyFont: string;
+  fieldStyles?: Record<string, FieldStyle>;
 }) {
   const isLight = bgPreset === 'light';
   const ink     = isLight ? '#1c1917' : INK;
   const inkFade = isLight ? 'rgba(28,25,23,0.5)' : 'rgba(247,247,245,0.5)';
   const pad     = Math.round(dims.w * 0.074);
   const w       = dims.w;
+
+  // Helper: merge per-field overrides onto a base style
+  const fs = (field: string): FieldStyle => fieldStyles[field] ?? {};
 
   const box: React.CSSProperties = {
     padding: pad, width: '100%', height: '100%',
@@ -146,21 +169,27 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
     fontFamily: headlineFont,
   };
   const eyebrowStyle: React.CSSProperties = {
-    fontFamily: bodyFont,
-    fontSize: Math.round(w * 0.022), fontWeight: 500,
-    letterSpacing: '0.12em', color: accent,
+    fontFamily: fs('eyebrow').font ?? bodyFont,
+    fontSize:   fs('eyebrow').size ?? Math.round(w * 0.022),
+    fontWeight: fs('eyebrow').weight ?? 500,
+    color:      fs('eyebrow').color ?? accent,
+    letterSpacing: '0.12em',
     textTransform: 'uppercase', marginBottom: Math.round(w * 0.028),
   };
   const titleStyle: React.CSSProperties = {
-    fontFamily: headlineFont,
-    fontSize: Math.round(w * 0.078), fontWeight: 700,
-    color: ink, lineHeight: 1.06, whiteSpace: 'pre-line',
+    fontFamily: fs('title').font ?? headlineFont,
+    fontSize:   fs('title').size ?? Math.round(w * 0.078),
+    fontWeight: fs('title').weight ?? 700,
+    color:      fs('title').color ?? ink,
+    lineHeight: 1.06, whiteSpace: 'pre-line',
     marginBottom: Math.round(w * 0.022),
   };
   const subStyle: React.CSSProperties = {
-    fontFamily: bodyFont,
-    fontSize: Math.round(w * 0.030), fontWeight: 400,
-    color: inkFade, lineHeight: 1.5,
+    fontFamily: fs('sub').font ?? bodyFont,
+    fontSize:   fs('sub').size ?? Math.round(w * 0.030),
+    fontWeight: fs('sub').weight ?? 400,
+    color:      fs('sub').color ?? inkFade,
+    lineHeight: 1.5,
   };
   const dividerStyle: React.CSSProperties = {
     width: Math.round(w * 0.09), height: 3,
@@ -168,9 +197,11 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
     marginBottom: Math.round(w * 0.032),
   };
   const footerStyle: React.CSSProperties = {
-    fontFamily: bodyFont,
-    fontSize: Math.round(w * 0.022), fontWeight: 500,
-    color: accent, position: 'absolute', bottom: pad, left: pad,
+    fontFamily: fs('footer').font ?? bodyFont,
+    fontSize:   fs('footer').size ?? Math.round(w * 0.022),
+    fontWeight: fs('footer').weight ?? 500,
+    color:      fs('footer').color ?? accent,
+    position: 'absolute', bottom: pad, left: pad,
   };
 
   if (template === 'quote') {
@@ -191,7 +222,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
     return (
       <div style={box}>
         {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
-        <div style={{ fontSize: Math.round(w * 0.22), fontWeight: 700, color: accent, lineHeight: 0.88, marginBottom: Math.round(w * 0.016) }}>
+        <div style={{ fontFamily: fs('stat').font ?? headlineFont, fontSize: fs('stat').size ?? Math.round(w * 0.22), fontWeight: fs('stat').weight ?? 700, color: fs('stat').color ?? accent, lineHeight: 0.88, marginBottom: Math.round(w * 0.016) }}>
           {f.stat}
         </div>
         <div style={{ ...titleStyle, fontSize: Math.round(w * 0.058), marginBottom: Math.round(w * 0.018) }}>
@@ -217,7 +248,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
               <span style={{ color: accent, fontWeight: 700, fontSize: Math.round(w * 0.030), flexShrink: 0, lineHeight: 1.45, minWidth: Math.round(w * 0.042) }}>
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <span style={{ fontFamily: bodyFont, fontSize: Math.round(w * 0.032), color: ink, lineHeight: 1.45 }}>
+              <span style={{ fontFamily: fs('items').font ?? bodyFont, fontSize: fs('items').size ?? Math.round(w * 0.032), fontWeight: fs('items').weight ?? 400, color: fs('items').color ?? ink, lineHeight: 1.45 }}>
                 {item}
               </span>
             </div>
@@ -245,7 +276,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
                 </div>
                 {i < items.length - 1 && <div style={{ width: 2, flex: 1, background: `${accent}40`, marginTop: 4 }} />}
               </div>
-              <div style={{ fontFamily: bodyFont, fontSize: Math.round(w * 0.034), color: ink, lineHeight: 1.5, paddingTop: Math.round(w * 0.008) }}>
+              <div style={{ fontFamily: fs('items').font ?? bodyFont, fontSize: fs('items').size ?? Math.round(w * 0.034), fontWeight: fs('items').weight ?? 400, color: fs('items').color ?? ink, lineHeight: 1.5, paddingTop: Math.round(w * 0.008) }}>
                 {item}
               </div>
             </div>
@@ -285,7 +316,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
           {f.title}
         </div>
         {f.author && (
-          <div style={{ fontFamily: bodyFont, fontSize: Math.round(w * 0.026), color: inkFade, marginTop: Math.round(w * 0.022) }}>
+          <div style={{ fontFamily: fs('author').font ?? bodyFont, fontSize: fs('author').size ?? Math.round(w * 0.026), fontWeight: fs('author').weight ?? 400, color: fs('author').color ?? inkFade, marginTop: Math.round(w * 0.022) }}>
             — {f.author}
           </div>
         )}
@@ -299,11 +330,101 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont 
 
 // ── Field components ───────────────────────────────────────────────────────
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldRow({ label, children, active = false }: { label: string; children: React.ReactNode; active?: boolean }) {
   return (
-    <div>
-      <label className="block text-xs font-medium text-stone-400 mb-1">{label}</label>
+    <div className={active ? 'pl-2 border-l-2 border-accent' : ''}>
+      <label className={`block text-xs font-medium mb-1 ${active ? 'text-accent' : 'text-stone-400'}`}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+// ── Properties panel (desktop) ─────────────────────────────────────────────
+
+function PropsPanel({ activeField, fieldStyles, fonts, onSetFs, onClearFs }: {
+  activeField: string | null;
+  fieldStyles: Record<string, FieldStyle>;
+  fonts: { label: string; css: string }[];
+  onSetFs: (field: string, patch: Partial<FieldStyle>) => void;
+  onClearFs: (field: string) => void;
+}) {
+  if (!activeField) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-2">
+        <div className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center text-stone-400 text-sm font-medium">Aa</div>
+        <p className="text-xs text-stone-400 leading-relaxed">Click a field on<br/>the left to style it</p>
+      </div>
+    );
+  }
+  const fs: FieldStyle = fieldStyles[activeField] ?? {};
+  const meta = FIELD_META[activeField];
+  return (
+    <div className="flex flex-col h-full overflow-y-auto">
+      <div className="px-4 py-3 border-b border-stone-100 shrink-0">
+        <div className="text-xs font-semibold text-stone-800">{meta?.label ?? activeField}</div>
+        <div className="text-[11px] text-stone-400 mt-0.5">Typography overrides</div>
+      </div>
+      <div className="p-3 space-y-3 flex-1">
+        {/* Font */}
+        <div>
+          <label className="block text-[11px] font-medium text-stone-400 mb-1">Font</label>
+          <select
+            value={fs.font ?? ''}
+            onChange={e => onSetFs(activeField, { font: e.target.value || undefined })}
+            className="w-full text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-accent">
+            <option value="">— default —</option>
+            {fonts.map(f => <option key={f.css} value={f.css}>{f.label}</option>)}
+          </select>
+        </div>
+        {/* Size */}
+        <div>
+          <label className="block text-[11px] font-medium text-stone-400 mb-1">Size (px)</label>
+          <input
+            type="number" min={8} max={300}
+            value={fs.size ?? ''}
+            onChange={e => { const v = e.target.value; onSetFs(activeField, { size: v ? Number(v) : undefined }); }}
+            placeholder="auto"
+            className="w-full text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-accent" />
+        </div>
+        {/* Weight */}
+        <div>
+          <label className="block text-[11px] font-medium text-stone-400 mb-1">Weight</label>
+          <select
+            value={fs.weight ?? ''}
+            onChange={e => { const v = e.target.value; onSetFs(activeField, { weight: v ? Number(v) : undefined }); }}
+            className="w-full text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-accent">
+            <option value="">— default —</option>
+            <option value="300">Light (300)</option>
+            <option value="400">Regular (400)</option>
+            <option value="500">Medium (500)</option>
+            <option value="600">SemiBold (600)</option>
+            <option value="700">Bold (700)</option>
+          </select>
+        </div>
+        {/* Color */}
+        <div>
+          <label className="block text-[11px] font-medium text-stone-400 mb-1">Color</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="color"
+              value={fs.color && fs.color.match(/^#[0-9a-fA-F]{6}$/) ? fs.color : '#f7f7f5'}
+              onChange={e => onSetFs(activeField, { color: e.target.value })}
+              className="w-7 h-7 rounded border border-stone-200 cursor-pointer shrink-0 p-0.5 bg-white" />
+            <input
+              type="text" value={fs.color ?? ''}
+              onChange={e => onSetFs(activeField, { color: e.target.value || undefined })}
+              placeholder="default"
+              className="flex-1 text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-accent font-mono" />
+          </div>
+        </div>
+      </div>
+      <div className="p-3 border-t border-stone-100 shrink-0">
+        <button
+          onClick={() => onClearFs(activeField)}
+          className="w-full text-xs text-stone-500 hover:text-red-500 border border-stone-200 hover:border-red-200 rounded-lg px-3 py-1.5 transition-colors">
+          Reset {meta?.label ?? activeField}
+        </button>
+      </div>
     </div>
   );
 }
@@ -326,12 +447,14 @@ function toCssFamily(name: string): string {
 }
 
 export default function StudioTemplates({ clientId, accent, brandKit }: { clientId: string; accent: string; brandKit: BrandKit }) {
-  const [template, setTemplate]     = useState<TemplateKey>('quote');
-  const [fields, setFields]         = useState<Record<TemplateKey, Fields>>(DEFAULTS);
-  const [aspect, setAspect]         = useState<Aspect>(ASPECTS[0]);
-  const [bg, setBg]                 = useState('dark');
-  const [exporting, setExporting]   = useState(false);
-  const [canvasMaxW, setCanvasMaxW] = useState(440);
+  const [template, setTemplate]         = useState<TemplateKey>('quote');
+  const [fields, setFields]             = useState<Record<TemplateKey, Fields>>(DEFAULTS);
+  const [aspect, setAspect]             = useState<Aspect>(ASPECTS[0]);
+  const [bg, setBg]                     = useState('dark');
+  const [exporting, setExporting]       = useState(false);
+  const [canvasMaxW, setCanvasMaxW]     = useState(440);
+  const [activeField, setActiveField]   = useState<string | null>(null);
+  const [allFieldStyles, setAllFieldStyles] = useState<Record<string, Record<string, FieldStyle>>>({});
 
   const cardRef            = useRef<HTMLDivElement>(null);
   const mobileContainerRef = useRef<HTMLDivElement>(null);
@@ -371,8 +494,22 @@ export default function StudioTemplates({ clientId, accent, brandKit }: { client
 
   const f     = fields[template];
   const setF  = (patch: Partial<Fields>) => setFields(p => ({ ...p, [template]: { ...p[template], ...patch } }));
-  const reset = () => setFields(p => ({ ...p, [template]: DEFAULTS[template] }));
+  const reset = () => { setFields(p => ({ ...p, [template]: DEFAULTS[template] })); setAllFieldStyles(p => ({ ...p, [template]: {} })); };
   const scale = Math.min(canvasMaxW / aspect.w, canvasMaxW / aspect.h, 1);
+
+  // Per-field style helpers
+  const fieldStyles = allFieldStyles[template] ?? {};
+  const setFs = (field: string, patch: Partial<FieldStyle>) =>
+    setAllFieldStyles(p => ({
+      ...p,
+      [template]: { ...(p[template] ?? {}), [field]: { ...(p[template]?.[field] ?? {}), ...patch } },
+    }));
+  const clearFs = (field: string) =>
+    setAllFieldStyles(p => {
+      const copy = { ...(p[template] ?? {}) };
+      delete copy[field];
+      return { ...p, [template]: copy };
+    });
 
   async function exportPng() {
     if (!cardRef.current) return;
@@ -400,7 +537,7 @@ export default function StudioTemplates({ clientId, accent, brandKit }: { client
           <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <div ref={cardRef}
               style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, kitAccent) }}>
-              <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} headlineFont={headlineFont} bodyFont={bodyFont} />
+              <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} headlineFont={headlineFont} bodyFont={bodyFont} fieldStyles={fieldStyles} />
             </div>
           </div>
         </div>
@@ -470,50 +607,65 @@ export default function StudioTemplates({ clientId, accent, brandKit }: { client
 
         {/* Fields */}
         <div className="p-4 space-y-3 flex-1">
-          <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">Content</p>
+          <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">Content
+            <span className="normal-case font-normal ml-1 text-stone-300">— click a field to style it</span>
+          </p>
 
-          <FieldRow label="Eyebrow">
+          <FieldRow label="Eyebrow" active={activeField === 'eyebrow'}>
             <input value={f.eyebrow} onChange={e => setF({ eyebrow: e.target.value })}
-              className="input-base text-xs" placeholder="CATEGORY or DATE" />
+              onFocus={() => setActiveField('eyebrow')}
+              className={`input-base text-xs ${activeField === 'eyebrow' ? 'ring-2 ring-accent/40 border-accent' : ''}`}
+              placeholder="CATEGORY or DATE" />
           </FieldRow>
 
           {template === 'stat' && (
-            <FieldRow label="Big Number">
+            <FieldRow label="Big Number" active={activeField === 'stat'}>
               <input value={f.stat} onChange={e => setF({ stat: e.target.value })}
-                className="input-base text-xs" placeholder="e.g. 12 or 3×" />
+                onFocus={() => setActiveField('stat')}
+                className={`input-base text-xs ${activeField === 'stat' ? 'ring-2 ring-accent/40 border-accent' : ''}`}
+                placeholder="e.g. 12 or 3×" />
             </FieldRow>
           )}
 
-          <FieldRow label={template === 'quote' || template === 'testimonial' ? 'Quote / Text' : 'Title'}>
+          <FieldRow label={template === 'quote' || template === 'testimonial' ? 'Quote / Text' : 'Title'} active={activeField === 'title'}>
             <textarea value={f.title} onChange={e => setF({ title: e.target.value })}
-              rows={3} className="input-base text-xs resize-none"
+              onFocus={() => setActiveField('title')}
+              rows={3} className={`input-base text-xs resize-none ${activeField === 'title' ? 'ring-2 ring-accent/40 border-accent' : ''}`}
               placeholder="Your main text (use Enter for line breaks)" />
           </FieldRow>
 
           {(template === 'list' || template === 'steps') && (
-            <FieldRow label={template === 'list' ? 'Items (one per line)' : 'Steps (one per line)'}>
+            <FieldRow label={template === 'list' ? 'Items (one per line)' : 'Steps (one per line)'} active={activeField === 'items'}>
               <textarea value={f.items} onChange={e => setF({ items: e.target.value })}
-                rows={4} className="input-base text-xs resize-none" placeholder="One item per line" />
+                onFocus={() => setActiveField('items')}
+                rows={4} className={`input-base text-xs resize-none ${activeField === 'items' ? 'ring-2 ring-accent/40 border-accent' : ''}`}
+                placeholder="One item per line" />
             </FieldRow>
           )}
 
           {template !== 'list' && template !== 'steps' && (
-            <FieldRow label="Subtitle / Context">
+            <FieldRow label="Subtitle / Context" active={activeField === 'sub'}>
               <input value={f.sub} onChange={e => setF({ sub: e.target.value })}
-                className="input-base text-xs" placeholder="Supporting line (optional)" />
+                onFocus={() => setActiveField('sub')}
+                className={`input-base text-xs ${activeField === 'sub' ? 'ring-2 ring-accent/40 border-accent' : ''}`}
+                placeholder="Supporting line (optional)" />
             </FieldRow>
           )}
 
           {template === 'testimonial' && (
-            <FieldRow label="Author">
+            <FieldRow label="Author" active={activeField === 'author'}>
               <input value={f.author} onChange={e => setF({ author: e.target.value })}
-                className="input-base text-xs" placeholder="Name — Role" />
+                onFocus={() => setActiveField('author')}
+                className={`input-base text-xs ${activeField === 'author' ? 'ring-2 ring-accent/40 border-accent' : ''}`}
+                placeholder="Name — Role" />
             </FieldRow>
           )}
 
-          <FieldRow label="Footer / CTA">
+          <FieldRow label="Footer / CTA" active={activeField === 'footer'}>
             <input value={f.footer} onChange={e => setF({ footer: e.target.value })}
-              className="input-base text-xs" placeholder="Bottom label (optional)" />
+              onFocus={() => setActiveField('footer')}
+              className={`input-base text-xs ${activeField === 'footer' ? 'ring-2 ring-accent/40 border-accent' : ''}`}
+              placeholder="Bottom label (optional)" />
           </FieldRow>
         </div>
 
@@ -530,19 +682,30 @@ export default function StudioTemplates({ clientId, accent, brandKit }: { client
         </div>
       </div>
 
-      {/* ── Desktop: canvas on right ──────────────────────────── */}
+      {/* ── Desktop: canvas center ──────────────────────────── */}
       <div ref={desktopContainerRef} className="hidden md:flex flex-1 items-center justify-center p-8 overflow-auto">
         <div>
           <div style={{ width: Math.round(aspect.w * scale), height: Math.round(aspect.h * scale) }}>
             <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
               <div ref={cardRef}
                 style={{ width: aspect.w, height: aspect.h, position: 'relative', overflow: 'hidden', ...bgCss(bg, kitAccent) }}>
-                <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} headlineFont={headlineFont} bodyFont={bodyFont} />
+                <CardBody template={template} f={f} accent={kitAccent} dims={aspect} bgPreset={bg} headlineFont={headlineFont} bodyFont={bodyFont} fieldStyles={fieldStyles} />
               </div>
             </div>
           </div>
           <p className="text-center text-xs text-stone-400 mt-3">{aspect.w} × {aspect.h}px</p>
         </div>
+      </div>
+
+      {/* ── Properties panel (desktop only) ──────────────────── */}
+      <div className="hidden md:flex w-52 shrink-0 bg-white border-l border-stone-200 flex-col">
+        <PropsPanel
+          activeField={activeField}
+          fieldStyles={fieldStyles}
+          fonts={FONTS}
+          onSetFs={setFs}
+          onClearFs={clearFs}
+        />
       </div>
     </div>
   );
