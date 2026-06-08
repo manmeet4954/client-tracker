@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { BrandKit } from '@/types';
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -129,6 +129,9 @@ interface FieldStyle {
   size?: number;
   weight?: number;
   color?: string;
+  align?: 'left' | 'center' | 'right';
+  lineHeight?: number;
+  letterSpacing?: number; // stored as em units, e.g. 0.12 → '0.12em'
 }
 
 const FIELD_META: Record<string, { label: string }> = {
@@ -168,28 +171,39 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont,
     position: 'relative', boxSizing: 'border-box',
     fontFamily: headlineFont,
   };
+  const lsp = (field: string, def?: string): string | undefined => {
+    const v = fs(field).letterSpacing;
+    return v !== undefined ? `${v}em` : def;
+  };
   const eyebrowStyle: React.CSSProperties = {
-    fontFamily: fs('eyebrow').font ?? bodyFont,
-    fontSize:   fs('eyebrow').size ?? Math.round(w * 0.022),
-    fontWeight: fs('eyebrow').weight ?? 500,
-    color:      fs('eyebrow').color ?? accent,
-    letterSpacing: '0.12em',
+    fontFamily:    fs('eyebrow').font ?? bodyFont,
+    fontSize:      fs('eyebrow').size ?? Math.round(w * 0.022),
+    fontWeight:    fs('eyebrow').weight ?? 500,
+    color:         fs('eyebrow').color ?? accent,
+    letterSpacing: lsp('eyebrow', '0.12em'),
+    lineHeight:    fs('eyebrow').lineHeight ?? 1.2,
+    textAlign:     fs('eyebrow').align ?? 'left',
     textTransform: 'uppercase', marginBottom: Math.round(w * 0.028),
   };
   const titleStyle: React.CSSProperties = {
-    fontFamily: fs('title').font ?? headlineFont,
-    fontSize:   fs('title').size ?? Math.round(w * 0.078),
-    fontWeight: fs('title').weight ?? 700,
-    color:      fs('title').color ?? ink,
-    lineHeight: 1.06, whiteSpace: 'pre-line',
+    fontFamily:    fs('title').font ?? headlineFont,
+    fontSize:      fs('title').size ?? Math.round(w * 0.078),
+    fontWeight:    fs('title').weight ?? 700,
+    color:         fs('title').color ?? ink,
+    lineHeight:    fs('title').lineHeight ?? 1.06,
+    letterSpacing: lsp('title'),
+    textAlign:     fs('title').align ?? 'left',
+    whiteSpace: 'pre-line',
     marginBottom: Math.round(w * 0.022),
   };
   const subStyle: React.CSSProperties = {
-    fontFamily: fs('sub').font ?? bodyFont,
-    fontSize:   fs('sub').size ?? Math.round(w * 0.030),
-    fontWeight: fs('sub').weight ?? 400,
-    color:      fs('sub').color ?? inkFade,
-    lineHeight: 1.5,
+    fontFamily:    fs('sub').font ?? bodyFont,
+    fontSize:      fs('sub').size ?? Math.round(w * 0.030),
+    fontWeight:    fs('sub').weight ?? 400,
+    color:         fs('sub').color ?? inkFade,
+    lineHeight:    fs('sub').lineHeight ?? 1.5,
+    letterSpacing: lsp('sub'),
+    textAlign:     fs('sub').align ?? 'left',
   };
   const dividerStyle: React.CSSProperties = {
     width: Math.round(w * 0.09), height: 3,
@@ -197,10 +211,13 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont,
     marginBottom: Math.round(w * 0.032),
   };
   const footerStyle: React.CSSProperties = {
-    fontFamily: fs('footer').font ?? bodyFont,
-    fontSize:   fs('footer').size ?? Math.round(w * 0.022),
-    fontWeight: fs('footer').weight ?? 500,
-    color:      fs('footer').color ?? accent,
+    fontFamily:    fs('footer').font ?? bodyFont,
+    fontSize:      fs('footer').size ?? Math.round(w * 0.022),
+    fontWeight:    fs('footer').weight ?? 500,
+    color:         fs('footer').color ?? accent,
+    letterSpacing: lsp('footer'),
+    lineHeight:    fs('footer').lineHeight ?? 1.3,
+    textAlign:     fs('footer').align ?? 'left',
     position: 'absolute', bottom: pad, left: pad,
   };
 
@@ -222,7 +239,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont,
     return (
       <div style={box}>
         {f.eyebrow && <div style={eyebrowStyle}>{f.eyebrow}</div>}
-        <div style={{ fontFamily: fs('stat').font ?? headlineFont, fontSize: fs('stat').size ?? Math.round(w * 0.22), fontWeight: fs('stat').weight ?? 700, color: fs('stat').color ?? accent, lineHeight: 0.88, marginBottom: Math.round(w * 0.016) }}>
+        <div style={{ fontFamily: fs('stat').font ?? headlineFont, fontSize: fs('stat').size ?? Math.round(w * 0.22), fontWeight: fs('stat').weight ?? 700, color: fs('stat').color ?? accent, lineHeight: fs('stat').lineHeight ?? 0.88, letterSpacing: lsp('stat'), textAlign: fs('stat').align ?? 'left', marginBottom: Math.round(w * 0.016) }}>
           {f.stat}
         </div>
         <div style={{ ...titleStyle, fontSize: Math.round(w * 0.058), marginBottom: Math.round(w * 0.018) }}>
@@ -248,7 +265,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont,
               <span style={{ color: accent, fontWeight: 700, fontSize: Math.round(w * 0.030), flexShrink: 0, lineHeight: 1.45, minWidth: Math.round(w * 0.042) }}>
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <span style={{ fontFamily: fs('items').font ?? bodyFont, fontSize: fs('items').size ?? Math.round(w * 0.032), fontWeight: fs('items').weight ?? 400, color: fs('items').color ?? ink, lineHeight: 1.45 }}>
+              <span style={{ fontFamily: fs('items').font ?? bodyFont, fontSize: fs('items').size ?? Math.round(w * 0.032), fontWeight: fs('items').weight ?? 400, color: fs('items').color ?? ink, lineHeight: fs('items').lineHeight ?? 1.45, letterSpacing: lsp('items'), textAlign: fs('items').align ?? 'left' }}>
                 {item}
               </span>
             </div>
@@ -276,7 +293,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont,
                 </div>
                 {i < items.length - 1 && <div style={{ width: 2, flex: 1, background: `${accent}40`, marginTop: 4 }} />}
               </div>
-              <div style={{ fontFamily: fs('items').font ?? bodyFont, fontSize: fs('items').size ?? Math.round(w * 0.034), fontWeight: fs('items').weight ?? 400, color: fs('items').color ?? ink, lineHeight: 1.5, paddingTop: Math.round(w * 0.008) }}>
+              <div style={{ fontFamily: fs('items').font ?? bodyFont, fontSize: fs('items').size ?? Math.round(w * 0.034), fontWeight: fs('items').weight ?? 400, color: fs('items').color ?? ink, lineHeight: fs('items').lineHeight ?? 1.5, letterSpacing: lsp('items'), textAlign: fs('items').align ?? 'left', paddingTop: Math.round(w * 0.008) }}>
                 {item}
               </div>
             </div>
@@ -316,7 +333,7 @@ function CardBody({ template, f, accent, dims, bgPreset, headlineFont, bodyFont,
           {f.title}
         </div>
         {f.author && (
-          <div style={{ fontFamily: fs('author').font ?? bodyFont, fontSize: fs('author').size ?? Math.round(w * 0.026), fontWeight: fs('author').weight ?? 400, color: fs('author').color ?? inkFade, marginTop: Math.round(w * 0.022) }}>
+          <div style={{ fontFamily: fs('author').font ?? bodyFont, fontSize: fs('author').size ?? Math.round(w * 0.026), fontWeight: fs('author').weight ?? 400, color: fs('author').color ?? inkFade, lineHeight: fs('author').lineHeight ?? 1.4, letterSpacing: lsp('author'), textAlign: fs('author').align ?? 'left', marginTop: Math.round(w * 0.022) }}>
             — {f.author}
           </div>
         )}
@@ -416,6 +433,45 @@ function PropsPanel({ activeField, fieldStyles, fonts, onSetFs, onClearFs }: {
               placeholder="default"
               className="flex-1 text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-accent font-mono" />
           </div>
+        </div>
+        {/* Alignment */}
+        <div>
+          <label className="block text-[11px] font-medium text-stone-400 mb-1">Alignment</label>
+          <div className="flex gap-1">
+            {(['left', 'center', 'right'] as const).map(a => {
+              const Icon = a === 'left' ? AlignLeft : a === 'center' ? AlignCenter : AlignRight;
+              const isActive = (fs.align ?? 'left') === a;
+              return (
+                <button key={a}
+                  onClick={() => onSetFs(activeField, { align: isActive && a === 'left' ? undefined : a })}
+                  className={`flex-1 py-1.5 rounded-lg border transition-colors flex items-center justify-center ${
+                    isActive ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-200 text-stone-500 hover:border-stone-300 bg-white'
+                  }`}>
+                  <Icon size={12} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {/* Line Height */}
+        <div>
+          <label className="block text-[11px] font-medium text-stone-400 mb-1">Line Height</label>
+          <input
+            type="number" min={0.8} max={3.0} step={0.05}
+            value={fs.lineHeight ?? ''}
+            onChange={e => { const v = e.target.value; onSetFs(activeField, { lineHeight: v ? Number(v) : undefined }); }}
+            placeholder="auto"
+            className="w-full text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-accent" />
+        </div>
+        {/* Letter Spacing */}
+        <div>
+          <label className="block text-[11px] font-medium text-stone-400 mb-1">Letter Spacing (em)</label>
+          <input
+            type="number" min={-0.1} max={1.0} step={0.01}
+            value={fs.letterSpacing ?? ''}
+            onChange={e => { const v = e.target.value; onSetFs(activeField, { letterSpacing: v !== '' ? Number(v) : undefined }); }}
+            placeholder="auto"
+            className="w-full text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-accent" />
         </div>
       </div>
       <div className="p-3 border-t border-stone-100 shrink-0">
