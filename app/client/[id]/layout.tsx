@@ -42,12 +42,25 @@ export default function ClientLayout({
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Desktop header */}
-        <header className="hidden md:flex bg-white border-b border-stone-200 items-center gap-4 px-6 py-0 shrink-0">
-          <div className="flex items-center gap-2.5 py-4">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: client.color }} />
-            <h1 className="font-semibold text-stone-900">{client.name}</h1>
+        <header className="hidden md:flex flex-col bg-white border-b border-stone-200 shrink-0">
+          {/* Identity band */}
+          <div
+            className="flex items-center gap-3 px-6 py-3.5"
+            style={{
+              background: `linear-gradient(to right, ${client.color}22 0%, ${client.color}08 45%, transparent 75%)`,
+              borderBottom: `1px solid ${client.color}18`,
+            }}
+          >
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{ backgroundColor: `${client.color}25` }}
+            >
+              <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: client.color }} />
+            </div>
+            <h1 className="font-bold text-stone-900 text-base leading-none">{client.name}</h1>
           </div>
-          <nav className="flex items-center gap-1">
+          {/* Tab nav */}
+          <nav className="flex items-center gap-1 px-6">
             {TABS.map(tab => {
               const href = `${base}${tab.href}`;
               const isActive = tab.href === '' ? pathname === base : pathname.startsWith(`${base}${tab.href}`);
@@ -67,13 +80,24 @@ export default function ClientLayout({
 
         {/* Mobile header */}
         <header className="md:hidden bg-white border-b border-stone-200 shrink-0">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors">
+          {/* Identity band */}
+          <div
+            className="flex items-center gap-3 px-4 py-3"
+            style={{
+              background: `linear-gradient(to right, ${client.color}22 0%, transparent 70%)`,
+            }}
+          >
+            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg text-stone-600 hover:bg-black/5 transition-colors">
               <Menu size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: client.color }} />
-              <h1 className="font-semibold text-stone-900 text-sm">{client.name}</h1>
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `${client.color}28` }}
+              >
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: client.color }} />
+              </div>
+              <h1 className="font-bold text-stone-900 text-sm">{client.name}</h1>
             </div>
           </div>
           {/* Mobile tab bar — horizontal scroll */}
