@@ -12,6 +12,13 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+/** Pick the best accent colour for a client from its brand kit */
+function pickAccent(brandColors: { hex: string; role?: string }[] | undefined, fallback: string): string {
+  if (!brandColors?.length) return fallback;
+  const primary = brandColors.find(c => /primary|accent/i.test(c.role ?? ''));
+  return primary?.hex ?? brandColors[0]?.hex ?? fallback;
+}
+
 export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const { state, dispatch } = useApp();
   const pathname = usePathname();
@@ -68,7 +75,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                     isActive ? 'bg-stone-100 text-stone-900 font-medium' : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
                   }`}
                 >
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: client.color }} />
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: pickAccent(state.clientData[client.id]?.brandKit?.colors, client.color) }} />
                   <span className="truncate">{client.name}</span>
                 </Link>
                 <button

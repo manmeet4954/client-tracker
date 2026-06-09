@@ -16,6 +16,15 @@ const TABS = [
   { label: 'Studio', href: '/studio', icon: Sparkles },
 ];
 
+/** Pick the best accent colour for a client:
+ *  1. Brand kit color with role containing "primary" or "accent"
+ *  2. First brand kit color (whatever it is)
+ *  3. Fall back to the client's stored color */
+function pickAccent(brandColors: { hex: string; role?: string }[], fallback: string): string {
+  const primary = brandColors.find(c => /primary|accent/i.test(c.role ?? ''));
+  return primary?.hex ?? brandColors[0]?.hex ?? fallback;
+}
+
 export default function ClientLayout({
   children,
   params,
@@ -23,10 +32,13 @@ export default function ClientLayout({
   children: React.ReactNode;
   params: { id: string };
 }) {
-  const { client } = useClient(params.id);
+  const { client, data } = useClient(params.id);
   const pathname = usePathname();
   const base = `/client/${params.id}`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Derive accent from brand kit; falls back to the client's stored color
+  const accent = client ? pickAccent(data.brandKit?.colors ?? [], client.color) : '#ea4711';
 
   if (!client) {
     return (
@@ -47,15 +59,15 @@ export default function ClientLayout({
           <div
             className="flex items-center gap-3 px-6 py-3.5"
             style={{
-              background: `linear-gradient(to right, ${client.color}22 0%, ${client.color}08 45%, transparent 75%)`,
-              borderBottom: `1px solid ${client.color}18`,
+              background: `linear-gradient(to right, ${accent}22 0%, ${accent}08 45%, transparent 75%)`,
+              borderBottom: `1px solid ${accent}18`,
             }}
           >
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ backgroundColor: `${client.color}25` }}
+              style={{ backgroundColor: `${accent}25` }}
             >
-              <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: client.color }} />
+              <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: accent }} />
             </div>
             <h1 className="font-bold text-stone-900 text-base leading-none">{client.name}</h1>
           </div>
@@ -67,9 +79,10 @@ export default function ClientLayout({
               const Icon = tab.icon;
               return (
                 <Link key={tab.href} href={href}
-                  className={`flex items-center gap-1.5 px-3 py-3 text-sm border-b-2 transition-colors ${
-                    isActive ? 'border-accent text-accent font-medium' : 'border-transparent text-stone-500 hover:text-stone-900'
-                  }`}>
+                  className={`flex items-center gap-1.5 px-3 py-3 text-sm border-b-2 transition-colors font-medium ${
+                    isActive ? '' : 'border-transparent text-stone-500 hover:text-stone-900 !font-normal'
+                  }`}
+                  style={isActive ? { borderColor: accent, color: accent } : {}}>
                   <Icon size={14} />
                   {tab.label}
                 </Link>
@@ -84,7 +97,7 @@ export default function ClientLayout({
           <div
             className="flex items-center gap-3 px-4 py-3"
             style={{
-              background: `linear-gradient(to right, ${client.color}22 0%, transparent 70%)`,
+              background: `linear-gradient(to right, ${accent}22 0%, transparent 70%)`,
             }}
           >
             <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg text-stone-600 hover:bg-black/5 transition-colors">
@@ -93,9 +106,9 @@ export default function ClientLayout({
             <div className="flex items-center gap-2">
               <div
                 className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `${client.color}28` }}
+                style={{ backgroundColor: `${accent}28` }}
               >
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: client.color }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: accent }} />
               </div>
               <h1 className="font-bold text-stone-900 text-sm">{client.name}</h1>
             </div>
@@ -108,9 +121,10 @@ export default function ClientLayout({
               const Icon = tab.icon;
               return (
                 <Link key={tab.href} href={href}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors shrink-0 ${
-                    isActive ? 'border-accent text-accent font-medium' : 'border-transparent text-stone-500'
-                  }`}>
+                  className={`flex items-center gap-1.5 px-3 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors shrink-0 font-medium ${
+                    isActive ? '' : 'border-transparent text-stone-500 !font-normal'
+                  }`}
+                  style={isActive ? { borderColor: accent, color: accent } : {}}>
                   <Icon size={13} />
                   {tab.label}
                 </Link>
