@@ -39,6 +39,24 @@ body {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Floating client icons */
+@keyframes float1 {
+  0%, 100% { transform: translateY(0px)   rotate(-8deg);  }
+  50%      { transform: translateY(-16px) rotate(-3deg);  }
+}
+@keyframes float2 {
+  0%, 100% { transform: translateY(0px)   rotate(10deg);  }
+  50%      { transform: translateY(-11px) rotate(4deg);   }
+}
+@keyframes float3 {
+  0%, 100% { transform: translateY(-6px)  rotate(7deg);   }
+  50%      { transform: translateY(10px)  rotate(2deg);   }
+}
+@keyframes float4 {
+  0%, 100% { transform: translateY(5px)   rotate(-12deg); }
+  50%      { transform: translateY(-13px) rotate(-5deg);  }
+}
+
 /* Home page gradient animation */
 @keyframes gradientDrift {
   0%   { background-position: 0%   50%; }
