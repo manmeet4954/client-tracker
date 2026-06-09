@@ -131,6 +131,11 @@ function BrandKitSection({ kit, onUpdate }: { kit: BrandKit; onUpdate: (p: Parti
                   />
                   <p className="text-xs font-medium text-stone-700 text-center max-w-[56px] truncate">{c.name}</p>
                   <p className="text-[10px] text-stone-400 font-mono">{c.hex.toUpperCase()}</p>
+                  {c.role && (
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide ${
+                      /primary/i.test(c.role) ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500'
+                    }`}>{c.role}</span>
+                  )}
                   <button onClick={() => deleteColor(c.id)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500">
                     <Trash2 size={11} />
@@ -196,13 +201,16 @@ function BrandKitSection({ kit, onUpdate }: { kit: BrandKit; onUpdate: (p: Parti
   );
 }
 
+const COLOR_ROLES = ['Primary', 'Secondary', 'Neutral', 'Accent', 'Other'];
+
 function ColorModal({ existing, onClose, onSave }: { existing: BrandColor | null; onClose: () => void; onSave: (c: BrandColor) => void }) {
   const [name, setName] = useState(existing?.name ?? '');
   const [hex, setHex]   = useState(existing?.hex ?? '#000000');
+  const [role, setRole] = useState(existing?.role ?? 'Primary');
 
   function save() {
     if (!name.trim()) return;
-    onSave({ id: existing?.id ?? generateId(), name: name.trim(), hex });
+    onSave({ id: existing?.id ?? generateId(), name: name.trim(), hex, role });
   }
 
   return (
@@ -216,7 +224,7 @@ function ColorModal({ existing, onClose, onSave }: { existing: BrandColor | null
               <label className="block text-xs font-medium text-stone-500 mb-1">Color Name</label>
               <input autoFocus value={name} onChange={e => setName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && save()}
-                placeholder="e.g. Green" className="input-base w-full" />
+                placeholder="e.g. Brand Blue" className="input-base w-full" />
             </div>
             <div>
               <label className="block text-xs font-medium text-stone-500 mb-1">Hex Code</label>
@@ -224,6 +232,24 @@ function ColorModal({ existing, onClose, onSave }: { existing: BrandColor | null
                 placeholder="#25B763" className="input-base w-full font-mono" />
             </div>
           </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Role</label>
+          <div className="flex flex-wrap gap-1.5">
+            {COLOR_ROLES.map(r => (
+              <button key={r} onClick={() => setRole(r)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  role === r
+                    ? 'bg-stone-900 text-white border-stone-900'
+                    : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
+                }`}>
+                {r}
+              </button>
+            ))}
+          </div>
+          {role === 'Primary' && (
+            <p className="text-[10px] text-stone-400 mt-1.5">✦ Primary color drives the header, tabs, and sidebar dot for this client.</p>
+          )}
         </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
