@@ -9,9 +9,16 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate } from '@/lib/utils';
 import { AgendaItem } from '@/types';
 
+function pickAccent(brandColors: { hex: string; role?: string }[] | undefined, fallback: string): string {
+  if (!brandColors?.length) return fallback;
+  const primary = brandColors.find(c => /primary|accent/i.test(c.role ?? ''));
+  return primary?.hex ?? brandColors[0]?.hex ?? fallback;
+}
+
 export default function DashboardView({ clientId }: { clientId: string }) {
   const { dispatch, selectedMonth: month, setSelectedMonth: setMonth } = useApp();
-  const { data } = useClient(clientId);
+  const { client, data } = useClient(clientId);
+  const accent = client ? pickAccent(data.brandKit?.colors, client.color) : '#ea4711';
   const [newItem, setNewItem] = useState('');
   const [newDue, setNewDue] = useState('');
   const [editingTarget, setEditingTarget] = useState(false);
@@ -83,7 +90,7 @@ export default function DashboardView({ clientId }: { clientId: string }) {
       <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Target size={15} className="text-[#ea4711]" />
+            <Target size={15} style={{ color: accent }} />
             <h3 className="font-semibold text-stone-900 text-sm">Monthly Post Target</h3>
           </div>
           {/* Editable target */}
@@ -98,7 +105,10 @@ export default function DashboardView({ clientId }: { clientId: string }) {
                   onChange={e => setTargetDraft(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') saveTarget(); if (e.key === 'Escape') setEditingTarget(false); }}
                   onBlur={saveTarget}
-                  className="w-16 text-center text-sm border border-stone-300 rounded-md px-2 py-1 focus:outline-none focus:border-[#ea4711]"
+                  className="w-16 text-center text-sm border border-stone-300 rounded-md px-2 py-1 focus:outline-none"
+                  style={{ '--tw-border-opacity': '1' } as React.CSSProperties}
+                  onFocus={e => (e.currentTarget.style.borderColor = accent)}
+                  onBlur={e => (e.currentTarget.style.borderColor = '')}
                   placeholder="0"
                 />
                 <button onClick={saveTarget} className="p-1 text-emerald-500 hover:text-emerald-600">
@@ -154,11 +164,7 @@ export default function DashboardView({ clientId }: { clientId: string }) {
                     className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${postPct}%`,
-                      background: postPct >= 100
-                        ? '#10B981'
-                        : postPct >= 60
-                        ? '#ea4711'
-                        : '#f97316',
+                      backgroundColor: postPct >= 100 ? '#10B981' : accent,
                     }}
                   />
                 </div>
@@ -197,7 +203,7 @@ export default function DashboardView({ clientId }: { clientId: string }) {
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${Math.round((agendaDone / agendaTotal) * 100)}%`,
-                    backgroundColor: agendaDone === agendaTotal ? '#10B981' : '#ea4711',
+                    backgroundColor: agendaDone === agendaTotal ? '#10B981' : accent,
                   }}
                 />
               </div>
@@ -219,6 +225,7 @@ export default function DashboardView({ clientId }: { clientId: string }) {
               <AgendaRow
                 key={item.id}
                 item={item}
+                accent={accent}
                 onToggle={() => dispatch({ type: 'TOGGLE_AGENDA', payload: { clientId, month, itemId: item.id } })}
                 onDelete={() => dispatch({ type: 'DELETE_AGENDA', payload: { clientId, month, itemId: item.id } })}
                 onTextChange={text => dispatch({ type: 'UPDATE_AGENDA_TEXT', payload: { clientId, month, itemId: item.id, text } })}
@@ -277,8 +284,9 @@ export default function DashboardView({ clientId }: { clientId: string }) {
   );
 }
 
-function AgendaRow({ item, onToggle, onDelete, onTextChange }: {
+function AgendaRow({ item, accent, onToggle, onDelete, onTextChange }: {
   item: AgendaItem;
+  accent: string;
   onToggle: () => void;
   onDelete: () => void;
   onTextChange: (text: string) => void;
@@ -294,14 +302,17 @@ function AgendaRow({ item, onToggle, onDelete, onTextChange }: {
 
   return (
     <div className="group flex items-center gap-3 px-5 py-3 hover:bg-stone-50 transition-colors">
-      <button onClick={onToggle} className="shrink-0 text-stone-400 hover:text-accent transition-colors">
+      <button onClick={onToggle} className="shrink-0 text-stone-400 transition-colors"
+        onMouseEnter={e => { if (!item.done) (e.currentTarget as HTMLElement).style.color = accent; }}
+        onMouseLeave={e => { if (!item.done) (e.currentTarget as HTMLElement).style.color = ''; }}>
         {item.done ? <CheckCircle2 size={17} className="text-emerald-500" /> : <Circle size={17} />}
       </button>
       {editing ? (
         <input autoFocus value={draft} onChange={e => setDraft(e.target.value)}
           onBlur={save}
           onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setDraft(item.text); setEditing(false); } }}
-          className="flex-1 text-sm text-stone-700 bg-transparent border-b border-[#ea4711] focus:outline-none"
+          className="flex-1 text-sm text-stone-700 bg-transparent border-b focus:outline-none"
+          style={{ borderColor: accent }}
         />
       ) : (
         <span
