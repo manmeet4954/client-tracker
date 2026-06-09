@@ -85,6 +85,14 @@ const GLASS_ADD: React.CSSProperties = {
   border:               '1px dashed rgba(255,255,255,0.28)',
 };
 
+// ── Accent helper ────────────────────────────────────────────────────────────
+
+function pickAccent(brandColors: { hex: string; role?: string }[] | undefined, fallback: string): string {
+  if (!brandColors?.length) return fallback;
+  const primary = brandColors.find(c => /primary|accent/i.test(c.role ?? ''));
+  return primary?.hex ?? brandColors[0]?.hex ?? fallback;
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -212,7 +220,7 @@ export default function Home() {
                              transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]"
                   style={GLASS}
                 >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: client.color }} />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: pickAccent(state.clientData[client.id]?.brandKit?.colors, client.color) }} />
                   <span
                     className="text-white text-sm"
                     style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600 }}
