@@ -104,11 +104,9 @@ export default function DashboardView({ clientId }: { clientId: string }) {
                   value={targetDraft}
                   onChange={e => setTargetDraft(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') saveTarget(); if (e.key === 'Escape') setEditingTarget(false); }}
-                  onBlur={saveTarget}
-                  className="w-16 text-center text-sm border border-stone-300 rounded-md px-2 py-1 focus:outline-none"
-                  style={{ '--tw-border-opacity': '1' } as React.CSSProperties}
                   onFocus={e => (e.currentTarget.style.borderColor = accent)}
-                  onBlur={e => (e.currentTarget.style.borderColor = '')}
+                  onBlur={e => { e.currentTarget.style.borderColor = ''; saveTarget(); }}
+                  className="w-16 text-center text-sm border border-stone-300 rounded-md px-2 py-1 focus:outline-none"
                   placeholder="0"
                 />
                 <button onClick={saveTarget} className="p-1 text-emerald-500 hover:text-emerald-600">
