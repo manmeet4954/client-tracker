@@ -96,7 +96,7 @@ export default function Home() {
         <div className="relative flex flex-col min-h-screen px-5 md:px-14 lg:px-20">
 
           {/* Date + greeting — top */}
-          <div className="pt-14 md:pt-16 shrink-0">
+          <div className="pt-14 md:pt-16 shrink-0 text-center">
             <p className="text-white/50 text-[11px] font-medium tracking-[0.22em] uppercase mb-2">
               {dateLine}
             </p>
@@ -110,9 +110,9 @@ export default function Home() {
           </div>
 
           {/* Giant name — center */}
-          <div className="flex-1 flex items-center overflow-hidden">
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
             <h1
-              className="text-white leading-[0.88] select-none"
+              className="text-white leading-[0.88] select-none text-center"
               style={{
                 fontSize:      'clamp(68px, 18vw, 240px)',
                 fontFamily:    "'Inter', sans-serif",
@@ -125,12 +125,12 @@ export default function Home() {
           </div>
 
           {/* Glass client cards — bottom */}
-          <div className="pb-10 md:pb-14 shrink-0">
+          <div className="pb-10 md:pb-14 shrink-0 flex flex-col items-center">
             <p className="text-white/40 text-[10px] font-medium tracking-[0.22em] uppercase mb-3 mt-5">
               {state.clients.length === 0 ? 'No clients yet' : 'Clients'}
             </p>
 
-            <div className="flex flex-wrap gap-2.5">
+            <div className="flex flex-wrap justify-center gap-2.5">
               {state.clients.map(client => (
                 <button
                   key={client.id}
