@@ -67,8 +67,9 @@ export interface BrandOverview {
 
 export interface BrandColor {
   id: string;
-  name: string;   // e.g. "Green"
-  hex: string;    // e.g. "#25B763"
+  name: string;    // e.g. "Brand Blue"
+  hex: string;     // e.g. "#25B763"
+  role?: string;   // e.g. "Primary" — drives accent color in the UI
 }
 
 export interface BrandFont {
