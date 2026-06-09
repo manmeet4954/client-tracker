@@ -44,12 +44,12 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <div className="px-4 py-4 border-b border-stone-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link href="/" onClick={handleLinkClick} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="w-7 h-7 rounded-lg bg-[#1f1f1f] flex items-center justify-center">
               <Briefcase size={14} className="text-white" />
             </div>
             <span className="font-semibold text-sm text-stone-900">My Clients</span>
-          </div>
+          </Link>
           {/* Close button — mobile only */}
           <button onClick={onClose} className="md:hidden p-1 rounded text-stone-400 hover:text-stone-700 transition-colors">
             <X size={18} />
