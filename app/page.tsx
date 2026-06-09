@@ -42,27 +42,27 @@ const FLOATING_LOGOS = [
   {
     src:   '/logos/career-bubble.png',
     match: (n: string) => /career/i.test(n),
-    pos:   { top: '20%', left: '2vw' } as React.CSSProperties,
+    pos:   { top: '28%', left: '6vw' } as React.CSSProperties,
     anim:  'float1 6s ease-in-out infinite',
   },
   {
     src:   '/logos/krnl.png',
     match: (n: string) => /krnl/i.test(n),
-    pos:   { bottom: '22%', left: '7vw' } as React.CSSProperties,
+    pos:   { bottom: '26%', left: '10vw' } as React.CSSProperties,
     anim:  'float2 7.5s ease-in-out infinite',
     delay: '-2s',
   },
   {
     src:   '/logos/resume-guru.png',
     match: (n: string) => /resume/i.test(n),
-    pos:   { top: '13%', right: '3vw' } as React.CSSProperties,
+    pos:   { top: '20%', right: '6vw' } as React.CSSProperties,
     anim:  'float3 5.5s ease-in-out infinite',
     delay: '-1s',
   },
   {
     src:   '/logos/divine-studio.png',
     match: (n: string) => /divine/i.test(n),
-    pos:   { bottom: '20%', right: '2vw' } as React.CSSProperties,
+    pos:   { bottom: '24%', right: '6vw' } as React.CSSProperties,
     anim:  'float4 8s ease-in-out infinite',
     delay: '-3s',
   },
@@ -134,7 +134,7 @@ export default function Home() {
         {/* ── Floating client icons ──────────────────────────── */}
         {FLOATING_LOGOS.map((def) => {
           const client = findClient(def.match);
-          const iconSize = 'clamp(72px, 9vw, 110px)';
+          const iconSize = 'clamp(90px, 12vw, 140px)';
           return (
             <div
               key={def.src}
