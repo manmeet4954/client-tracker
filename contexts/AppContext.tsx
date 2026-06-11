@@ -62,6 +62,7 @@ export type Action =
   | { type: 'DELETE_AGENDA'; payload: { clientId: string; month: string; itemId: string } }
   | { type: 'UPDATE_AGENDA_TEXT'; payload: { clientId: string; month: string; itemId: string; text: string } }
   | { type: 'ADD_REFERENCE'; payload: { clientId: string; ref: Reference } }
+  | { type: 'EDIT_REFERENCE'; payload: { clientId: string; refId: string; title: string; content: string } }
   | { type: 'DELETE_REFERENCE'; payload: { clientId: string; refId: string } }
   | { type: 'TOGGLE_PIN'; payload: { clientId: string; refId: string } }
   | { type: 'UPDATE_BRAND'; payload: { clientId: string; brand: BrandOverview } }
@@ -193,6 +194,15 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_REFERENCE':
       return updateClient(action.payload.clientId, {
         references: [action.payload.ref, ...cd(action.payload.clientId).references],
+      });
+
+    case 'EDIT_REFERENCE':
+      return updateClient(action.payload.clientId, {
+        references: cd(action.payload.clientId).references.map(r =>
+          r.id === action.payload.refId
+            ? { ...r, title: action.payload.title, content: action.payload.content }
+            : r
+        ),
       });
 
     case 'DELETE_REFERENCE':

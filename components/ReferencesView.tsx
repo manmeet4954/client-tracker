@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Pin, Trash2, Link2, Image, FileText, ExternalLink, Search } from 'lucide-react';
+import { Plus, Pin, Trash2, Link2, Image, FileText, ExternalLink, Search, Pencil } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
 import { Reference, ReferenceType } from '@/types';
@@ -11,6 +11,7 @@ export default function ReferencesView({ clientId }: { clientId: string }) {
   const { dispatch } = useApp();
   const { data } = useClient(clientId);
   const [addType, setAddType] = useState<ReferenceType | null>(null);
+  const [editingRef, setEditingRef] = useState<Reference | null>(null);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<ReferenceType | ''>('');
 
@@ -29,6 +30,11 @@ export default function ReferencesView({ clientId }: { clientId: string }) {
 
   function togglePin(refId: string) {
     dispatch({ type: 'TOGGLE_PIN', payload: { clientId, refId } });
+  }
+
+  function saveEdit(refId: string, title: string, content: string) {
+    dispatch({ type: 'EDIT_REFERENCE', payload: { clientId, refId, title, content } });
+    setEditingRef(null);
   }
 
   return (
@@ -80,7 +86,7 @@ export default function ReferencesView({ clientId }: { clientId: string }) {
             <Pin size={13} className="text-accent" />
             <h3 className="text-xs font-medium text-stone-500 uppercase tracking-wide">Pinned</h3>
           </div>
-          <RefGrid refs={pinned} onDelete={deleteRef} onTogglePin={togglePin} />
+          <RefGrid refs={pinned} onDelete={deleteRef} onTogglePin={togglePin} onEdit={setEditingRef} />
         </section>
       )}
 
@@ -89,7 +95,7 @@ export default function ReferencesView({ clientId }: { clientId: string }) {
           {pinned.length > 0 && (
             <h3 className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-3">All References</h3>
           )}
-          <RefGrid refs={unpinned} onDelete={deleteRef} onTogglePin={togglePin} />
+          <RefGrid refs={unpinned} onDelete={deleteRef} onTogglePin={togglePin} onEdit={setEditingRef} />
         </section>
       )}
 
@@ -102,6 +108,14 @@ export default function ReferencesView({ clientId }: { clientId: string }) {
           setAddType(null);
         }}
       />
+
+      {editingRef && (
+        <EditRefModal
+          ref_={editingRef}
+          onClose={() => setEditingRef(null)}
+          onSave={(title, content) => saveEdit(editingRef.id, title, content)}
+        />
+      )}
     </div>
   );
 }
@@ -118,24 +132,26 @@ function AddButton({ label, icon, onClick }: { label: string; icon: React.ReactN
   );
 }
 
-function RefGrid({ refs, onDelete, onTogglePin }: {
+function RefGrid({ refs, onDelete, onTogglePin, onEdit }: {
   refs: Reference[];
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
+  onEdit: (ref: Reference) => void;
 }) {
   return (
     <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
       {refs.map(ref => (
-        <RefCard key={ref.id} ref_={ref} onDelete={onDelete} onTogglePin={onTogglePin} />
+        <RefCard key={ref.id} ref_={ref} onDelete={onDelete} onTogglePin={onTogglePin} onEdit={onEdit} />
       ))}
     </div>
   );
 }
 
-function RefCard({ ref_, onDelete, onTogglePin }: {
+function RefCard({ ref_, onDelete, onTogglePin, onEdit }: {
   ref_: Reference;
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
+  onEdit: (ref: Reference) => void;
 }) {
   const [readOpen, setReadOpen] = useState(false);
 
@@ -199,6 +215,13 @@ function RefCard({ ref_, onDelete, onTogglePin }: {
               <Pin size={13} />
             </button>
             <button
+              onClick={e => { e.stopPropagation(); onEdit(ref_); }}
+              className="p-1 rounded text-stone-400 hover:text-stone-700 transition-colors"
+              title="Edit"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
               onClick={e => { e.stopPropagation(); onDelete(ref_.id); }}
               className="p-1 rounded text-stone-400 hover:text-red-500 transition-colors ml-auto"
             >
@@ -215,6 +238,65 @@ function RefCard({ ref_, onDelete, onTogglePin }: {
         </div>
       </Modal>
     </>
+  );
+}
+
+function EditRefModal({ ref_, onClose, onSave }: {
+  ref_: Reference;
+  onClose: () => void;
+  onSave: (title: string, content: string) => void;
+}) {
+  const [title, setTitle] = useState(ref_.title);
+  const [content, setContent] = useState(ref_.content);
+
+  const LABEL: Record<ReferenceType, string> = {
+    link: 'URL',
+    image: 'Image URL',
+    text: 'Note',
+  };
+
+  function save() {
+    if (!content.trim()) return;
+    onSave(title.trim(), content.trim());
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Edit Reference" size="md">
+      <div className="p-6 space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Title</label>
+          <input
+            autoFocus
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Give it a name..."
+            className="input-base w-full"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">{LABEL[ref_.type]}</label>
+          {ref_.type === 'text' ? (
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              rows={6}
+              className="input-base w-full resize-none"
+            />
+          ) : (
+            <input
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && save()}
+              className="input-base w-full"
+            />
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={save} disabled={!content.trim()} className="btn-primary">Save</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
