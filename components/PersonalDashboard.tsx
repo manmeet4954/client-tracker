@@ -190,7 +190,7 @@ function BucketCard({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-stone-200">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-stone-100">
         <div className="flex items-baseline justify-between">
@@ -394,7 +394,7 @@ function ClientPicker({
         {selected ? (
           <>
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentFor(selected.id) }} />
-            <span className="max-w-[80px] truncate">{selected.name}</span>
+            <span className="max-w-[120px] truncate">{selected.name}</span>
           </>
         ) : (
           <span className="text-stone-400">Client</span>
@@ -403,7 +403,7 @@ function ClientPicker({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-30 w-44 bg-white border border-stone-200 rounded-xl shadow-lg py-1 max-h-60 overflow-y-auto">
+        <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-stone-200 rounded-xl shadow-xl py-1 max-h-[60vh] overflow-y-auto">
           <button
             onClick={() => { onChange(undefined); setOpen(false); }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-stone-500 hover:bg-stone-50 transition-colors"

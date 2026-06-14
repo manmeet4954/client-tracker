@@ -145,6 +145,8 @@ export interface BrainNode {
   text: string;
   x: number;
   y: number;
+  w?: number;            // optional custom width (px)
+  h?: number;            // optional custom height (px)
   kind: BrainNodeKind;
   clientId?: string;     // optional — tag for clarity (personal if absent)
   createdAt: string;

@@ -40,14 +40,14 @@ export default function BrainDumpView() {
   // live drag positions (not yet committed to global state)
   const [live, setLive] = useState<Record<string, { x: number; y: number }>>({});
   const [drag, setDrag] = useState<{ id: string; sx: number; sy: number; ox: number; oy: number } | null>(null);
-  // measured heights for edge anchoring
-  const [heights, setHeights] = useState<Record<string, number>>({});
+  // measured node sizes for edge anchoring (updates live during resize)
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [linkFrom, setLinkFrom] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
 
   const posOf = (n: BrainNode) => live[n.id] ?? { x: n.x, y: n.y };
-  const heightOf = (id: string) => heights[id] ?? 64;
+  const sizeOf = (id: string) => sizes[id] ?? { w: NODE_W, h: 64 };
 
   const accentFor = (clientId?: string): string => {
     if (!clientId) return '#8c52ff';
@@ -89,8 +89,8 @@ export default function BrainDumpView() {
     };
   }, [drag, nodes, dispatch]);
 
-  const reportHeight = useCallback((id: string, h: number) => {
-    setHeights(prev => (prev[id] === h ? prev : { ...prev, [id]: h }));
+  const reportSize = useCallback((id: string, w: number, h: number) => {
+    setSizes(prev => (prev[id]?.w === w && prev[id]?.h === h ? prev : { ...prev, [id]: { w, h } }));
   }, []);
 
   // ── add a new thought near the current viewport center ──
@@ -125,7 +125,8 @@ export default function BrainDumpView() {
 
   function center(n: BrainNode) {
     const p = posOf(n);
-    return { cx: p.x + NODE_W / 2, cy: p.y + heightOf(n.id) / 2 };
+    const s = sizeOf(n.id);
+    return { cx: p.x + s.w / 2, cy: p.y + s.h / 2 };
   }
 
   const nodeById = (id: string) => nodes.find(n => n.id === id);
@@ -265,7 +266,7 @@ export default function BrainDumpView() {
                 editing={editingId === node.id}
                 linking={linkFrom !== null}
                 isLinkSource={linkFrom === node.id}
-                onReportHeight={reportHeight}
+                onReportSize={reportSize}
                 onPointerDownBody={(e) => startDrag(node, e)}
                 onTap={() => onNodeTap(node)}
                 onStartLink={() => setLinkFrom(node.id)}
@@ -286,7 +287,7 @@ export default function BrainDumpView() {
 
 function NodeCard({
   node, x, y, accent, client, clients, accentFor, editing, linking, isLinkSource,
-  onReportHeight, onPointerDownBody, onTap, onStartLink, onEdit, onCloseEdit, onChange, onDelete,
+  onReportSize, onPointerDownBody, onTap, onStartLink, onEdit, onCloseEdit, onChange, onDelete,
 }: {
   node: BrainNode;
   x: number; y: number;
@@ -297,7 +298,7 @@ function NodeCard({
   editing: boolean;
   linking: boolean;
   isLinkSource: boolean;
-  onReportHeight: (id: string, h: number) => void;
+  onReportSize: (id: string, w: number, h: number) => void;
   onPointerDownBody: (e: React.PointerEvent) => void;
   onTap: () => void;
   onStartLink: () => void;
@@ -308,44 +309,70 @@ function NodeCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState(node.text);
+  const [rSize, setRSize] = useState<{ w: number; h: number } | null>(null);
 
   // Apply a non-text patch while preserving the in-progress draft text,
   // so toggling kind/client mid-edit never reverts what you've typed.
   const applyPatch = (patch: Partial<BrainNode>) => onChange({ text: draft.trim(), ...patch });
 
-  // report height for edge anchoring
+  // report measured size for edge anchoring (updates live during resize)
   useEffect(() => {
     if (!ref.current) return;
-    const ro = new ResizeObserver(() => {
-      if (ref.current) onReportHeight(node.id, ref.current.offsetHeight);
-    });
-    ro.observe(ref.current);
-    onReportHeight(node.id, ref.current.offsetHeight);
+    const el = ref.current;
+    const ro = new ResizeObserver(() => onReportSize(node.id, el.offsetWidth, el.offsetHeight));
+    ro.observe(el);
+    onReportSize(node.id, el.offsetWidth, el.offsetHeight);
     return () => ro.disconnect();
-  }, [node.id, onReportHeight]);
+  }, [node.id, onReportSize]);
+
+  // ── resize via corner grip ──
+  function startResize(e: React.PointerEvent) {
+    e.stopPropagation();
+    const rect = ref.current?.getBoundingClientRect();
+    const start = { sx: e.clientX, sy: e.clientY, ow: rect?.width ?? NODE_W, oh: rect?.height ?? 96 };
+    let cur = { w: start.ow, h: start.oh };
+    function move(ev: PointerEvent) {
+      cur = {
+        w: Math.min(580, Math.max(150, start.ow + (ev.clientX - start.sx))),
+        h: Math.min(680, Math.max(80, start.oh + (ev.clientY - start.sy))),
+      };
+      setRSize({ ...cur });
+    }
+    function up() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      applyPatch({ w: Math.round(cur.w), h: Math.round(cur.h) });
+      setRSize(null);
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
 
   const kindColor = KIND_COLOR[node.kind];
+  const curW = rSize?.w ?? node.w ?? NODE_W;
+  // ignore custom height while editing so the edit controls always fit
+  const curH = editing ? undefined : (rSize?.h ?? node.h);
 
   return (
     <div
       ref={ref}
       className="absolute select-none"
       style={{
-        left: x, top: y, width: NODE_W, zIndex: editing ? 30 : 10,
+        left: x, top: y, width: curW, zIndex: editing ? 30 : 10,
         touchAction: editing ? 'auto' : 'none',
       }}
       onClick={(e) => { if (linking) { e.stopPropagation(); onTap(); } }}
     >
       <div
-        className={`bg-white rounded-xl border shadow-sm transition-shadow ${
+        className={`relative bg-white rounded-xl border shadow-sm flex flex-col transition-shadow ${
           isLinkSource ? 'ring-2 ring-violet-400' : ''
         } ${linking && !isLinkSource ? 'cursor-pointer hover:ring-2 hover:ring-violet-300' : ''}`}
-        style={{ borderColor: '#e7e5e4', borderLeft: `4px solid ${kindColor}` }}
+        style={{ borderColor: '#e7e5e4', borderLeft: `4px solid ${kindColor}`, height: curH }}
       >
         {/* drag handle / header */}
         <div
           onPointerDown={editing || linking ? undefined : onPointerDownBody}
-          className={`flex items-center gap-1.5 px-3 pt-2.5 pb-1 ${editing || linking ? '' : 'cursor-grab active:cursor-grabbing'}`}
+          className={`flex items-center gap-1.5 px-3 pt-2.5 pb-1 shrink-0 ${editing || linking ? '' : 'cursor-grab active:cursor-grabbing'}`}
         >
           {node.kind === 'idea'
             ? <Lightbulb size={13} style={{ color: kindColor }} />
@@ -356,13 +383,13 @@ function NodeCard({
           {client && (
             <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-stone-500">
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accent }} />
-              <span className="max-w-[70px] truncate">{client.name}</span>
+              <span className="max-w-[90px] truncate">{client.name}</span>
             </span>
           )}
         </div>
 
         {/* body */}
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-2 flex-1 overflow-auto min-h-0">
           {editing ? (
             <>
               <textarea
@@ -405,7 +432,7 @@ function NodeCard({
 
         {/* action bar */}
         {!editing && !linking && (
-          <div className="flex items-center gap-0.5 px-2 py-1 border-t border-stone-100">
+          <div className="flex items-center gap-0.5 px-2 py-1 border-t border-stone-100 shrink-0">
             <button onClick={(e) => { e.stopPropagation(); onStartLink(); }} title="Connect"
               className="p-1.5 rounded text-stone-400 hover:text-violet-600 hover:bg-violet-50 transition-colors">
               <Link2 size={13} />
@@ -415,9 +442,23 @@ function NodeCard({
               <Pencil size={13} />
             </button>
             <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete"
-              className="p-1.5 rounded text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-auto">
+              className="p-1.5 rounded text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors">
               <Trash2 size={13} />
             </button>
+          </div>
+        )}
+
+        {/* resize grip */}
+        {!linking && (
+          <div
+            onPointerDown={startResize}
+            title="Drag to resize"
+            className="absolute bottom-0 right-0 w-5 h-5 flex items-end justify-end p-1 cursor-nwse-resize"
+            style={{ touchAction: 'none' }}
+          >
+            <svg width="9" height="9" viewBox="0 0 9 9">
+              <path d="M8.5 2 L2 8.5 M8.5 5.2 L5.2 8.5" stroke="#cbb8e6" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
           </div>
         )}
       </div>
