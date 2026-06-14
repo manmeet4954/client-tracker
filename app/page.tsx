@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Sparkles, Users } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import Modal from '@/components/Modal';
 import type { Client } from '@/types';
 
 // ── Greeting helpers ────────────────────────────────────────────────────────
@@ -78,28 +77,11 @@ const GLASS: React.CSSProperties = {
   boxShadow:            '0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.14)',
 };
 
-const GLASS_ADD: React.CSSProperties = {
-  background:           'rgba(255,255,255,0.07)',
-  backdropFilter:       'blur(20px)',
-  WebkitBackdropFilter: 'blur(20px)',
-  border:               '1px dashed rgba(255,255,255,0.28)',
-};
-
-// ── Accent helper ────────────────────────────────────────────────────────────
-
-function pickAccent(brandColors: { hex: string; role?: string }[] | undefined, fallback: string): string {
-  if (!brandColors?.length) return fallback;
-  const primary = brandColors.find(c => /primary|accent/i.test(c.role ?? ''));
-  return primary?.hex ?? brandColors[0]?.hex ?? fallback;
-}
-
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const { state, dispatch } = useApp();
-  const router               = useRouter();
-  const [addOpen, setAddOpen] = useState(false);
-  const [newName, setNewName] = useState('');
+  const { state }  = useApp();
+  const router     = useRouter();
   const [popping, setPopping] = useState(false);
 
   const greeting = getGreeting();
@@ -112,12 +94,8 @@ export default function Home() {
     setTimeout(() => router.push('/me'), 260);
   }
 
-  function addClient() {
-    const n = newName.trim();
-    if (!n) return;
-    dispatch({ type: 'ADD_CLIENT', payload: { name: n } });
-    setNewName('');
-    setAddOpen(false);
+  function visitClients() {
+    router.push('/clients');
   }
 
   // Find matching client for each logo definition
@@ -217,88 +195,39 @@ export default function Home() {
             >
               Manmeet
             </button>
-
-            {/* Tap hint / pending summary */}
-            <button
-              onClick={openMyDay}
-              className="mt-5 md:mt-7 flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 hover:scale-[1.05] active:scale-[0.97]"
-              style={GLASS}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
-              <span className="text-white text-xs md:text-sm font-medium" style={{ fontFamily: "'Inter', sans-serif" }}>
-                {pendingTotal > 0 ? `My Day · ${pendingTotal} pending` : 'Open My Day'}
-              </span>
-              <span className="text-white/45 text-xs">→</span>
-            </button>
           </div>
 
-          {/* Glass client pills */}
-          <div className="pb-10 md:pb-14 shrink-0 flex flex-col items-center">
-            <p className="text-white/40 text-[10px] font-medium tracking-[0.22em] uppercase mb-3 mt-5">
-              {state.clients.length === 0 ? 'No clients yet' : 'Clients'}
-            </p>
-            <div className="flex flex-wrap justify-center gap-2.5">
-              {state.clients.map(client => (
-                <button
-                  key={client.id}
-                  onClick={() => router.push(`/client/${client.id}`)}
-                  className="group flex items-center gap-2.5 pl-3 pr-4 py-2.5 rounded-2xl
-                             transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]"
-                  style={GLASS}
-                >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: pickAccent(state.clientData[client.id]?.brandKit?.colors, client.color) }} />
-                  <span
-                    className="text-white text-sm"
-                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600 }}
-                  >
-                    {client.name}
-                  </span>
-                  <span className="text-white/35 text-xs ml-0.5 transition-colors group-hover:text-white/65">↗</span>
-                </button>
-              ))}
+          {/* Two primary actions */}
+          <div className="pb-12 md:pb-16 shrink-0 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={openMyDay}
+              className="flex items-center gap-2.5 px-5 py-3 rounded-2xl transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]"
+              style={GLASS}
+            >
+              <Sparkles size={16} className="text-white" />
+              <span className="text-white text-sm md:text-base font-semibold" style={{ fontFamily: "'Inter', sans-serif" }}>
+                Open My Day
+              </span>
+              {pendingTotal > 0 && (
+                <span className="text-[11px] text-white/80 bg-white/20 rounded-full px-2 py-0.5 font-medium">{pendingTotal}</span>
+              )}
+              <span className="text-white/45 text-sm">→</span>
+            </button>
 
-              <button
-                onClick={() => setAddOpen(true)}
-                className="flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-2xl
-                           transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]"
-                style={GLASS_ADD}
-              >
-                <Plus size={12} className="text-white/50" />
-                <span className="text-white/50 text-sm" style={{ fontFamily: "'Inter', sans-serif" }}>
-                  Add client
-                </span>
-              </button>
-            </div>
+            <button
+              onClick={visitClients}
+              className="flex items-center gap-2.5 px-5 py-3 rounded-2xl transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]"
+              style={GLASS}
+            >
+              <Users size={16} className="text-white" />
+              <span className="text-white text-sm md:text-base font-semibold" style={{ fontFamily: "'Inter', sans-serif" }}>
+                Visit Clients
+              </span>
+              <span className="text-white/45 text-sm">→</span>
+            </button>
           </div>
         </div>
       </div>
-
-      {/* ── Add-client modal ──────────────────────────────────── */}
-      <Modal
-        open={addOpen}
-        onClose={() => { setAddOpen(false); setNewName(''); }}
-        title="New Client"
-        size="sm"
-      >
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-stone-500 mb-1.5">Client name</label>
-            <input
-              autoFocus
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addClient()}
-              placeholder="e.g. CareerBubble"
-              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm
-                         focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => { setAddOpen(false); setNewName(''); }} className="btn-secondary">Cancel</button>
-            <button onClick={addClient} disabled={!newName.trim()} className="btn-primary">Add</button>
-          </div>
-        </div>
-      </Modal>
     </>
   );
 }
