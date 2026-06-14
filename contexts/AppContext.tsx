@@ -4,6 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, useRef } from 
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
+  PersonalTask,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -46,6 +47,7 @@ const SEED: AppState = {
     'divine-studio': defaultClientData(),
     'sonias-crochet': defaultClientData(),
   },
+  personalTasks: [],
 };
 
 export type Action =
@@ -75,7 +77,11 @@ export type Action =
   | { type: 'DELETE_EVERGREEN'; payload: { clientId: string; ideaId: string } }
   | { type: 'SAVE_STUDIO_COMP'; payload: { clientId: string; comp: StudioComposition } }
   | { type: 'DELETE_STUDIO_COMP'; payload: { clientId: string; compId: string } }
-  | { type: 'UPDATE_BRAND_KIT'; payload: { clientId: string; brandKit: BrandKit } };
+  | { type: 'UPDATE_BRAND_KIT'; payload: { clientId: string; brandKit: BrandKit } }
+  | { type: 'ADD_TASK'; payload: { task: PersonalTask } }
+  | { type: 'EDIT_TASK'; payload: { task: PersonalTask } }
+  | { type: 'TOGGLE_TASK'; payload: { taskId: string } }
+  | { type: 'DELETE_TASK'; payload: { taskId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -86,7 +92,8 @@ function reducer(state: AppState, action: Action): AppState {
 
   switch (action.type) {
     case 'LOAD':
-      return action.payload;
+      // Normalize older saved states that predate personalTasks
+      return { ...action.payload, personalTasks: action.payload.personalTasks ?? [] };
 
     case 'ADD_CLIENT': {
       const id = generateId();
@@ -98,6 +105,7 @@ function reducer(state: AppState, action: Action): AppState {
         createdAt: new Date().toISOString(),
       };
       return {
+        ...state,
         clients: [...state.clients, client],
         clientData: { ...state.clientData, [id]: defaultClientData() },
       };
@@ -105,7 +113,7 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'REMOVE_CLIENT': {
       const { [action.payload]: _removed, ...rest } = state.clientData;
-      return { clients: state.clients.filter(c => c.id !== action.payload), clientData: rest };
+      return { ...state, clients: state.clients.filter(c => c.id !== action.payload), clientData: rest };
     }
 
     case 'RENAME_CLIENT':
@@ -273,6 +281,33 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'UPDATE_BRAND_KIT':
       return updateClient(action.payload.clientId, { brandKit: action.payload.brandKit });
+
+    case 'ADD_TASK':
+      return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
+
+    case 'EDIT_TASK':
+      return {
+        ...state,
+        personalTasks: (state.personalTasks ?? []).map(t =>
+          t.id === action.payload.task.id ? action.payload.task : t
+        ),
+      };
+
+    case 'TOGGLE_TASK':
+      return {
+        ...state,
+        personalTasks: (state.personalTasks ?? []).map(t =>
+          t.id === action.payload.taskId
+            ? { ...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : undefined }
+            : t
+        ),
+      };
+
+    case 'DELETE_TASK':
+      return {
+        ...state,
+        personalTasks: (state.personalTasks ?? []).filter(t => t.id !== action.payload.taskId),
+      };
 
     default:
       return state;

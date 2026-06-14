@@ -100,9 +100,17 @@ export default function Home() {
   const router               = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [popping, setPopping] = useState(false);
 
   const greeting = getGreeting();
   const dateLine  = getDateLine();
+
+  const pendingTotal = (state.personalTasks ?? []).filter(t => !t.done).length;
+
+  function openMyDay() {
+    setPopping(true);
+    setTimeout(() => router.push('/me'), 260);
+  }
 
   function addClient() {
     const n = newName.trim();
@@ -190,20 +198,38 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Giant name */}
-          <div className="flex-1 flex items-center justify-center overflow-visible">
-            <h1
-              className="text-white text-center select-none"
+          {/* Giant name — tap to open My Day */}
+          <div className="flex-1 flex flex-col items-center justify-center overflow-visible">
+            <button
+              onClick={openMyDay}
+              aria-label="Open my personal dashboard"
+              className={`text-white text-center select-none cursor-pointer transition-transform duration-200 hover:scale-[1.015] ${popping ? 'name-pop' : ''}`}
               style={{
                 fontSize:      'clamp(68px, 18vw, 240px)',
                 fontFamily:    "'Inter', sans-serif",
                 fontWeight:    900,
                 letterSpacing: '-0.025em',
                 lineHeight:    0.88,
+                background:    'none',
+                border:        'none',
+                padding:       0,
               }}
             >
               Manmeet
-            </h1>
+            </button>
+
+            {/* Tap hint / pending summary */}
+            <button
+              onClick={openMyDay}
+              className="mt-5 md:mt-7 flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 hover:scale-[1.05] active:scale-[0.97]"
+              style={GLASS}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+              <span className="text-white text-xs md:text-sm font-medium" style={{ fontFamily: "'Inter', sans-serif" }}>
+                {pendingTotal > 0 ? `My Day · ${pendingTotal} pending` : 'Open My Day'}
+              </span>
+              <span className="text-white/45 text-xs">→</span>
+            </button>
           </div>
 
           {/* Glass client pills */}

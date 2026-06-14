@@ -115,9 +115,31 @@ export interface Client {
   createdAt: string;
 }
 
+// ── Personal ("My Day") tasks ───────────────────────────────────────────────
+
+export type TaskBucket = 'today' | 'week' | 'todo';
+
+export const TASK_BUCKETS: { id: TaskBucket; label: string; sub: string }[] = [
+  { id: 'today', label: 'Today',     sub: "What you're doing today" },
+  { id: 'week',  label: 'This Week', sub: 'Goals for the week' },
+  { id: 'todo',  label: 'To-Do',     sub: 'Everything pending' },
+];
+
+export interface PersonalTask {
+  id: string;
+  text: string;
+  bucket: TaskBucket;
+  clientId?: string;     // optional — which client this is for
+  dueDate?: string;      // optional ISO date (yyyy-mm-dd)
+  done: boolean;
+  completedAt?: string;  // ISO timestamp when checked off
+  createdAt: string;
+}
+
 export interface AppState {
   clients: Client[];
   clientData: Record<string, ClientData>;
+  personalTasks: PersonalTask[];
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────
