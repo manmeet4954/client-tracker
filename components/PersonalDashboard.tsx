@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Plus, Check, Calendar, Trash2, Pencil,
-  ChevronDown, CheckCircle2, Circle,
+  ChevronDown, CheckCircle2, Circle, Sparkles,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { generateId, formatDate } from '@/lib/utils';
@@ -65,13 +65,30 @@ export default function PersonalDashboard() {
         }}
       >
         <div className="relative z-10 px-5 md:px-10 pt-6 pb-7 max-w-6xl mx-auto">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-medium transition-colors mb-5"
-          >
-            <ArrowLeft size={16} />
-            Home
-          </button>
+          <div className="flex items-center justify-between mb-5">
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-medium transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Home
+            </button>
+
+            {/* Brain Dump shortcut */}
+            <button
+              onClick={() => router.push('/brain')}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-2xl transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]"
+              style={{
+                background: 'rgba(255,255,255,0.16)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: '1px solid rgba(255,255,255,0.28)',
+              }}
+            >
+              <Sparkles size={14} className="text-white" />
+              <span className="text-white text-xs font-semibold">Brain Dump</span>
+            </button>
+          </div>
 
           <p className="text-white/60 text-[11px] font-medium tracking-[0.2em] uppercase mb-1.5">
             {new Intl.DateTimeFormat('en-US', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}

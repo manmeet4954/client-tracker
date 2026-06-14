@@ -4,7 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, useRef } from 
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
-  PersonalTask,
+  PersonalTask, BrainNode, BrainEdge,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -48,6 +48,7 @@ const SEED: AppState = {
     'sonias-crochet': defaultClientData(),
   },
   personalTasks: [],
+  brainDump: { nodes: [], edges: [] },
 };
 
 export type Action =
@@ -81,7 +82,12 @@ export type Action =
   | { type: 'ADD_TASK'; payload: { task: PersonalTask } }
   | { type: 'EDIT_TASK'; payload: { task: PersonalTask } }
   | { type: 'TOGGLE_TASK'; payload: { taskId: string } }
-  | { type: 'DELETE_TASK'; payload: { taskId: string } };
+  | { type: 'DELETE_TASK'; payload: { taskId: string } }
+  | { type: 'ADD_BRAIN_NODE'; payload: { node: BrainNode } }
+  | { type: 'UPDATE_BRAIN_NODE'; payload: { node: BrainNode } }
+  | { type: 'DELETE_BRAIN_NODE'; payload: { nodeId: string } }
+  | { type: 'ADD_BRAIN_EDGE'; payload: { edge: BrainEdge } }
+  | { type: 'DELETE_BRAIN_EDGE'; payload: { edgeId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -92,8 +98,12 @@ function reducer(state: AppState, action: Action): AppState {
 
   switch (action.type) {
     case 'LOAD':
-      // Normalize older saved states that predate personalTasks
-      return { ...action.payload, personalTasks: action.payload.personalTasks ?? [] };
+      // Normalize older saved states that predate newer top-level fields
+      return {
+        ...action.payload,
+        personalTasks: action.payload.personalTasks ?? [],
+        brainDump: action.payload.brainDump ?? { nodes: [], edges: [] },
+      };
 
     case 'ADD_CLIENT': {
       const id = generateId();
@@ -307,6 +317,60 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         personalTasks: (state.personalTasks ?? []).filter(t => t.id !== action.payload.taskId),
+      };
+
+    case 'ADD_BRAIN_NODE':
+      return {
+        ...state,
+        brainDump: {
+          nodes: [...(state.brainDump?.nodes ?? []), action.payload.node],
+          edges: state.brainDump?.edges ?? [],
+        },
+      };
+
+    case 'UPDATE_BRAIN_NODE':
+      return {
+        ...state,
+        brainDump: {
+          nodes: (state.brainDump?.nodes ?? []).map(n =>
+            n.id === action.payload.node.id ? action.payload.node : n
+          ),
+          edges: state.brainDump?.edges ?? [],
+        },
+      };
+
+    case 'DELETE_BRAIN_NODE':
+      return {
+        ...state,
+        brainDump: {
+          nodes: (state.brainDump?.nodes ?? []).filter(n => n.id !== action.payload.nodeId),
+          // cascade: drop any edge touching the deleted node
+          edges: (state.brainDump?.edges ?? []).filter(
+            e => e.from !== action.payload.nodeId && e.to !== action.payload.nodeId
+          ),
+        },
+      };
+
+    case 'ADD_BRAIN_EDGE': {
+      const edges = state.brainDump?.edges ?? [];
+      const { from, to } = action.payload.edge;
+      // avoid self-links and duplicates (either direction)
+      if (from === to || edges.some(e => (e.from === from && e.to === to) || (e.from === to && e.to === from))) {
+        return state;
+      }
+      return {
+        ...state,
+        brainDump: { nodes: state.brainDump?.nodes ?? [], edges: [...edges, action.payload.edge] },
+      };
+    }
+
+    case 'DELETE_BRAIN_EDGE':
+      return {
+        ...state,
+        brainDump: {
+          nodes: state.brainDump?.nodes ?? [],
+          edges: (state.brainDump?.edges ?? []).filter(e => e.id !== action.payload.edgeId),
+        },
       };
 
     default:

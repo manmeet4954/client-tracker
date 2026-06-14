@@ -136,10 +136,36 @@ export interface PersonalTask {
   createdAt: string;
 }
 
+// ── Brain Dump (mind map) ────────────────────────────────────────────────────
+
+export type BrainNodeKind = 'thought' | 'idea';
+
+export interface BrainNode {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  kind: BrainNodeKind;
+  clientId?: string;     // optional — tag for clarity (personal if absent)
+  createdAt: string;
+}
+
+export interface BrainEdge {
+  id: string;
+  from: string;          // node id
+  to: string;            // node id
+}
+
+export interface BrainDump {
+  nodes: BrainNode[];
+  edges: BrainEdge[];
+}
+
 export interface AppState {
   clients: Client[];
   clientData: Record<string, ClientData>;
   personalTasks: PersonalTask[];
+  brainDump: BrainDump;
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────
