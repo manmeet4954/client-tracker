@@ -61,9 +61,7 @@ export default function PersonalDashboard() {
       <header
         className="relative overflow-hidden"
         style={{
-          background: 'linear-gradient(-45deg, #8c52ff, #c35dcc, #ff914d, #c35dcc, #8c52ff)',
-          backgroundSize: '400% 400%',
-          animation: 'gradientDrift 14s ease infinite',
+          background: 'linear-gradient(120deg, #8c52ff 0%, #c35dcc 52%, #ff914d 100%)',
         }}
       >
         <div className="relative z-10 px-5 md:px-10 pt-6 pb-7 max-w-6xl mx-auto">
