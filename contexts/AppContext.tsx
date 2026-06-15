@@ -7,10 +7,10 @@ import {
   PersonalTask, BrainNode, BrainEdge, ColdCall,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import type { Role } from '@/lib/access';
+import PasscodeGate from '@/components/PasscodeGate';
 
-const STORAGE_KEY = 'clientdash_v2';
-const DB_ROW_ID = 'manmeet';
+type AuthStatus = 'loading' | 'needsAuth' | 'authed';
 
 const defaultBrand: BrandOverview = {
   tagline: '',
@@ -410,57 +410,86 @@ interface CtxValue {
   dispatch: React.Dispatch<Action>;
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
+  role: Role;
+  logout: () => void;
 }
 
 const AppContext = createContext<CtxValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, SEED);
-  const [loaded, setLoaded] = React.useState(false);
+  const [status, setStatus] = React.useState<AuthStatus>('loading');
+  const [role, setRole] = React.useState<Role>('owner');
+  const [authError, setAuthError] = React.useState('');
   const [selectedMonth, setSelectedMonth] = React.useState(() => formatMonthKey(new Date()));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedRef = useRef(false);
 
-  // Load from Supabase on mount, fall back to localStorage
-  useEffect(() => {
-    async function loadState() {
-      try {
-        const { data, error } = await supabase
-          .from('app_state')
-          .select('data')
-          .eq('id', DB_ROW_ID)
-          .single();
-
-        if (!error && data?.data) {
-          dispatch({ type: 'LOAD', payload: data.data as AppState });
-        } else {
-          // Fall back to localStorage if Supabase has no data yet
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) dispatch({ type: 'LOAD', payload: JSON.parse(raw) });
-        }
-      } catch {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          try { dispatch({ type: 'LOAD', payload: JSON.parse(raw) }); } catch { /* ignore */ }
-        }
-      }
-      setLoaded(true);
+  // Pull the (role-appropriate) state from the server.
+  async function loadState() {
+    try {
+      const res = await fetch('/api/state', { cache: 'no-store' });
+      if (res.status === 401) { setStatus('needsAuth'); return; }
+      if (!res.ok) { setStatus('needsAuth'); return; }
+      const { role: r, state: s } = await res.json();
+      setRole(r as Role);
+      if (s) dispatch({ type: 'LOAD', payload: s as AppState });
+      loadedRef.current = true;
+      setStatus('authed');
+    } catch {
+      setStatus('needsAuth');
     }
-    loadState();
-  }, []);
+  }
 
-  // Save to Supabase (debounced) + localStorage on every state change
+  useEffect(() => { loadState(); }, []);
+
+  // Save to the server (debounced) on every state change once loaded.
   useEffect(() => {
-    if (!loaded) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (status !== 'authed' || !loadedRef.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      await supabase.from('app_state').upsert({ id: DB_ROW_ID, data: state, updated_at: new Date().toISOString() });
-    }, 1000); // debounce 1s so we don't spam on every keystroke
-  }, [state, loaded]);
+    saveTimer.current = setTimeout(() => {
+      fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state }),
+      }).catch(() => { /* offline — next change retries */ });
+    }, 1000);
+  }, [state, status]);
 
-  if (!loaded) return null;
+  async function login(passcode: string) {
+    setAuthError('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: 'Incorrect passcode' }));
+        setAuthError(error ?? 'Incorrect passcode');
+        return;
+      }
+      setStatus('loading');
+      await loadState();
+    } catch {
+      setAuthError('Could not connect. Try again.');
+    }
+  }
 
-  return <AppContext.Provider value={{ state, dispatch, selectedMonth, setSelectedMonth }}>{children}</AppContext.Provider>;
+  async function logout() {
+    await fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
+    loadedRef.current = false;
+    setStatus('needsAuth');
+  }
+
+  if (status === 'loading') return null;
+  if (status === 'needsAuth') return <PasscodeGate onSubmit={login} error={authError} />;
+
+  return (
+    <AppContext.Provider value={{ state, dispatch, selectedMonth, setSelectedMonth, role, logout }}>
+      {children}
+    </AppContext.Provider>
+  );
 }
 
 export function useApp() {

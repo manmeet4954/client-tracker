@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, Plus, ArrowUpRight, LogOut } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import Modal from '@/components/Modal';
 
@@ -13,7 +13,8 @@ function pickAccent(brandColors: { hex: string; role?: string }[] | undefined, f
 }
 
 export default function ClientsView() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, role, logout } = useApp();
+  const isOwner = role === 'owner';
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -34,13 +35,24 @@ export default function ClientsView() {
         style={{ background: 'linear-gradient(120deg, #8c52ff 0%, #c35dcc 52%, #ff914d 100%)' }}
       >
         <div className="relative z-10 px-5 md:px-10 pt-6 pb-7 max-w-5xl mx-auto">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-medium transition-colors mb-5"
-          >
-            <ArrowLeft size={16} />
-            Home
-          </button>
+          <div className="flex items-center justify-between mb-5">
+            {isOwner ? (
+              <button
+                onClick={() => router.push('/')}
+                className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-medium transition-colors"
+              >
+                <ArrowLeft size={16} />
+                Home
+              </button>
+            ) : <span />}
+            <button
+              onClick={logout}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm font-medium transition-colors"
+            >
+              <LogOut size={15} />
+              Log out
+            </button>
+          </div>
           <h1
             className="text-white"
             style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 'clamp(28px, 5vw, 44px)', letterSpacing: '-0.02em' }}
@@ -83,14 +95,16 @@ export default function ClientsView() {
             );
           })}
 
-          {/* Add client */}
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 text-stone-400 hover:text-stone-600 hover:border-stone-400 transition-colors py-8 min-h-[92px]"
-          >
-            <Plus size={18} />
-            <span className="font-medium text-sm">Add Client</span>
-          </button>
+          {/* Add client (owner only) */}
+          {isOwner && (
+            <button
+              onClick={() => setAddOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 text-stone-400 hover:text-stone-600 hover:border-stone-400 transition-colors py-8 min-h-[92px]"
+            >
+              <Plus size={18} />
+              <span className="font-medium text-sm">Add Client</span>
+            </button>
+          )}
         </div>
       </main>
 

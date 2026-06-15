@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, Users } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
@@ -80,14 +80,21 @@ const GLASS: React.CSSProperties = {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const { state }  = useApp();
+  const { state, role }  = useApp();
   const router     = useRouter();
   const [popping, setPopping] = useState(false);
+
+  // Interns don't get the personal home — send them to their clients.
+  useEffect(() => {
+    if (role === 'intern') router.replace('/clients');
+  }, [role, router]);
 
   const greeting = getGreeting();
   const dateLine  = getDateLine();
 
   const pendingTotal = (state.personalTasks ?? []).filter(t => !t.done).length;
+
+  if (role === 'intern') return null;
 
   function openMyDay() {
     setPopping(true);
