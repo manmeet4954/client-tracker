@@ -4,7 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, useRef } from 
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
-  PersonalTask, BrainNode, BrainEdge,
+  PersonalTask, BrainNode, BrainEdge, ColdCall,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +33,7 @@ function defaultClientData(): ClientData {
     postTarget: 0,
     evergreenIdeas: [],
     studioCompositions: [],
+    coldCalls: [],
   };
 }
 
@@ -87,7 +88,10 @@ export type Action =
   | { type: 'UPDATE_BRAIN_NODE'; payload: { node: BrainNode } }
   | { type: 'DELETE_BRAIN_NODE'; payload: { nodeId: string } }
   | { type: 'ADD_BRAIN_EDGE'; payload: { edge: BrainEdge } }
-  | { type: 'DELETE_BRAIN_EDGE'; payload: { edgeId: string } };
+  | { type: 'DELETE_BRAIN_EDGE'; payload: { edgeId: string } }
+  | { type: 'ADD_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
+  | { type: 'UPDATE_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
+  | { type: 'DELETE_COLD_CALL'; payload: { clientId: string; callId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -291,6 +295,23 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'UPDATE_BRAND_KIT':
       return updateClient(action.payload.clientId, { brandKit: action.payload.brandKit });
+
+    case 'ADD_COLD_CALL':
+      return updateClient(action.payload.clientId, {
+        coldCalls: [action.payload.call, ...(cd(action.payload.clientId).coldCalls ?? [])],
+      });
+
+    case 'UPDATE_COLD_CALL':
+      return updateClient(action.payload.clientId, {
+        coldCalls: (cd(action.payload.clientId).coldCalls ?? []).map(c =>
+          c.id === action.payload.call.id ? action.payload.call : c
+        ),
+      });
+
+    case 'DELETE_COLD_CALL':
+      return updateClient(action.payload.clientId, {
+        coldCalls: (cd(action.payload.clientId).coldCalls ?? []).filter(c => c.id !== action.payload.callId),
+      });
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };

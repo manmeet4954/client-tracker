@@ -96,6 +96,29 @@ export interface EvergreenIdea {
   createdAt: string;
 }
 
+// ── Cold Calls (lead tracker — Divine Studio) ────────────────────────────────
+
+export type ColdCallStatus = 'open' | 'reached-out' | 'in-review' | 'closed' | 'not-interested';
+
+export const COLD_CALL_STATUSES: { id: ColdCallStatus; label: string; color: string; bg: string }[] = [
+  { id: 'open',           label: 'Open',           color: '#0284c7', bg: '#e0f2fe' },
+  { id: 'reached-out',    label: 'Reached Out',    color: '#7c3aed', bg: '#ede9fe' },
+  { id: 'in-review',      label: 'In Review',      color: '#d97706', bg: '#fef3c7' },
+  { id: 'closed',         label: 'Closed',         color: '#059669', bg: '#d1fae5' },
+  { id: 'not-interested', label: 'Not Interested', color: '#dc2626', bg: '#fee2e2' },
+];
+
+export interface ColdCall {
+  id: string;
+  name: string;       // client's name
+  phone: string;      // number
+  location: string;   // client location
+  status: ColdCallStatus;
+  response: string;   // what they said
+  notes: string;
+  createdAt: string;
+}
+
 export interface ClientData {
   cards: KanbanCard[];
   customFields: CustomFieldDef[];
@@ -106,6 +129,7 @@ export interface ClientData {
   postTarget: number;
   evergreenIdeas: EvergreenIdea[];
   studioCompositions: StudioComposition[];
+  coldCalls: ColdCall[];
 }
 
 export interface Client {

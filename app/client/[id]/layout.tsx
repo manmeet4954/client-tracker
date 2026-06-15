@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import { useClient } from '@/contexts/AppContext';
 
@@ -48,6 +48,12 @@ export default function ClientLayout({
     );
   }
 
+  // Cold Calls is a Divine Studio–specific lead tracker
+  const isDivine = /divine/i.test(client.name);
+  const tabs = isDivine
+    ? [...TABS, { label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall }]
+    : TABS;
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -73,7 +79,7 @@ export default function ClientLayout({
           </div>
           {/* Tab nav */}
           <nav className="flex items-center gap-1 px-6">
-            {TABS.map(tab => {
+            {tabs.map(tab => {
               const href = `${base}${tab.href}`;
               const isActive = tab.href === '' ? pathname === base : pathname.startsWith(`${base}${tab.href}`);
               const Icon = tab.icon;
@@ -115,7 +121,7 @@ export default function ClientLayout({
           </div>
           {/* Mobile tab bar — horizontal scroll */}
           <nav className="flex overflow-x-auto border-t border-stone-100 px-2 no-scrollbar">
-            {TABS.map(tab => {
+            {tabs.map(tab => {
               const href = `${base}${tab.href}`;
               const isActive = tab.href === '' ? pathname === base : pathname.startsWith(`${base}${tab.href}`);
               const Icon = tab.icon;
