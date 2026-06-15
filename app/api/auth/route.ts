@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authConfigured, roleForPasscode, signRole, SESSION_COOKIE } from '@/lib/auth';
+import { authConfigured, roleForPasscode, signRole, SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,13 +18,7 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ role });
-  res.cookies.set(SESSION_COOKIE, signRole(role), {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
-  });
+  res.cookies.set(SESSION_COOKIE, signRole(role), sessionCookieOptions());
   return res;
 }
 

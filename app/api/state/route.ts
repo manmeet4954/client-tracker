@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
+import { authConfigured, verifyToken, signRole, SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth';
 import { readState, writeState } from '@/lib/supabaseServer';
 import { filterStateForIntern, mergeInternWrite, normalizeState, emptyState, type Role } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
-// deploy: apply passcode env vars
 
 function currentRole(): Role | null {
   if (!authConfigured()) return 'owner'; // open mode
@@ -19,12 +18,14 @@ export async function GET() {
   if (!role) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const raw = await readState();
-  if (!raw) {
-    // No saved row yet: owner starts empty (client seeds), intern sees nothing.
-    return NextResponse.json({ role, state: role === 'intern' ? emptyState() : null });
-  }
-  const state = role === 'intern' ? filterStateForIntern(raw) : normalizeState(raw);
-  return NextResponse.json({ role, state });
+  const state = !raw
+    ? (role === 'intern' ? emptyState() : null) // no saved row yet
+    : (role === 'intern' ? filterStateForIntern(raw) : normalizeState(raw));
+
+  const res = NextResponse.json({ role, state });
+  // Slide the session forward on each visit so active users stay logged in.
+  if (authConfigured()) res.cookies.set(SESSION_COOKIE, signRole(role), sessionCookieOptions());
+  return res;
 }
 
 // POST { state } → owners write everything; interns may only change the two
