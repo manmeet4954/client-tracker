@@ -2,12 +2,52 @@
 
 import { useState, useRef, useEffect } from 'react';
 import {
-  Plus, Phone, MapPin, Pencil, Trash2, Search, ChevronDown, PhoneCall,
+  Plus, Phone, MapPin, Pencil, Trash2, Search, ChevronDown, PhoneCall, Upload,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
 import { ColdCall, ColdCallStatus, COLD_CALL_STATUSES } from '@/types';
 import Modal from './Modal';
+
+// Parse pasted lead lines → { name, phone, location }.
+// Prefers an explicit "|" / tab delimiter; otherwise grabs the longest
+// digit-run (>=10 digits) as the phone so dates/times in names aren't mistaken.
+function parseLeadLines(text: string): { name: string; phone: string; location: string }[] {
+  return text
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(line => {
+      let name = '';
+      let phone = '';
+      const pipe = line.lastIndexOf('|');
+      const tab = line.indexOf('\t');
+      if (pipe >= 0) {
+        name = line.slice(0, pipe).trim();
+        phone = line.slice(pipe + 1).replace(/[^\d+]/g, '');
+      } else if (tab >= 0) {
+        name = line.slice(0, tab).trim();
+        phone = line.slice(tab + 1).replace(/[^\d+]/g, '');
+      } else {
+        let best = '';
+        const matches = Array.from(line.matchAll(/\+?\d[\d\s-]{8,}\d/g));
+        for (const m of matches) {
+          const digits = m[0].replace(/\D/g, '');
+          if (digits.length >= 10 && digits.length >= best.replace(/\D/g, '').length) best = m[0];
+        }
+        if (best) {
+          phone = best.replace(/[^\d+]/g, '');
+          name = line.replace(best, '').trim();
+        } else {
+          name = line;
+        }
+      }
+      name = name.replace(/[,–-]\s*$/, '').trim();
+      const location = /ambala/i.test(name) ? 'Ambala' : '';
+      return { name, phone, location };
+    })
+    .filter(l => l.name || l.phone);
+}
 
 function statusMeta(id: ColdCallStatus) {
   return COLD_CALL_STATUSES.find(s => s.id === id) ?? COLD_CALL_STATUSES[0];
@@ -29,6 +69,7 @@ export default function ColdCallsView({ clientId }: { clientId: string }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ColdCallStatus | ''>('');
   const [editing, setEditing] = useState<ColdCall | null | 'new'>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const visible = calls.filter(c => {
     if (filter && c.status !== filter) return false;
@@ -65,14 +106,23 @@ export default function ColdCallsView({ clientId }: { clientId: string }) {
             Lead tracker — {calls.length} {calls.length === 1 ? 'contact' : 'contacts'}
           </p>
         </div>
-        <button
-          onClick={() => setEditing('new')}
-          className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white rounded-lg transition-opacity hover:opacity-90 shrink-0"
-          style={{ backgroundColor: accent }}
-        >
-          <Plus size={15} />
-          Add Lead
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-stone-600 border border-stone-200 bg-white rounded-lg hover:border-stone-400 transition-colors"
+          >
+            <Upload size={14} />
+            Import
+          </button>
+          <button
+            onClick={() => setEditing('new')}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white rounded-lg transition-opacity hover:opacity-90"
+            style={{ backgroundColor: accent }}
+          >
+            <Plus size={15} />
+            Add Lead
+          </button>
+        </div>
       </div>
 
       {/* Search + filters */}
@@ -214,7 +264,91 @@ export default function ColdCallsView({ clientId }: { clientId: string }) {
           }}
         />
       )}
+
+      {/* Bulk import modal */}
+      {importOpen && (
+        <ImportModal
+          accent={accent}
+          existingPhones={new Set(calls.map(c => c.phone.replace(/\D/g, '')))}
+          onClose={() => setImportOpen(false)}
+          onImport={newCalls => {
+            if (newCalls.length) dispatch({ type: 'ADD_COLD_CALLS', payload: { clientId, calls: newCalls } });
+            setImportOpen(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function ImportModal({ accent, existingPhones, onClose, onImport }: {
+  accent: string;
+  existingPhones: Set<string>;
+  onClose: () => void;
+  onImport: (calls: ColdCall[]) => void;
+}) {
+  const [text, setText] = useState('');
+  const parsed = parseLeadLines(text);
+  // de-dupe within the batch and against existing leads (by digits-only phone)
+  const seen = new Set<string>();
+  const fresh = parsed.filter(p => {
+    const key = p.phone.replace(/\D/g, '');
+    if (key && (existingPhones.has(key) || seen.has(key))) return false;
+    if (key) seen.add(key);
+    return true;
+  });
+  const dupes = parsed.length - fresh.length;
+
+  function doImport() {
+    const now = new Date().toISOString();
+    const calls: ColdCall[] = fresh.map(p => ({
+      id: generateId(),
+      name: p.name,
+      phone: p.phone,
+      location: p.location,
+      status: 'open',
+      response: '',
+      notes: '',
+      createdAt: now,
+    }));
+    onImport(calls);
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Import Leads" size="md">
+      <div className="p-5 space-y-3">
+        <p className="text-xs text-stone-500 leading-relaxed">
+          Paste one lead per line. Use <code className="px-1 py-0.5 bg-stone-100 rounded">Name | Number</code> per line
+          (a plain list of names + numbers also works). Everything imports as <strong>Open</strong>; “Ambala” in a name
+          auto-fills the location.
+        </p>
+        <textarea
+          autoFocus
+          value={text}
+          onChange={e => setText(e.target.value)}
+          rows={10}
+          placeholder={'Aditi Gupta City Vartika | +919971778474\nAman Preet Maam City | +919467857587'}
+          className="input-base w-full resize-none font-mono text-xs"
+        />
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-stone-500">
+            {parsed.length === 0 ? 'Nothing pasted yet'
+              : <><strong className="text-stone-800">{fresh.length}</strong> new lead{fresh.length !== 1 ? 's' : ''}{dupes > 0 && <span className="text-stone-400"> · {dupes} duplicate{dupes !== 1 ? 's' : ''} skipped</span>}</>}
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="btn-secondary">Cancel</button>
+            <button
+              onClick={doImport}
+              disabled={fresh.length === 0}
+              className="px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-40 transition-opacity hover:opacity-90"
+              style={{ backgroundColor: accent }}
+            >
+              Import {fresh.length || ''}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

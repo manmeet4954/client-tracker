@@ -90,6 +90,7 @@ export type Action =
   | { type: 'ADD_BRAIN_EDGE'; payload: { edge: BrainEdge } }
   | { type: 'DELETE_BRAIN_EDGE'; payload: { edgeId: string } }
   | { type: 'ADD_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
+  | { type: 'ADD_COLD_CALLS'; payload: { clientId: string; calls: ColdCall[] } }
   | { type: 'UPDATE_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
   | { type: 'DELETE_COLD_CALL'; payload: { clientId: string; callId: string } };
 
@@ -299,6 +300,11 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_COLD_CALL':
       return updateClient(action.payload.clientId, {
         coldCalls: [action.payload.call, ...(cd(action.payload.clientId).coldCalls ?? [])],
+      });
+
+    case 'ADD_COLD_CALLS':
+      return updateClient(action.payload.clientId, {
+        coldCalls: [...action.payload.calls, ...(cd(action.payload.clientId).coldCalls ?? [])],
       });
 
     case 'UPDATE_COLD_CALL':
