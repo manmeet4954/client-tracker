@@ -441,7 +441,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  useEffect(() => { loadState(); }, []);
+  // Require the passcode on every fresh open: only auto-resume within the same
+  // browser session (sessionStorage clears when the app/tab is closed).
+  useEffect(() => {
+    const activeThisSession =
+      typeof window !== 'undefined' && sessionStorage.getItem('dash_active') === '1';
+    if (activeThisSession) loadState();
+    else setStatus('needsAuth');
+  }, []);
 
   // Save to the server (debounced) on every state change once loaded.
   useEffect(() => {
@@ -469,6 +476,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setAuthError(error ?? 'Incorrect passcode');
         return;
       }
+      sessionStorage.setItem('dash_active', '1'); // remember within this session only
       setStatus('loading');
       await loadState();
     } catch {
@@ -478,6 +486,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     await fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
+    if (typeof window !== 'undefined') sessionStorage.removeItem('dash_active');
     loadedRef.current = false;
     setStatus('needsAuth');
   }

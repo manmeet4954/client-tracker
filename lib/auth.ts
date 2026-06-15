@@ -50,14 +50,14 @@ export function verifyToken(token: string | undefined | null): Role | null {
 }
 
 export const SESSION_COOKIE = 'dash_session';
-export const SESSION_MAX_AGE = 60 * 60 * 24 * 365; // 1 year (refreshed on each visit)
 
+// Session cookie (no maxAge/expires) → cleared when the browser/app closes,
+// so the passcode is required again on each fresh open.
 export function sessionCookieOptions() {
   return {
     httpOnly: true,
     secure: true,
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: SESSION_MAX_AGE,
   };
 }
