@@ -5,6 +5,7 @@ import { readState, writeState } from '@/lib/supabaseServer';
 import { filterStateForIntern, mergeInternWrite, normalizeState, emptyState, type Role } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
+// deploy: apply passcode env vars
 
 function currentRole(): Role | null {
   if (!authConfigured()) return 'owner'; // open mode
