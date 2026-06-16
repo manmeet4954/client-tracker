@@ -5,11 +5,11 @@ import { Check, Loader2, AlertCircle } from 'lucide-react';
 
 type Status = 'saving' | 'saved' | 'empty' | 'error';
 
-// Try to send the user straight back to the app they shared from.
+// Try to send the user straight back to the app they shared from. If the
+// browser won't let the window close itself, we just leave the "Saved ✓"
+// screen up (the user swipes back) rather than dumping them on a blank page.
 function dismiss() {
   try { window.close(); } catch { /* ignore */ }
-  // Fallback for browsers that won't let a tab close itself:
-  try { history.length > 1 ? history.back() : (window.location.href = 'about:blank'); } catch { /* ignore */ }
 }
 
 export default function ShareTargetPage() {
