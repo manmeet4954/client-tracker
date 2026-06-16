@@ -72,7 +72,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       {/* ── Sidebar panel ── */}
       <aside
         className={`
-          shrink-0 h-full flex flex-col overflow-hidden relative
+          shrink-0 h-full flex flex-col overflow-hidden
           fixed md:relative z-50 inset-y-0 left-0
           transition-all duration-300 ease-in-out
           ${collapsed ? 'w-[58px]' : 'w-56'}
