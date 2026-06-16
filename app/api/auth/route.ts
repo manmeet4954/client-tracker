@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { authConfigured, roleForPasscode, signRole, SESSION_COOKIE, cookieOptionsForRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
-// redeploy: apply updated MOM_PASSCODE (v2)
+// redeploy: apply updated MOM_PASSCODE (v3)
 
 // POST { passcode } → sets a signed session cookie and returns the role.
 export async function POST(req: Request) {
