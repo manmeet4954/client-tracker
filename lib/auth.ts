@@ -48,7 +48,7 @@ export function verifyToken(token: string | undefined | null): Role | null {
   if (dot < 0) return null;
   const role = token.slice(0, dot);
   const sig = token.slice(dot + 1);
-  if (role !== 'owner' && role !== 'intern') return null;
+  if (role !== 'owner' && role !== 'intern' && role !== 'sonia') return null;
   const expected = crypto.createHmac('sha256', secret()).update(role).digest('hex');
   if (sig.length !== expected.length) return null;
   try {
