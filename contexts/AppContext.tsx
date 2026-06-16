@@ -424,7 +424,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedMonth, setSelectedMonth] = React.useState(() => formatMonthKey(new Date()));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedRef = useRef(false);
-  const dirtyRef = useRef(false); // true while there are unsaved local changes
+  const dirtyRef = useRef(false);   // true while there are unsaved local changes
+  const skipSaveRef = useRef(false); // skip the save that a fresh LOAD would trigger
 
   // Pull the (role-appropriate) state from the server.
   async function loadState() {
@@ -434,7 +435,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) { setStatus('needsAuth'); return; }
       const { role: r, state: s } = await res.json();
       setRole(r as Role);
-      if (s) dispatch({ type: 'LOAD', payload: s as AppState });
+      // Don't echo freshly-loaded data back to the server — that would clobber
+      // out-of-band writes (e.g. a link just saved from the share sheet).
+      if (s) { skipSaveRef.current = true; dispatch({ type: 'LOAD', payload: s as AppState }); }
       loadedRef.current = true;
       setStatus('authed');
     } catch {
@@ -456,6 +459,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Save to the server (debounced) on every state change once loaded.
   useEffect(() => {
     if (status !== 'authed' || !loadedRef.current) return;
+    if (skipSaveRef.current) { skipSaveRef.current = false; return; } // just loaded — nothing to save
     dirtyRef.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
