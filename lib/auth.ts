@@ -17,14 +17,16 @@ function secret(): string {
   return `${o}::${i}::${m}::dash-session-v1`;
 }
 
-/** Match a submitted passcode to a role, or null if it matches none. */
+/** Match a submitted passcode to a role, or null if it matches none.
+ *  Trims both sides so a stray space/newline in the env value can't break it. */
 export function roleForPasscode(passcode: string): Role | null {
-  const o = process.env.OWNER_PASSCODE;
-  const i = process.env.INTERN_PASSCODE;
-  const m = process.env.MOM_PASSCODE;
-  if (o && passcode === o) return 'owner';
-  if (i && passcode === i) return 'intern';
-  if (m && passcode === m) return 'sonia';
+  const p = passcode.trim();
+  const o = process.env.OWNER_PASSCODE?.trim();
+  const i = process.env.INTERN_PASSCODE?.trim();
+  const m = process.env.MOM_PASSCODE?.trim();
+  if (o && p === o) return 'owner';
+  if (i && p === i) return 'intern';
+  if (m && p === m) return 'sonia';
   return null;
 }
 
