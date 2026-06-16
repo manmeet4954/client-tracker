@@ -7,6 +7,7 @@ import { generateId } from '@/lib/utils';
 import { Reference } from '@/types';
 
 export const dynamic = 'force-dynamic';
+// redeploy: apply MOM_PASSCODE
 
 function currentRole(): Role | null {
   if (!authConfigured()) return 'owner';
