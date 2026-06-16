@@ -424,6 +424,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedMonth, setSelectedMonth] = React.useState(() => formatMonthKey(new Date()));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedRef = useRef(false);
+  const dirtyRef = useRef(false); // true while there are unsaved local changes
 
   // Pull the (role-appropriate) state from the server.
   async function loadState() {
@@ -455,15 +456,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Save to the server (debounced) on every state change once loaded.
   useEffect(() => {
     if (status !== 'authed' || !loadedRef.current) return;
+    dirtyRef.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state }),
-      }).catch(() => { /* offline — next change retries */ });
+      })
+        .then(() => { dirtyRef.current = false; })
+        .catch(() => { /* offline — next change retries */ });
     }, 1000);
   }, [state, status]);
+
+  // When the app comes back to the foreground, re-pull fresh data — so a link
+  // saved from the share sheet (or an edit by another role) shows up, instead
+  // of the dashboard sitting on a stale in-memory copy. Skipped while there are
+  // unsaved local edits so we never clobber them.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible' && loadedRef.current && !dirtyRef.current) {
+        loadState();
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   async function login(passcode: string) {
     setAuthError('');
