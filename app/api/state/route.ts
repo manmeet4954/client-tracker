@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { authConfigured, verifyToken, signRole, SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth';
+import { authConfigured, verifyToken, signRole, SESSION_COOKIE, cookieOptionsForRole } from '@/lib/auth';
 import { readState, writeState } from '@/lib/supabaseServer';
-import { filterStateForIntern, mergeInternWrite, normalizeState, emptyState, type Role } from '@/lib/access';
+import { filterStateForRole, mergeRoleWrite, normalizeState, emptyState, type Role } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,12 +19,12 @@ export async function GET() {
 
   const raw = await readState();
   const state = !raw
-    ? (role === 'intern' ? emptyState() : null) // no saved row yet
-    : (role === 'intern' ? filterStateForIntern(raw) : normalizeState(raw));
+    ? (role === 'owner' ? null : emptyState()) // no saved row yet
+    : filterStateForRole(raw, role);
 
   const res = NextResponse.json({ role, state });
-  // Slide the session forward on each visit so active users stay logged in.
-  if (authConfigured()) res.cookies.set(SESSION_COOKIE, signRole(role), sessionCookieOptions());
+  // Refresh the cookie on each visit (keeps persistent roles persistent).
+  if (authConfigured()) res.cookies.set(SESSION_COOKIE, signRole(role), cookieOptionsForRole(role));
   return res;
 }
 
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   } else {
     const current = await readState();
     if (!current) return NextResponse.json({ error: 'no-state' }, { status: 409 });
-    await writeState(mergeInternWrite(current, incoming));
+    await writeState(mergeRoleWrite(current, incoming, role));
   }
   return NextResponse.json({ ok: true });
 }

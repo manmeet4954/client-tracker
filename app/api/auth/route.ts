@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authConfigured, roleForPasscode, signRole, SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth';
+import { authConfigured, roleForPasscode, signRole, SESSION_COOKIE, cookieOptionsForRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ role });
-  res.cookies.set(SESSION_COOKIE, signRole(role), sessionCookieOptions());
+  res.cookies.set(SESSION_COOKIE, signRole(role), cookieOptionsForRole(role));
   return res;
 }
 

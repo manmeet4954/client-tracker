@@ -1,5 +1,14 @@
 import type { MetadataRoute } from 'next';
 
+// The web-spec share_target shape (object params, "GET") differs from Next's
+// stricter type, so we cast just this piece. The runtime JSON is what Chrome
+// needs for the install-to-share-sheet flow.
+const shareTarget = {
+  action: '/share-target',
+  method: 'GET',
+  params: { title: 'title', text: 'text', url: 'url' },
+} as unknown as MetadataRoute.Manifest['share_target'];
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'My Clients',
@@ -29,5 +38,8 @@ export default function manifest(): MetadataRoute.Manifest {
         type: 'image/png',
       },
     ],
+    // Lets the installed app appear in the OS share sheet (Android). Shared
+    // links land on /share-target and get saved to References.
+    share_target: shareTarget,
   };
 }

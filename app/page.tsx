@@ -84,9 +84,9 @@ export default function Home() {
   const router     = useRouter();
   const [popping, setPopping] = useState(false);
 
-  // Interns don't get the personal home — send them to their clients.
+  // Restricted roles don't get the personal home — send them to their clients.
   useEffect(() => {
-    if (role === 'intern') router.replace('/clients');
+    if (role !== 'owner') router.replace('/clients');
   }, [role, router]);
 
   const greeting = getGreeting();
@@ -94,7 +94,7 @@ export default function Home() {
 
   const pendingTotal = (state.personalTasks ?? []).filter(t => !t.done).length;
 
-  if (role === 'intern') return null;
+  if (role !== 'owner') return null;
 
   function openMyDay() {
     setPopping(true);

@@ -13,16 +13,24 @@ export function authConfigured(): boolean {
 function secret(): string {
   const o = process.env.OWNER_PASSCODE ?? '';
   const i = process.env.INTERN_PASSCODE ?? '';
-  return `${o}::${i}::dash-session-v1`;
+  const m = process.env.MOM_PASSCODE ?? '';
+  return `${o}::${i}::${m}::dash-session-v1`;
 }
 
-/** Match a submitted passcode to a role, or null if it matches neither. */
+/** Match a submitted passcode to a role, or null if it matches none. */
 export function roleForPasscode(passcode: string): Role | null {
   const o = process.env.OWNER_PASSCODE;
   const i = process.env.INTERN_PASSCODE;
+  const m = process.env.MOM_PASSCODE;
   if (o && passcode === o) return 'owner';
   if (i && passcode === i) return 'intern';
+  if (m && passcode === m) return 'sonia';
   return null;
+}
+
+/** True for roles that should stay logged in across app opens. */
+export function rolePersists(role: Role): boolean {
+  return role === 'sonia';
 }
 
 /** Sign a role into a tamper-proof session token (role.hmac). */
@@ -51,13 +59,10 @@ export function verifyToken(token: string | undefined | null): Role | null {
 
 export const SESSION_COOKIE = 'dash_session';
 
-// Session cookie (no maxAge/expires) → cleared when the browser/app closes,
-// so the passcode is required again on each fresh open.
-export function sessionCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax' as const,
-    path: '/',
-  };
+// Cookie lifetime depends on role:
+//  - persistent roles (mom) get a 1-year cookie → stay logged in
+//  - everyone else gets a session cookie → re-auth on each fresh open
+export function cookieOptionsForRole(role: Role) {
+  const base = { httpOnly: true, secure: true, sameSite: 'lax' as const, path: '/' };
+  return rolePersists(role) ? { ...base, maxAge: 60 * 60 * 24 * 365 } : base;
 }

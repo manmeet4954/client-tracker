@@ -10,9 +10,9 @@ export default function BrainPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (role === 'intern') router.replace('/clients');
+    if (role !== 'owner') router.replace('/clients');
   }, [role, router]);
 
-  if (role === 'intern') return null;
+  if (role !== 'owner') return null;
   return <BrainDumpView />;
 }

@@ -441,12 +441,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Require the passcode on every fresh open: only auto-resume within the same
-  // browser session (sessionStorage clears when the app/tab is closed).
+  // Auto-resume only if a persistent role stayed logged in (localStorage), or
+  // within the same browser session for per-open roles (sessionStorage clears
+  // when the app/tab closes → passcode required again).
   useEffect(() => {
-    const activeThisSession =
-      typeof window !== 'undefined' && sessionStorage.getItem('dash_active') === '1';
-    if (activeThisSession) loadState();
+    if (typeof window === 'undefined') return;
+    const persistent = localStorage.getItem('dash_persist') === '1';
+    const activeThisSession = sessionStorage.getItem('dash_active') === '1';
+    if (persistent || activeThisSession) loadState();
     else setStatus('needsAuth');
   }, []);
 
@@ -476,7 +478,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setAuthError(error ?? 'Incorrect passcode');
         return;
       }
-      sessionStorage.setItem('dash_active', '1'); // remember within this session only
+      const { role: r } = await res.json().catch(() => ({ role: 'owner' }));
+      if (r === 'sonia') localStorage.setItem('dash_persist', '1'); // mom stays logged in
+      else sessionStorage.setItem('dash_active', '1');               // others: this session only
       setStatus('loading');
       await loadState();
     } catch {
@@ -486,7 +490,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     await fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
-    if (typeof window !== 'undefined') sessionStorage.removeItem('dash_active');
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('dash_active');
+      localStorage.removeItem('dash_persist');
+    }
     loadedRef.current = false;
     setStatus('needsAuth');
   }
