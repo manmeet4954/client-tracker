@@ -47,6 +47,11 @@ export default function PasscodeGate({ onSubmit, error }: {
         <input
           autoFocus
           type="password"
+          inputMode="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
           value={pass}
           onChange={e => setPass(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}

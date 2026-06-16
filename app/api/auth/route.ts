@@ -3,20 +3,6 @@ import { authConfigured, roleForPasscode, signRole, SESSION_COOKIE, cookieOption
 
 export const dynamic = 'force-dynamic';
 
-// GET → diagnostic: reports WHICH passcodes are configured on the live
-// deployment (booleans only — never the actual values). Also reports the
-// trimmed length so we can spot stray spaces in the env value.
-export async function GET() {
-  const o = process.env.OWNER_PASSCODE ?? '';
-  const i = process.env.INTERN_PASSCODE ?? '';
-  const m = process.env.MOM_PASSCODE ?? '';
-  return NextResponse.json({
-    owner: { set: !!o, len: o.length, trimmedLen: o.trim().length },
-    intern: { set: !!i, len: i.length, trimmedLen: i.trim().length },
-    mom: { set: !!m, len: m.length, trimmedLen: m.trim().length },
-  });
-}
-
 // POST { passcode } → sets a signed session cookie and returns the role.
 export async function POST(req: Request) {
   // Open mode (no passcodes configured): everyone is the owner, no gate.
