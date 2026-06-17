@@ -119,6 +119,14 @@ export interface ColdCall {
   createdAt: string;
 }
 
+// ── Onboarding questionnaire (per client) ────────────────────────────────────
+
+export interface OnboardingItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export interface ClientData {
   cards: KanbanCard[];
   customFields: CustomFieldDef[];
@@ -130,6 +138,7 @@ export interface ClientData {
   evergreenIdeas: EvergreenIdea[];
   studioCompositions: StudioComposition[];
   coldCalls: ColdCall[];
+  onboarding: OnboardingItem[];
 }
 
 export interface Client {

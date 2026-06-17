@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+type Tab = { label: string; href: string; icon: LucideIcon };
 import Sidebar from '@/components/Sidebar';
 import { useClient } from '@/contexts/AppContext';
 
@@ -48,11 +51,10 @@ export default function ClientLayout({
     );
   }
 
-  // Cold Calls is a Divine Studio–specific lead tracker
-  const isDivine = /divine/i.test(client.name);
-  const tabs = isDivine
-    ? [...TABS, { label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall }]
-    : TABS;
+  // Client-specific extra tabs
+  const tabs: Tab[] = [...TABS];
+  if (/divine/i.test(client.name)) tabs.push({ label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall });
+  if (/shiva/i.test(client.name)) tabs.push({ label: 'Onboarding', href: '/onboarding', icon: ClipboardList });
 
   return (
     <div className="flex h-screen overflow-hidden">

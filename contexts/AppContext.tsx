@@ -4,7 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, useRef } from 
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
-  PersonalTask, BrainNode, BrainEdge, ColdCall,
+  PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -34,6 +34,7 @@ function defaultClientData(): ClientData {
     evergreenIdeas: [],
     studioCompositions: [],
     coldCalls: [],
+    onboarding: [],
   };
 }
 
@@ -92,7 +93,11 @@ export type Action =
   | { type: 'ADD_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
   | { type: 'ADD_COLD_CALLS'; payload: { clientId: string; calls: ColdCall[] } }
   | { type: 'UPDATE_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
-  | { type: 'DELETE_COLD_CALL'; payload: { clientId: string; callId: string } };
+  | { type: 'DELETE_COLD_CALL'; payload: { clientId: string; callId: string } }
+  | { type: 'SET_ONBOARDING'; payload: { clientId: string; items: OnboardingItem[] } }
+  | { type: 'ADD_ONBOARDING_ITEM'; payload: { clientId: string; item: OnboardingItem } }
+  | { type: 'UPDATE_ONBOARDING_ITEM'; payload: { clientId: string; item: OnboardingItem } }
+  | { type: 'DELETE_ONBOARDING_ITEM'; payload: { clientId: string; itemId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -317,6 +322,26 @@ function reducer(state: AppState, action: Action): AppState {
     case 'DELETE_COLD_CALL':
       return updateClient(action.payload.clientId, {
         coldCalls: (cd(action.payload.clientId).coldCalls ?? []).filter(c => c.id !== action.payload.callId),
+      });
+
+    case 'SET_ONBOARDING':
+      return updateClient(action.payload.clientId, { onboarding: action.payload.items });
+
+    case 'ADD_ONBOARDING_ITEM':
+      return updateClient(action.payload.clientId, {
+        onboarding: [...(cd(action.payload.clientId).onboarding ?? []), action.payload.item],
+      });
+
+    case 'UPDATE_ONBOARDING_ITEM':
+      return updateClient(action.payload.clientId, {
+        onboarding: (cd(action.payload.clientId).onboarding ?? []).map(o =>
+          o.id === action.payload.item.id ? action.payload.item : o
+        ),
+      });
+
+    case 'DELETE_ONBOARDING_ITEM':
+      return updateClient(action.payload.clientId, {
+        onboarding: (cd(action.payload.clientId).onboarding ?? []).filter(o => o.id !== action.payload.itemId),
       });
 
     case 'ADD_TASK':
