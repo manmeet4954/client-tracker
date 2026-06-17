@@ -205,9 +205,9 @@ export default function ColdCallsView({ clientId }: { clientId: string }) {
                     <span className="line-clamp-2">{call.notes || <span className="text-stone-300">—</span>}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setEditing(call)} className="p-1.5 rounded text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"><Pencil size={13} /></button>
-                      <button onClick={() => dispatch({ type: 'DELETE_COLD_CALL', payload: { clientId, callId: call.id } })} className="p-1.5 rounded text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => setEditing(call)} title="Edit" className="p-1.5 rounded text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors"><Pencil size={14} /></button>
+                      <button onClick={() => dispatch({ type: 'DELETE_COLD_CALL', payload: { clientId, callId: call.id } })} title="Delete" className="p-1.5 rounded text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
