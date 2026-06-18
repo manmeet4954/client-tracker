@@ -1,20 +1,21 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#1c1917',
+};
 
 export const metadata: Metadata = {
   title: 'My Clients',
   description: 'Client content tracker — kanban, brand, studio',
-  themeColor: '#1c1917',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'My Clients',
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
   },
   icons: {
     icon: [
