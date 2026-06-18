@@ -210,13 +210,34 @@ export default function DashboardView({ clientId }: { clientId: string }) {
 
           <div className="divide-y divide-stone-50">
             {agenda.length === 0 && (
-              <div
-                className="px-5 py-8 text-center cursor-text"
-                onClick={() => inputRef.current?.focus()}
-              >
-                <CalendarPlus size={28} className="mx-auto mb-2 text-stone-300" />
-                <p className="text-stone-400 text-sm">No agenda items for this month yet.</p>
-                <p className="text-stone-400 text-xs mt-1">Type below and press <kbd className="px-1 py-0.5 bg-stone-100 rounded text-stone-500 font-mono text-[10px]">Enter</kbd> to add.</p>
+              <div className="px-5 py-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <CalendarPlus size={18} className="text-stone-300 shrink-0" />
+                  <p className="text-stone-400 text-sm">No agenda items yet — add your first one:</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    value={newItem}
+                    onChange={e => setNewItem(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addItem()}
+                    placeholder="Add an agenda item…"
+                    className="flex-1 text-sm text-stone-700 placeholder-stone-400 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-stone-400 bg-stone-50"
+                  />
+                  <input
+                    type="date"
+                    value={newDue}
+                    onChange={e => setNewDue(e.target.value)}
+                    className="text-xs text-stone-500 border border-stone-200 rounded-lg px-2 py-2 bg-white focus:outline-none cursor-pointer hidden sm:block"
+                  />
+                  <button
+                    onClick={addItem}
+                    disabled={!newItem.trim()}
+                    className="px-4 py-2 text-sm font-medium bg-[#1f1f1f] text-white rounded-lg disabled:opacity-25 hover:bg-stone-700 transition-colors shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
             )}
             {agenda.map(item => (
@@ -231,30 +252,32 @@ export default function DashboardView({ clientId }: { clientId: string }) {
             ))}
           </div>
 
-          <div className="px-4 py-3 border-t border-stone-200 bg-stone-50 flex items-center gap-2">
-            <Plus size={15} className="text-stone-400 shrink-0" />
-            <input
-              ref={inputRef}
-              value={newItem}
-              onChange={e => setNewItem(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addItem()}
-              placeholder="Add agenda item and press Enter..."
-              className="flex-1 text-sm text-stone-700 placeholder-stone-400 bg-transparent focus:outline-none"
-            />
-            <input
-              type="date"
-              value={newDue}
-              onChange={e => setNewDue(e.target.value)}
-              className="text-xs text-stone-500 border border-stone-200 rounded px-1.5 py-0.5 bg-white focus:outline-none cursor-pointer hidden sm:block"
-            />
-            <button
-              onClick={addItem}
-              disabled={!newItem.trim()}
-              className="px-3 py-1.5 text-xs font-medium bg-[#1f1f1f] text-white rounded-md disabled:opacity-20 hover:bg-stone-700 transition-colors shrink-0"
-            >
-              Add
-            </button>
-          </div>
+          {agendaTotal > 0 && (
+            <div className="px-4 py-3 border-t border-stone-200 bg-stone-50 flex items-center gap-2">
+              <Plus size={15} className="text-stone-400 shrink-0" />
+              <input
+                ref={inputRef}
+                value={newItem}
+                onChange={e => setNewItem(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addItem()}
+                placeholder="Add another item and press Enter..."
+                className="flex-1 text-sm text-stone-700 placeholder-stone-400 bg-transparent focus:outline-none"
+              />
+              <input
+                type="date"
+                value={newDue}
+                onChange={e => setNewDue(e.target.value)}
+                className="text-xs text-stone-500 border border-stone-200 rounded px-1.5 py-0.5 bg-white focus:outline-none cursor-pointer hidden sm:block"
+              />
+              <button
+                onClick={addItem}
+                disabled={!newItem.trim()}
+                className="px-3 py-1.5 text-xs font-medium bg-[#1f1f1f] text-white rounded-md disabled:opacity-20 hover:bg-stone-700 transition-colors shrink-0"
+              >
+                Add
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Upcoming Deadlines */}

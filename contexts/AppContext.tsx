@@ -470,15 +470,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Auto-resume only if a persistent role stayed logged in (localStorage), or
-  // within the same browser session for per-open roles (sessionStorage clears
-  // when the app/tab closes → passcode required again).
+  // Always attempt to resume from the server cookie on startup.
+  // The server returns 401 if there is no valid session → show the gate.
+  // This way a valid cookie (intern/owner) auto-logs in even after closing
+  // and reopening the app — no client-side storage flag required.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const persistent = localStorage.getItem('dash_persist') === '1';
-    const activeThisSession = sessionStorage.getItem('dash_active') === '1';
-    if (persistent || activeThisSession) loadState();
-    else setStatus('needsAuth');
+    loadState();
   }, []);
 
   // Save to the server (debounced) on every state change once loaded.
@@ -493,8 +491,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state }),
       })
-        .then(() => { dirtyRef.current = false; })
-        .catch(() => { /* offline — next change retries */ });
+        .then(res => {
+          if (res.status === 401) {
+            // Session expired while editing — show the gate so changes aren't silently lost.
+            loadedRef.current = false;
+            setStatus('needsAuth');
+          } else {
+            dirtyRef.current = false;
+          }
+        })
+        .catch(() => { /* offline — next change will retry */ });
     }, 1000);
   }, [state, status]);
 
@@ -526,8 +532,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const { role: r } = await res.json().catch(() => ({ role: 'owner' }));
-      if (r === 'sonia') localStorage.setItem('dash_persist', '1'); // mom stays logged in
-      else sessionStorage.setItem('dash_active', '1');               // others: this session only
+      if (r === 'sonia' || r === 'intern') localStorage.setItem('dash_persist', '1'); // stays logged in
+      else sessionStorage.setItem('dash_active', '1');                                  // owner: this session only
       setStatus('loading');
       await loadState();
     } catch {

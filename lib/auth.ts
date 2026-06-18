@@ -32,7 +32,7 @@ export function roleForPasscode(passcode: string): Role | null {
 
 /** True for roles that should stay logged in across app opens. */
 export function rolePersists(role: Role): boolean {
-  return role === 'sonia';
+  return role === 'sonia' || role === 'intern';
 }
 
 /** Sign a role into a tamper-proof session token (role.hmac). */
