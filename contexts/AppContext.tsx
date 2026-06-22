@@ -4,7 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, useRef } from 
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
-  PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem,
+  PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem, SoniaOrder,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -35,6 +35,7 @@ function defaultClientData(): ClientData {
     studioCompositions: [],
     coldCalls: [],
     onboarding: [],
+    orders: [],
   };
 }
 
@@ -97,7 +98,10 @@ export type Action =
   | { type: 'SET_ONBOARDING'; payload: { clientId: string; items: OnboardingItem[] } }
   | { type: 'ADD_ONBOARDING_ITEM'; payload: { clientId: string; item: OnboardingItem } }
   | { type: 'UPDATE_ONBOARDING_ITEM'; payload: { clientId: string; item: OnboardingItem } }
-  | { type: 'DELETE_ONBOARDING_ITEM'; payload: { clientId: string; itemId: string } };
+  | { type: 'DELETE_ONBOARDING_ITEM'; payload: { clientId: string; itemId: string } }
+  | { type: 'ADD_ORDER'; payload: { clientId: string; order: SoniaOrder } }
+  | { type: 'UPDATE_ORDER'; payload: { clientId: string; order: SoniaOrder } }
+  | { type: 'DELETE_ORDER'; payload: { clientId: string; orderId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -342,6 +346,23 @@ function reducer(state: AppState, action: Action): AppState {
     case 'DELETE_ONBOARDING_ITEM':
       return updateClient(action.payload.clientId, {
         onboarding: (cd(action.payload.clientId).onboarding ?? []).filter(o => o.id !== action.payload.itemId),
+      });
+
+    case 'ADD_ORDER':
+      return updateClient(action.payload.clientId, {
+        orders: [action.payload.order, ...(cd(action.payload.clientId).orders ?? [])],
+      });
+
+    case 'UPDATE_ORDER':
+      return updateClient(action.payload.clientId, {
+        orders: (cd(action.payload.clientId).orders ?? []).map(o =>
+          o.id === action.payload.order.id ? action.payload.order : o
+        ),
+      });
+
+    case 'DELETE_ORDER':
+      return updateClient(action.payload.clientId, {
+        orders: (cd(action.payload.clientId).orders ?? []).filter(o => o.id !== action.payload.orderId),
       });
 
     case 'ADD_TASK':
