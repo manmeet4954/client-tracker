@@ -32,8 +32,13 @@ export function normalizeState(state: AppState): AppState {
   const rawData = state.clientData ?? {};
   const clientData: typeof rawData = {};
   for (const id of Object.keys(rawData)) {
-    const { orders, ...rest } = rawData[id];
-    clientData[id] = { ...rest, orders: orders ?? [] };
+    const { orders, catalogueCategories, catalogueItems, ...rest } = rawData[id];
+    clientData[id] = {
+      ...rest,
+      orders: orders ?? [],
+      catalogueCategories: catalogueCategories ?? [],
+      catalogueItems: catalogueItems ?? [],
+    };
   }
   return {
     clients: state.clients ?? [],

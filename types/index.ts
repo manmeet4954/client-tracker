@@ -96,6 +96,21 @@ export interface EvergreenIdea {
   createdAt: string;
 }
 
+// ── Catalogue (Sonia's Crochet) ─────────────────────────────────────────────
+
+export interface CatalogueCategory {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface CatalogueItem {
+  id: string;
+  categoryId: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
 // ── Orders (Sonia's Crochet) ────────────────────────────────────────────────
 
 export type OrderPaymentStatus = 'received' | 'not-received' | 'partial';
@@ -156,6 +171,8 @@ export interface ClientData {
   coldCalls: ColdCall[];
   onboarding: OnboardingItem[];
   orders: SoniaOrder[];
+  catalogueCategories: CatalogueCategory[];
+  catalogueItems: CatalogueItem[];
 }
 
 export interface Client {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -56,11 +56,14 @@ export default function ClientLayout({
   const tabs: Tab[] = [...TABS];
   if (/divine/i.test(client.name)) tabs.push({ label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall });
   if (/shiva/i.test(client.name)) tabs.push({ label: 'Onboarding', href: '/onboarding', icon: ClipboardList });
-  if (/sonia|crochet/i.test(client.name)) tabs.push({ label: 'Orders', href: '/orders', icon: ShoppingBag });
+  if (/sonia|crochet/i.test(client.name)) {
+    tabs.push({ label: 'Orders', href: '/orders', icon: ShoppingBag });
+    tabs.push({ label: 'Catalogue', href: '/catalogue', icon: Images });
+  }
 
-  // Sonia only sees References and Orders
+  // Sonia only sees References, Orders, and Catalogue
   const visibleTabs = role === 'sonia'
-    ? tabs.filter(t => t.href === '/references' || t.href === '/orders')
+    ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
     : tabs;
 
   return (

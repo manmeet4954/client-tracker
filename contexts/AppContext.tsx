@@ -5,12 +5,23 @@ import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
   PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem, SoniaOrder,
+  CatalogueCategory, CatalogueItem,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
 import PasscodeGate from '@/components/PasscodeGate';
 
 type AuthStatus = 'loading' | 'needsAuth' | 'authed';
+
+const DEFAULT_CATALOGUE_CATEGORIES: CatalogueCategory[] = [
+  { id: 'cat-hair-accessories', name: 'Hair Accessories', createdAt: new Date(0).toISOString() },
+  { id: 'cat-keychains',        name: 'Keychains',        createdAt: new Date(0).toISOString() },
+  { id: 'cat-flowers',          name: 'Flowers',          createdAt: new Date(0).toISOString() },
+  { id: 'cat-bags',             name: 'Bags',             createdAt: new Date(0).toISOString() },
+  { id: 'cat-clothes',          name: 'Clothes',          createdAt: new Date(0).toISOString() },
+  { id: 'cat-rakhis',           name: 'Rakhis',           createdAt: new Date(0).toISOString() },
+  { id: 'cat-frames',           name: 'Frames',           createdAt: new Date(0).toISOString() },
+];
 
 const defaultBrand: BrandOverview = {
   tagline: '',
@@ -36,6 +47,8 @@ function defaultClientData(): ClientData {
     coldCalls: [],
     onboarding: [],
     orders: [],
+    catalogueCategories: [...DEFAULT_CATALOGUE_CATEGORIES],
+    catalogueItems: [],
   };
 }
 
@@ -101,7 +114,11 @@ export type Action =
   | { type: 'DELETE_ONBOARDING_ITEM'; payload: { clientId: string; itemId: string } }
   | { type: 'ADD_ORDER'; payload: { clientId: string; order: SoniaOrder } }
   | { type: 'UPDATE_ORDER'; payload: { clientId: string; order: SoniaOrder } }
-  | { type: 'DELETE_ORDER'; payload: { clientId: string; orderId: string } };
+  | { type: 'DELETE_ORDER'; payload: { clientId: string; orderId: string } }
+  | { type: 'ADD_CATALOGUE_CATEGORY'; payload: { clientId: string; category: CatalogueCategory } }
+  | { type: 'DELETE_CATALOGUE_CATEGORY'; payload: { clientId: string; categoryId: string } }
+  | { type: 'ADD_CATALOGUE_ITEM'; payload: { clientId: string; item: CatalogueItem } }
+  | { type: 'DELETE_CATALOGUE_ITEM'; payload: { clientId: string; itemId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -111,13 +128,25 @@ function reducer(state: AppState, action: Action): AppState {
   });
 
   switch (action.type) {
-    case 'LOAD':
-      // Normalize older saved states that predate newer top-level fields
+    case 'LOAD': {
+      const payload = action.payload;
+      const patchedClientData: typeof payload.clientData = {};
+      for (const [id, cdata] of Object.entries(payload.clientData ?? {})) {
+        patchedClientData[id] = {
+          ...cdata,
+          // Seed default categories for clients that have none yet
+          catalogueCategories: (cdata.catalogueCategories?.length ?? 0) > 0
+            ? cdata.catalogueCategories
+            : [...DEFAULT_CATALOGUE_CATEGORIES],
+        };
+      }
       return {
-        ...action.payload,
-        personalTasks: action.payload.personalTasks ?? [],
-        brainDump: action.payload.brainDump ?? { nodes: [], edges: [] },
+        ...payload,
+        clientData: patchedClientData,
+        personalTasks: payload.personalTasks ?? [],
+        brainDump: payload.brainDump ?? { nodes: [], edges: [] },
       };
+    }
 
     case 'ADD_CLIENT': {
       const id = generateId();
@@ -363,6 +392,29 @@ function reducer(state: AppState, action: Action): AppState {
     case 'DELETE_ORDER':
       return updateClient(action.payload.clientId, {
         orders: (cd(action.payload.clientId).orders ?? []).filter(o => o.id !== action.payload.orderId),
+      });
+
+    case 'ADD_CATALOGUE_CATEGORY':
+      return updateClient(action.payload.clientId, {
+        catalogueCategories: [...(cd(action.payload.clientId).catalogueCategories ?? []), action.payload.category],
+      });
+
+    case 'DELETE_CATALOGUE_CATEGORY': {
+      const { clientId, categoryId } = action.payload;
+      return updateClient(clientId, {
+        catalogueCategories: (cd(clientId).catalogueCategories ?? []).filter(c => c.id !== categoryId),
+        catalogueItems: (cd(clientId).catalogueItems ?? []).filter(i => i.categoryId !== categoryId),
+      });
+    }
+
+    case 'ADD_CATALOGUE_ITEM':
+      return updateClient(action.payload.clientId, {
+        catalogueItems: [...(cd(action.payload.clientId).catalogueItems ?? []), action.payload.item],
+      });
+
+    case 'DELETE_CATALOGUE_ITEM':
+      return updateClient(action.payload.clientId, {
+        catalogueItems: (cd(action.payload.clientId).catalogueItems ?? []).filter(i => i.id !== action.payload.itemId),
       });
 
     case 'ADD_TASK':
