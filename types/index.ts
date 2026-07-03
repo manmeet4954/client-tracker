@@ -127,6 +127,29 @@ export interface OnboardingItem {
   answer: string;
 }
 
+// ── Instagram post previews (per client) ─────────────────────────────────────
+
+export type PreviewPostType = 'static' | 'carousel';
+
+/** Instagram identity shown in the header of every preview for this client. */
+export interface InstagramProfile {
+  handle: string;     // e.g. "divinestudio.in" (no @)
+  avatarUrl: string;  // profile picture URL
+}
+
+export interface PreviewPost {
+  id: string;
+  shareId: string;            // long random token — the public link is /p/[shareId]
+  name: string;               // internal label, not shown to clients
+  postType: PreviewPostType;
+  images: string[];           // ordered slide URLs (1 for static, up to 20 for carousel)
+  caption: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const MAX_CAROUSEL_SLIDES = 20;
+
 export interface ClientData {
   cards: KanbanCard[];
   customFields: CustomFieldDef[];
@@ -139,6 +162,8 @@ export interface ClientData {
   studioCompositions: StudioComposition[];
   coldCalls: ColdCall[];
   onboarding: OnboardingItem[];
+  instagram: InstagramProfile;
+  previewPosts: PreviewPost[];
 }
 
 export interface Client {

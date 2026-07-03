@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, Instagram } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -17,6 +17,7 @@ const TABS = [
   { label: 'References', href: '/references', icon: BookMarked },
   { label: 'Brand', href: '/brand', icon: Palette },
   { label: 'Studio', href: '/studio', icon: Sparkles },
+  { label: 'Previews', href: '/previews', icon: Instagram },
 ];
 
 /** Pick the best accent colour for a client:

@@ -1,10 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
-  PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem,
+  PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem, InstagramProfile, PreviewPost,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -35,6 +36,8 @@ function defaultClientData(): ClientData {
     studioCompositions: [],
     coldCalls: [],
     onboarding: [],
+    instagram: { handle: '', avatarUrl: '' },
+    previewPosts: [],
   };
 }
 
@@ -97,7 +100,11 @@ export type Action =
   | { type: 'SET_ONBOARDING'; payload: { clientId: string; items: OnboardingItem[] } }
   | { type: 'ADD_ONBOARDING_ITEM'; payload: { clientId: string; item: OnboardingItem } }
   | { type: 'UPDATE_ONBOARDING_ITEM'; payload: { clientId: string; item: OnboardingItem } }
-  | { type: 'DELETE_ONBOARDING_ITEM'; payload: { clientId: string; itemId: string } };
+  | { type: 'DELETE_ONBOARDING_ITEM'; payload: { clientId: string; itemId: string } }
+  | { type: 'UPDATE_INSTAGRAM'; payload: { clientId: string; instagram: InstagramProfile } }
+  | { type: 'ADD_PREVIEW_POST'; payload: { clientId: string; post: PreviewPost } }
+  | { type: 'UPDATE_PREVIEW_POST'; payload: { clientId: string; post: PreviewPost } }
+  | { type: 'DELETE_PREVIEW_POST'; payload: { clientId: string; postId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -344,6 +351,26 @@ function reducer(state: AppState, action: Action): AppState {
         onboarding: (cd(action.payload.clientId).onboarding ?? []).filter(o => o.id !== action.payload.itemId),
       });
 
+    case 'UPDATE_INSTAGRAM':
+      return updateClient(action.payload.clientId, { instagram: action.payload.instagram });
+
+    case 'ADD_PREVIEW_POST':
+      return updateClient(action.payload.clientId, {
+        previewPosts: [action.payload.post, ...(cd(action.payload.clientId).previewPosts ?? [])],
+      });
+
+    case 'UPDATE_PREVIEW_POST':
+      return updateClient(action.payload.clientId, {
+        previewPosts: (cd(action.payload.clientId).previewPosts ?? []).map(p =>
+          p.id === action.payload.post.id ? action.payload.post : p
+        ),
+      });
+
+    case 'DELETE_PREVIEW_POST':
+      return updateClient(action.payload.clientId, {
+        previewPosts: (cd(action.payload.clientId).previewPosts ?? []).filter(p => p.id !== action.payload.postId),
+      });
+
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
 
@@ -442,6 +469,8 @@ interface CtxValue {
 const AppContext = createContext<CtxValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  // Public share pages (/p/...) need no session and must never show the gate.
+  const isPublic = usePathname()?.startsWith('/p/') ?? false;
   const [state, dispatch] = useReducer(reducer, SEED);
   const [status, setStatus] = React.useState<AuthStatus>('loading');
   const [role, setRole] = React.useState<Role>('owner');
@@ -475,7 +504,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // This way a valid cookie (intern/owner) auto-logs in even after closing
   // and reopening the app — no client-side storage flag required.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isPublic) return;
     loadState();
   }, []);
 
@@ -551,6 +580,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStatus('needsAuth');
   }
 
+  if (isPublic) return <>{children}</>;
   if (status === 'loading') return null;
   if (status === 'needsAuth') return <PasscodeGate onSubmit={login} error={authError} />;
 

@@ -8,6 +8,13 @@ export function generateId(): string {
   return Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
 }
 
+/** Long unguessable token for public share links (the link itself is the secret). */
+export function generateShareId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export function formatMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
