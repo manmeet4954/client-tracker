@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, Instagram } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
 import Sidebar from '@/components/Sidebar';
-import { useClient } from '@/contexts/AppContext';
+import { useClient, useApp } from '@/contexts/AppContext';
 
 const TABS = [
   { label: 'Dashboard', href: '', icon: LayoutDashboard },
@@ -37,6 +37,7 @@ export default function ClientLayout({
   params: { id: string };
 }) {
   const { client, data } = useClient(params.id);
+  const { role } = useApp();
   const pathname = usePathname();
   const base = `/client/${params.id}`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -56,6 +57,15 @@ export default function ClientLayout({
   const tabs: Tab[] = [...TABS];
   if (/divine/i.test(client.name)) tabs.push({ label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall });
   if (/shiva/i.test(client.name)) tabs.push({ label: 'Onboarding', href: '/onboarding', icon: ClipboardList });
+  if (/sonia|crochet/i.test(client.name)) {
+    tabs.push({ label: 'Orders', href: '/orders', icon: ShoppingBag });
+    tabs.push({ label: 'Catalogue', href: '/catalogue', icon: Images });
+  }
+
+  // Sonia only sees References, Orders, and Catalogue
+  const visibleTabs = role === 'sonia'
+    ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
+    : tabs;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -82,7 +92,7 @@ export default function ClientLayout({
           </div>
           {/* Tab nav */}
           <nav className="flex items-center gap-1 px-6">
-            {tabs.map(tab => {
+            {visibleTabs.map(tab => {
               const href = `${base}${tab.href}`;
               const isActive = tab.href === '' ? pathname === base : pathname.startsWith(`${base}${tab.href}`);
               const Icon = tab.icon;
@@ -124,7 +134,7 @@ export default function ClientLayout({
           </div>
           {/* Mobile tab bar — horizontal scroll */}
           <nav className="flex overflow-x-auto border-t border-stone-100 px-2 no-scrollbar">
-            {tabs.map(tab => {
+            {visibleTabs.map(tab => {
               const href = `${base}${tab.href}`;
               const isActive = tab.href === '' ? pathname === base : pathname.startsWith(`${base}${tab.href}`);
               const Icon = tab.icon;

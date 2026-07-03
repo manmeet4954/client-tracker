@@ -29,9 +29,20 @@ export function emptyState(): AppState {
 
 /** Normalize older saved states so every top-level field exists. */
 export function normalizeState(state: AppState): AppState {
+  const rawData = state.clientData ?? {};
+  const clientData: typeof rawData = {};
+  for (const id of Object.keys(rawData)) {
+    const { orders, catalogueCategories, catalogueItems, ...rest } = rawData[id];
+    clientData[id] = {
+      ...rest,
+      orders: orders ?? [],
+      catalogueCategories: catalogueCategories ?? [],
+      catalogueItems: catalogueItems ?? [],
+    };
+  }
   return {
     clients: state.clients ?? [],
-    clientData: state.clientData ?? {},
+    clientData,
     personalTasks: state.personalTasks ?? [],
     brainDump: state.brainDump ?? { ...EMPTY_BRAIN },
   };

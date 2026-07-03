@@ -13,6 +13,7 @@ import Modal from './Modal';
 async function uploadImage(file: File): Promise<string> {
   const form = new FormData();
   form.append('file', file);
+  form.append('bucket', 'post-images');
   const res = await fetch('/api/upload', { method: 'POST', body: form });
   if (!res.ok) {
     const { error } = await res.json().catch(() => ({ error: 'upload failed' }));

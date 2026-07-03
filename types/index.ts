@@ -96,6 +96,37 @@ export interface EvergreenIdea {
   createdAt: string;
 }
 
+// ── Catalogue (Sonia's Crochet) ─────────────────────────────────────────────
+
+export interface CatalogueCategory {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface CatalogueItem {
+  id: string;
+  categoryId: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+// ── Orders (Sonia's Crochet) ────────────────────────────────────────────────
+
+export type OrderPaymentStatus = 'received' | 'not-received' | 'partial';
+export type OrderDeliveryStatus = 'delivered' | 'yet-to-deliver' | 'in-process';
+
+export interface SoniaOrder {
+  id: string;
+  name: string;            // customer name
+  items: string;           // what was ordered
+  amount: number;          // price
+  orderType: string;       // e.g. advance, full payment, balance
+  paymentStatus: OrderPaymentStatus;
+  deliveryStatus: OrderDeliveryStatus;
+  createdAt: string;
+}
+
 // ── Cold Calls (lead tracker — Divine Studio) ────────────────────────────────
 
 export type ColdCallStatus = 'open' | 'reached-out' | 'in-review' | 'closed' | 'not-interested';
@@ -162,6 +193,9 @@ export interface ClientData {
   studioCompositions: StudioComposition[];
   coldCalls: ColdCall[];
   onboarding: OnboardingItem[];
+  orders: SoniaOrder[];
+  catalogueCategories: CatalogueCategory[];
+  catalogueItems: CatalogueItem[];
   instagram: InstagramProfile;
   previewPosts: PreviewPost[];
 }
