@@ -9,8 +9,10 @@ export const dynamic = 'force-dynamic';
 // post-images (Instagram preview slides). Callers pick via the `bucket` field;
 // omitting it keeps the original catalogue behaviour.
 const ALLOWED_BUCKETS = new Set(['catalogue', 'post-images']);
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB per image
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;  // 10 MB per image
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;  // 50 MB per video (Supabase free-tier default cap)
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,11 +38,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'unknown-bucket' }, { status: 400 });
   }
   if (bucket === 'post-images') {
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const isImage = IMAGE_TYPES.includes(file.type);
+    const isVideo = VIDEO_TYPES.includes(file.type);
+    if (!isImage && !isVideo) {
       return NextResponse.json({ error: 'unsupported-type' }, { status: 415 });
     }
-    if (file.size > MAX_FILE_BYTES) {
-      return NextResponse.json({ error: 'file-too-large' }, { status: 413 });
+    const limit = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+    if (file.size > limit) {
+      return NextResponse.json(
+        { error: isVideo ? 'video-too-large' : 'file-too-large' },
+        { status: 413 },
+      );
     }
   }
 

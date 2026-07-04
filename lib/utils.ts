@@ -8,6 +8,11 @@ export function generateId(): string {
   return Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
 }
 
+/** True if a media URL points at a video (so previews render <video>, not <img>). */
+export function isVideoUrl(url: string): boolean {
+  return /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(url);
+}
+
 /** Long unguessable token for public share links (the link itself is the secret). */
 export function generateShareId(): string {
   const bytes = new Uint8Array(16);

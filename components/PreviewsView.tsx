@@ -3,12 +3,18 @@
 import { useRef, useState } from 'react';
 import {
   Plus, Trash2, Pencil, Copy, Check, ExternalLink, Instagram,
-  ChevronLeft, ChevronRight, X, ImagePlus, Layers, Loader2,
+  ChevronLeft, ChevronRight, X, ImagePlus, Layers, Loader2, Play,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
-import { generateId, generateShareId } from '@/lib/utils';
+import { generateId, generateShareId, isVideoUrl } from '@/lib/utils';
 import { PreviewPost, MAX_CAROUSEL_SLIDES } from '@/types';
 import Modal from './Modal';
+
+const UPLOAD_ERRORS: Record<string, string> = {
+  'unsupported-type': 'That file type is not supported. Use JPG, PNG, GIF, or MP4/MOV video.',
+  'file-too-large': 'That image is too large (max 10 MB).',
+  'video-too-large': 'That video is too large (max 50 MB).',
+};
 
 async function uploadImage(file: File): Promise<string> {
   const form = new FormData();
@@ -17,7 +23,7 @@ async function uploadImage(file: File): Promise<string> {
   const res = await fetch('/api/upload', { method: 'POST', body: form });
   if (!res.ok) {
     const { error } = await res.json().catch(() => ({ error: 'upload failed' }));
-    throw new Error(error ?? 'upload failed');
+    throw new Error(UPLOAD_ERRORS[error] ?? error ?? 'Upload failed');
   }
   const { url } = await res.json();
   return url as string;
@@ -227,20 +233,30 @@ function PostCard({ post, onEdit, onDelete }: {
     <div className="bg-white border border-stone-200 rounded-xl overflow-hidden group hover:shadow-md hover:border-stone-300 transition-all">
       <div className="relative aspect-square bg-stone-100">
         {post.images[0] && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.images[0]} alt={post.name} className="w-full h-full object-cover" />
+          isVideoUrl(post.images[0]) ? (
+            <video src={post.images[0]} muted playsInline preload="metadata" className="w-full h-full object-cover bg-black" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={post.images[0]} alt={post.name} className="w-full h-full object-cover" />
+          )
         )}
-        {post.images.length > 1 && (
+        {post.images.length > 1 ? (
           <span className="absolute top-2 right-2 flex items-center gap-1 bg-black/55 text-white text-[10px] font-medium rounded-full px-2 py-0.5">
             <Layers size={10} />
             {post.images.length}
           </span>
-        )}
+        ) : post.images[0] && isVideoUrl(post.images[0]) ? (
+          <span className="absolute top-2 right-2 flex items-center justify-center bg-black/55 text-white rounded-full w-5 h-5">
+            <Play size={11} className="fill-white" />
+          </span>
+        ) : null}
       </div>
       <div className="p-3">
         <p className="text-sm font-medium text-stone-900 truncate">{post.name || 'Untitled post'}</p>
         <p className="text-[11px] text-stone-400 mt-0.5">
-          {post.postType === 'carousel' ? `Carousel · ${post.images.length} slides` : 'Static post'}
+          {post.postType === 'carousel'
+            ? `Carousel · ${post.images.length} slides`
+            : post.images[0] && isVideoUrl(post.images[0]) ? 'Video' : 'Static post'}
         </p>
         <div className="flex items-center gap-1 mt-2 pt-2 border-t border-stone-50">
           <button
@@ -370,7 +386,7 @@ function PostEditorModal({ post, onClose, onSave }: {
             </label>
             {images.length > 0 && (
               <span className="text-[11px] text-stone-400">
-                {images.length > 1 ? 'Carousel' : 'Static post'}
+                {images.length > 1 ? 'Carousel' : isVideoUrl(images[0]) ? 'Video' : 'Static post'}
               </span>
             )}
           </div>
@@ -378,11 +394,20 @@ function PostEditorModal({ post, onClose, onSave }: {
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
             {images.map((url, i) => (
               <div key={`${url}-${i}`} className="relative aspect-square rounded-lg overflow-hidden border border-stone-200 group">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
+                {isVideoUrl(url) ? (
+                  <video src={url} muted playsInline preload="metadata" className="w-full h-full object-cover bg-black" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={url} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
+                )}
                 <span className="absolute top-1 left-1 bg-black/55 text-white text-[10px] rounded-full w-4.5 h-4.5 min-w-[18px] min-h-[18px] flex items-center justify-center px-1">
                   {i + 1}
                 </span>
+                {isVideoUrl(url) && (
+                  <span className="absolute top-1 right-1 flex items-center justify-center bg-black/55 text-white rounded-full w-4 h-4">
+                    <Play size={9} className="fill-white" />
+                  </span>
+                )}
                 <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-0.5 bg-black/45 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => move(i, -1)} disabled={i === 0} className="p-0.5 text-white disabled:opacity-30">
                     <ChevronLeft size={13} />
@@ -411,7 +436,7 @@ function PostEditorModal({ post, onClose, onSave }: {
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
             multiple
             className="hidden"
             onChange={e => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ''; }}

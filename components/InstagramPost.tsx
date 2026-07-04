@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, ChevronLeft, ChevronRight, Instagram } from 'lucide-react';
 import { PreviewPost, InstagramProfile } from '@/types';
+import { isVideoUrl } from '@/lib/utils';
 
 /** Replica of an Instagram post: header, snap-scrolling carousel with the
  *  slide counter and dots, action row, caption with "more", and timestamp. */
@@ -15,14 +16,32 @@ export default function InstagramPost({ post, instagram }: {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [burst, setBurst] = useState(false);
-  // Carousels lock every slide to the first image's aspect ratio, clamped to
-  // Instagram's limits (4:5 portrait … 1.91:1 landscape). Posts are produced
-  // at 1080x1350, so 4:5 is the default before the first image loads.
+  // Carousels lock every slide to the first item's aspect ratio. Images/feed
+  // carousels stay within 4:5 … 1.91:1; a single video (a reel) is allowed to
+  // stand taller up to 9:16. 4:5 is the default before the first item loads.
   const [ratio, setRatio] = useState(1.25);
 
   const images = post.images;
   const total = images.length;
   const handle = instagram.handle || 'username';
+  const firstIsVideo = total > 0 && isVideoUrl(images[0]);
+  const maxRatio = total === 1 && firstIsVideo ? 1.7778 : 1.25; // single reel may go 9:16
+
+  function applyRatio(w: number, h: number) {
+    if (!w || !h) return;
+    setRatio(Math.min(maxRatio, Math.max(0.5236, h / w)));
+  }
+
+  // Measure the first slide the moment its element mounts, in case the media
+  // finished loading before React attached the load handler (hydration race).
+  function measureFirst(el: HTMLImageElement | HTMLVideoElement | null) {
+    if (!el) return;
+    if (el instanceof HTMLVideoElement) {
+      if (el.readyState >= 1) applyRatio(el.videoWidth, el.videoHeight);
+    } else if (el.complete) {
+      applyRatio(el.naturalWidth, el.naturalHeight);
+    }
+  }
 
   function onScroll() {
     const el = scroller.current;
@@ -34,12 +53,6 @@ export default function InstagramPost({ post, instagram }: {
     const el = scroller.current;
     if (!el) return;
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-  }
-
-  function onFirstImageLoad(img: HTMLImageElement) {
-    if (!img.naturalWidth) return;
-    const r = img.naturalHeight / img.naturalWidth;
-    setRatio(Math.min(1.25, Math.max(0.5236, r))); // 4:5 … 1.91:1
   }
 
   function doubleTapLike() {
@@ -70,14 +83,29 @@ export default function InstagramPost({ post, instagram }: {
         >
           {images.map((url, i) => (
             <div key={`${url}-${i}`} className="w-full h-full shrink-0 snap-start">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt={`Slide ${i + 1} of ${total}`}
-                draggable={false}
-                onLoad={i === 0 ? e => onFirstImageLoad(e.currentTarget) : undefined}
-                className="w-full h-full object-cover"
-              />
+              {isVideoUrl(url) ? (
+                <video
+                  ref={i === 0 ? measureFirst : undefined}
+                  src={url}
+                  playsInline
+                  muted
+                  loop
+                  controls
+                  autoPlay={i === 0}
+                  onLoadedMetadata={i === 0 ? e => applyRatio(e.currentTarget.videoWidth, e.currentTarget.videoHeight) : undefined}
+                  className="w-full h-full object-cover bg-black"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  ref={i === 0 ? measureFirst : undefined}
+                  src={url}
+                  alt={`Slide ${i + 1} of ${total}`}
+                  draggable={false}
+                  onLoad={i === 0 ? e => applyRatio(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight) : undefined}
+                  className="w-full h-full object-cover"
+                />
+              )}
             </div>
           ))}
         </div>
