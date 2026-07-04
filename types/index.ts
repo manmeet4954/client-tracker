@@ -181,6 +181,38 @@ export interface PreviewPost {
 
 export const MAX_CAROUSEL_SLIDES = 20;
 
+// ── Content Pillars (per client) ─────────────────────────────────────────────
+// A pillar is a content theme (a column). Each pillar holds topic cards; a
+// card is a ready-to-produce post: title/hook + full content, so the work can
+// be handed to someone who just copies it out.
+
+export interface ContentPillar {
+  id: string;
+  name: string;
+  color: string;      // hex accent for the column header
+  createdAt: string;
+}
+
+export type PillarCardStatus = 'idea' | 'writing' | 'ready' | 'done';
+
+export const PILLAR_CARD_STATUSES: { id: PillarCardStatus; label: string; color: string; bg: string }[] = [
+  { id: 'idea',    label: 'Idea',    color: '#78716c', bg: '#f5f5f4' },
+  { id: 'writing', label: 'Writing', color: '#d97706', bg: '#fef3c7' },
+  { id: 'ready',   label: 'Ready',   color: '#0284c7', bg: '#e0f2fe' },
+  { id: 'done',    label: 'Done',    color: '#059669', bg: '#d1fae5' },
+];
+
+export interface PillarCard {
+  id: string;
+  pillarId: string;
+  title: string;      // post title or working name
+  hook: string;       // the opening hook / first line
+  content: string;    // full body content, ready to copy-paste
+  status: PillarCardStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ClientData {
   cards: KanbanCard[];
   customFields: CustomFieldDef[];
@@ -198,6 +230,8 @@ export interface ClientData {
   catalogueItems: CatalogueItem[];
   instagram: InstagramProfile;
   previewPosts: PreviewPost[];
+  pillars: ContentPillar[];
+  pillarCards: PillarCard[];
 }
 
 export interface Client {

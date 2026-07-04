@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -13,6 +13,7 @@ import { useClient, useApp } from '@/contexts/AppContext';
 const TABS = [
   { label: 'Dashboard', href: '', icon: LayoutDashboard },
   { label: 'Kanban', href: '/kanban', icon: Kanban },
+  { label: 'Pillars', href: '/pillars', icon: Columns3 },
   { label: 'Evergreen', href: '/evergreen', icon: Repeat },
   { label: 'References', href: '/references', icon: BookMarked },
   { label: 'Brand', href: '/brand', icon: Palette },

@@ -28,7 +28,7 @@ function shareUrl(shareId: string): string {
 }
 
 export default function PreviewsView({ clientId }: { clientId: string }) {
-  const { dispatch } = useApp();
+  const { dispatch, saveNow } = useApp();
   const { data } = useClient(clientId);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<PreviewPost | null>(null);
@@ -46,18 +46,23 @@ export default function PreviewsView({ clientId }: { clientId: string }) {
     setEditorOpen(true);
   }
 
-  function savePost(post: PreviewPost) {
+  // Persist the post and wait for the server to confirm before returning, so the
+  // public /p/[shareId] page (server-rendered) can find it the instant the link
+  // is shared. Returns false if the save didn't land.
+  async function savePost(post: PreviewPost): Promise<boolean> {
     if (editingPost) {
       dispatch({ type: 'UPDATE_PREVIEW_POST', payload: { clientId, post } });
     } else {
       dispatch({ type: 'ADD_PREVIEW_POST', payload: { clientId, post } });
     }
-    setEditorOpen(false);
-    setEditingPost(null);
+    const ok = await saveNow();
+    if (ok) { setEditorOpen(false); setEditingPost(null); }
+    return ok;
   }
 
   function deletePost(postId: string) {
     dispatch({ type: 'DELETE_PREVIEW_POST', payload: { clientId, postId } });
+    void saveNow();
   }
 
   return (
@@ -279,13 +284,15 @@ function PostCard({ post, onEdit, onDelete }: {
 function PostEditorModal({ post, onClose, onSave }: {
   post: PreviewPost | null;
   onClose: () => void;
-  onSave: (post: PreviewPost) => void;
+  onSave: (post: PreviewPost) => Promise<boolean>;
 }) {
   const [name, setName] = useState(post?.name ?? '');
   const [caption, setCaption] = useState(post?.caption ?? '');
   const [images, setImages] = useState<string[]>(post?.images ?? []);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const uploading = uploadingCount > 0;
@@ -323,10 +330,12 @@ function PostEditorModal({ post, onClose, onSave }: {
     setImages(prev => prev.filter((_, i) => i !== index));
   }
 
-  function save() {
-    if (images.length === 0) return;
+  async function save() {
+    if (images.length === 0 || saving) return;
+    setSaveError('');
+    setSaving(true);
     const now = new Date().toISOString();
-    onSave({
+    const ok = await onSave({
       id: post?.id ?? generateId(),
       shareId: post?.shareId ?? generateShareId(),
       name: name.trim(),
@@ -336,6 +345,8 @@ function PostEditorModal({ post, onClose, onSave }: {
       createdAt: post?.createdAt ?? now,
       updatedAt: now,
     });
+    setSaving(false);
+    if (!ok) setSaveError('Could not save to the server. Check your connection and try again.');
   }
 
   return (
@@ -419,10 +430,13 @@ function PostEditorModal({ post, onClose, onSave }: {
           />
         </div>
 
+        {saveError && <p className="text-xs text-red-500">{saveError}</p>}
+
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={save} disabled={images.length === 0 || uploading} className="btn-primary">
-            {post ? 'Save changes' : 'Create preview'}
+          <button onClick={onClose} className="btn-secondary" disabled={saving}>Cancel</button>
+          <button onClick={save} disabled={images.length === 0 || uploading || saving} className="btn-primary flex items-center gap-1.5">
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving ? 'Saving...' : post ? 'Save changes' : 'Create preview'}
           </button>
         </div>
       </div>

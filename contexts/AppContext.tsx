@@ -7,6 +7,7 @@ import {
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
   PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
+  ContentPillar, PillarCard,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -52,6 +53,8 @@ function defaultClientData(): ClientData {
     catalogueItems: [],
     instagram: { handle: '', avatarUrl: '' },
     previewPosts: [],
+    pillars: [],
+    pillarCards: [],
   };
 }
 
@@ -125,7 +128,13 @@ export type Action =
   | { type: 'UPDATE_INSTAGRAM'; payload: { clientId: string; instagram: InstagramProfile } }
   | { type: 'ADD_PREVIEW_POST'; payload: { clientId: string; post: PreviewPost } }
   | { type: 'UPDATE_PREVIEW_POST'; payload: { clientId: string; post: PreviewPost } }
-  | { type: 'DELETE_PREVIEW_POST'; payload: { clientId: string; postId: string } };
+  | { type: 'DELETE_PREVIEW_POST'; payload: { clientId: string; postId: string } }
+  | { type: 'ADD_PILLAR'; payload: { clientId: string; pillar: ContentPillar } }
+  | { type: 'UPDATE_PILLAR'; payload: { clientId: string; pillar: ContentPillar } }
+  | { type: 'DELETE_PILLAR'; payload: { clientId: string; pillarId: string } }
+  | { type: 'ADD_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
+  | { type: 'UPDATE_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
+  | { type: 'DELETE_PILLAR_CARD'; payload: { clientId: string; cardId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -444,6 +453,42 @@ function reducer(state: AppState, action: Action): AppState {
         previewPosts: (cd(action.payload.clientId).previewPosts ?? []).filter(p => p.id !== action.payload.postId),
       });
 
+    case 'ADD_PILLAR':
+      return updateClient(action.payload.clientId, {
+        pillars: [...(cd(action.payload.clientId).pillars ?? []), action.payload.pillar],
+      });
+
+    case 'UPDATE_PILLAR':
+      return updateClient(action.payload.clientId, {
+        pillars: (cd(action.payload.clientId).pillars ?? []).map(p =>
+          p.id === action.payload.pillar.id ? action.payload.pillar : p
+        ),
+      });
+
+    case 'DELETE_PILLAR':
+      return updateClient(action.payload.clientId, {
+        pillars: (cd(action.payload.clientId).pillars ?? []).filter(p => p.id !== action.payload.pillarId),
+        // cascade: drop the topic cards that belonged to the deleted pillar
+        pillarCards: (cd(action.payload.clientId).pillarCards ?? []).filter(c => c.pillarId !== action.payload.pillarId),
+      });
+
+    case 'ADD_PILLAR_CARD':
+      return updateClient(action.payload.clientId, {
+        pillarCards: [...(cd(action.payload.clientId).pillarCards ?? []), action.payload.card],
+      });
+
+    case 'UPDATE_PILLAR_CARD':
+      return updateClient(action.payload.clientId, {
+        pillarCards: (cd(action.payload.clientId).pillarCards ?? []).map(c =>
+          c.id === action.payload.card.id ? action.payload.card : c
+        ),
+      });
+
+    case 'DELETE_PILLAR_CARD':
+      return updateClient(action.payload.clientId, {
+        pillarCards: (cd(action.payload.clientId).pillarCards ?? []).filter(c => c.id !== action.payload.cardId),
+      });
+
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
 
@@ -537,6 +582,10 @@ interface CtxValue {
   setSelectedMonth: (month: string) => void;
   role: Role;
   logout: () => void;
+  /** Persist the latest state to the server immediately and resolve once it
+   *  lands (true) or fails (false). Call right after a dispatch whose result
+   *  a server-rendered page will read — e.g. creating a shareable preview. */
+  saveNow: () => Promise<boolean>;
 }
 
 const AppContext = createContext<CtxValue | null>(null);
@@ -553,6 +602,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadedRef = useRef(false);
   const dirtyRef = useRef(false);   // true while there are unsaved local changes
   const skipSaveRef = useRef(false); // skip the save that a fresh LOAD would trigger
+  const flushRef = useRef(false);    // when set, the next save runs immediately (no debounce)
+  const flushWaiters = useRef<((ok: boolean) => void)[]>([]);
+
+  // Persist immediately and resolve when done. Used before revealing a public
+  // share link so the post is guaranteed to be in the DB, not waiting on the
+  // 1s debounce. Relies on a state change (the dispatch) having just fired the
+  // save effect; a 6s fallback guarantees the promise never hangs.
+  function saveNow(): Promise<boolean> {
+    flushRef.current = true;
+    return new Promise<boolean>(resolve => {
+      const done = (ok: boolean) => resolve(ok);
+      flushWaiters.current.push(done);
+      setTimeout(() => {
+        const i = flushWaiters.current.indexOf(done);
+        if (i >= 0) { flushWaiters.current.splice(i, 1); resolve(false); }
+      }, 6000);
+    });
+  }
 
   // Pull the (role-appropriate) state from the server.
   async function loadState() {
@@ -581,13 +648,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadState();
   }, []);
 
-  // Save to the server (debounced) on every state change once loaded.
+  // Save to the server (debounced) on every state change once loaded. When a
+  // flush is requested (saveNow), skip the debounce and persist immediately,
+  // resolving any waiters with the outcome.
   useEffect(() => {
     if (status !== 'authed' || !loadedRef.current) return;
     if (skipSaveRef.current) { skipSaveRef.current = false; return; } // just loaded — nothing to save
     dirtyRef.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+
+    const doSave = () =>
       fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -598,12 +668,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Session expired while editing — show the gate so changes aren't silently lost.
             loadedRef.current = false;
             setStatus('needsAuth');
-          } else {
-            dirtyRef.current = false;
+            return false;
           }
+          dirtyRef.current = false;
+          return true;
         })
-        .catch(() => { /* offline — next change will retry */ });
-    }, 1000);
+        .catch(() => false); // offline — next change will retry
+
+    if (flushRef.current) {
+      flushRef.current = false;
+      const waiters = flushWaiters.current;
+      flushWaiters.current = [];
+      doSave().then(ok => waiters.forEach(w => w(ok)));
+    } else {
+      saveTimer.current = setTimeout(doSave, 1000);
+    }
   }, [state, status]);
 
   // When the app comes back to the foreground, re-pull fresh data — so a link
@@ -658,7 +737,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   if (status === 'needsAuth') return <PasscodeGate onSubmit={login} error={authError} />;
 
   return (
-    <AppContext.Provider value={{ state, dispatch, selectedMonth, setSelectedMonth, role, logout }}>
+    <AppContext.Provider value={{ state, dispatch, selectedMonth, setSelectedMonth, role, logout, saveNow }}>
       {children}
     </AppContext.Provider>
   );
