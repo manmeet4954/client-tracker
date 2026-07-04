@@ -38,12 +38,17 @@ export async function POST(req: Request) {
   const incoming = body?.state;
   if (!incoming) return NextResponse.json({ error: 'bad-request' }, { status: 400 });
 
-  if (role === 'owner') {
-    await writeState(normalizeState(incoming));
-  } else {
-    const current = await readState();
-    if (!current) return NextResponse.json({ error: 'no-state' }, { status: 409 });
-    await writeState(mergeRoleWrite(current, incoming, role));
+  try {
+    if (role === 'owner') {
+      await writeState(normalizeState(incoming));
+    } else {
+      const current = await readState();
+      if (!current) return NextResponse.json({ error: 'no-state' }, { status: 409 });
+      await writeState(mergeRoleWrite(current, incoming, role));
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'write failed';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

@@ -670,6 +670,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setStatus('needsAuth');
             return false;
           }
+          if (!res.ok) return false; // server error (e.g. Supabase write failed)
           dirtyRef.current = false;
           return true;
         })

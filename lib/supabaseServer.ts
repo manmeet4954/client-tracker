@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { AppState, InstagramProfile, PreviewPost } from '@/types';
 
-// Server-only Supabase access. The keys are read from the environment here and
-// never shipped to the browser, so the client bundle holds no DB credentials.
+// Server-only Supabase access. Prefer the service role key (bypasses RLS) so
+// public pages like /p/[shareId] can always read state without auth context.
+// Falls back to the anon key in environments where service role isn't set.
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const DB_ROW_ID = 'manmeet';
 
 const supabase = createClient(url, key);
@@ -20,9 +21,10 @@ export async function readState(): Promise<AppState | null> {
 }
 
 export async function writeState(state: AppState): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from('app_state')
     .upsert({ id: DB_ROW_ID, data: state, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
 }
 
 /** Public preview lookup: find a post by its share token across all clients.
