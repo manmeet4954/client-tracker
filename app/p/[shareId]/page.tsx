@@ -23,12 +23,20 @@ function demoPost(shareId: string): Found | null {
   };
 }
 
-async function lookup(shareId: string): Promise<Found | null> {
-  return demoPost(shareId) ?? await findPreviewPost(shareId);
+async function lookup(shareId: string): Promise<{ found: Found | null; dbError: boolean }> {
+  const demo = demoPost(shareId);
+  if (demo) return { found: demo, dbError: false };
+  try {
+    const found = await findPreviewPost(shareId);
+    return { found, dbError: false };
+  } catch (e) {
+    console.error('[PreviewPage] findPreviewPost threw:', e);
+    return { found: null, dbError: true };
+  }
 }
 
 export async function generateMetadata({ params }: { params: { shareId: string } }): Promise<Metadata> {
-  const found = await lookup(params.shareId);
+  const { found } = await lookup(params.shareId);
   if (!found) return { title: 'Preview not found' };
   const handle = found.instagram.handle || 'Instagram';
   return {
@@ -39,7 +47,7 @@ export async function generateMetadata({ params }: { params: { shareId: string }
 }
 
 export default async function PreviewPage({ params }: { params: { shareId: string } }) {
-  const found = await lookup(params.shareId);
+  const { found, dbError } = await lookup(params.shareId);
 
   if (!found) {
     return (
@@ -48,7 +56,11 @@ export default async function PreviewPage({ params }: { params: { shareId: strin
           <Instagram size={26} className="text-stone-400" />
         </div>
         <p className="font-semibold text-[#262626] mb-1">This preview isn&apos;t available</p>
-        <p className="text-sm text-[#8e8e8e]">The link may be incorrect, or the post was removed.</p>
+        <p className="text-sm text-[#8e8e8e]">
+          {dbError
+            ? 'Could not connect to the database. Please try again in a moment.'
+            : 'The link may be incorrect, or the post was removed.'}
+        </p>
       </div>
     );
   }

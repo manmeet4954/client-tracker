@@ -9,24 +9,31 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, generateShareId, isVideoUrl } from '@/lib/utils';
 import { PreviewPost, MAX_CAROUSEL_SLIDES } from '@/types';
 import Modal from './Modal';
+import { supabase } from '@/lib/supabase';
 
-const UPLOAD_ERRORS: Record<string, string> = {
-  'unsupported-type': 'That file type is not supported. Use JPG, PNG, GIF, or MP4/MOV video.',
-  'file-too-large': 'That image is too large (max 10 MB).',
-  'video-too-large': 'That video is too large (max 50 MB).',
-};
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
+const MAX_BYTES = 50 * 1024 * 1024; // 50 MB — Supabase Storage limit
 
+// Upload directly from the browser to Supabase Storage, bypassing Vercel's
+// 4.5 MB serverless-function body cap that caused larger images to fail.
 async function uploadImage(file: File): Promise<string> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('bucket', 'post-images');
-  const res = await fetch('/api/upload', { method: 'POST', body: form });
-  if (!res.ok) {
-    const { error } = await res.json().catch(() => ({ error: 'upload failed' }));
-    throw new Error(UPLOAD_ERRORS[error] ?? error ?? 'Upload failed');
+  const isImage = IMAGE_TYPES.has(file.type);
+  const isVideo = VIDEO_TYPES.has(file.type);
+  if (!isImage && !isVideo) {
+    throw new Error('That file type is not supported. Use JPG, PNG, WebP, GIF, or MP4/MOV video.');
   }
-  const { url } = await res.json();
-  return url as string;
+  if (file.size > MAX_BYTES) {
+    throw new Error(`File is too large (max 50 MB). Yours is ${(file.size / 1024 / 1024).toFixed(1)} MB.`);
+  }
+  const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabase.storage
+    .from('post-images')
+    .upload(filename, file, { contentType: file.type, upsert: false });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+  const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(filename);
+  return publicUrl;
 }
 
 function shareUrl(shareId: string): string {

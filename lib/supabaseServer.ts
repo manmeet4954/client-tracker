@@ -16,7 +16,8 @@ export async function readState(): Promise<AppState | null> {
     .select('data')
     .eq('id', DB_ROW_ID)
     .single();
-  if (error || !data?.data) return null;
+  if (error) { console.error('[readState] Supabase error:', error.message, error.code); return null; }
+  if (!data?.data) { console.error('[readState] No data row found for id:', DB_ROW_ID); return null; }
   return data.data as AppState;
 }
 
@@ -28,17 +29,22 @@ export async function writeState(state: AppState): Promise<void> {
 }
 
 /** Public preview lookup: find a post by its share token across all clients.
- *  Returns the post plus the owning client's Instagram identity, or null. */
+ *  Retries up to 4 times with increasing delays to handle the brief window
+ *  between a confirmed write and it being visible on a fresh Supabase read
+ *  (connection-pool / read-after-write lag). */
 export async function findPreviewPost(
   shareId: string,
 ): Promise<{ post: PreviewPost; instagram: InstagramProfile } | null> {
   if (!shareId) return null;
-  const state = await readState();
-  if (!state) return null;
-  for (const data of Object.values(state.clientData ?? {})) {
-    const post = (data.previewPosts ?? []).find(p => p.shareId === shareId);
-    if (post) {
-      return { post, instagram: data.instagram ?? { handle: '', avatarUrl: '' } };
+
+  const delays = [0, 600, 1200, 2000]; // ms before each attempt
+  for (const delay of delays) {
+    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+    const state = await readState();
+    if (!state) continue;
+    for (const data of Object.values(state.clientData ?? {})) {
+      const post = (data.previewPosts ?? []).find(p => p.shareId === shareId);
+      if (post) return { post, instagram: data.instagram ?? { handle: '', avatarUrl: '' } };
     }
   }
   return null;
