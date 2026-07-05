@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   Plus, Trash2, Pencil, Copy, Check, Columns3, Table2, LayoutGrid,
-  MoreHorizontal, Sparkles,
+  MoreHorizontal, Sparkles, Link2,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, CLIENT_COLORS } from '@/lib/utils';
@@ -17,14 +17,22 @@ function statusMeta(id: PillarCardStatus) {
   return PILLAR_CARD_STATUSES.find(s => s.id === id) ?? PILLAR_CARD_STATUSES[0];
 }
 
-/** The block copied for hand-off: content is the star, title/hook lead it. */
+/** The block copied for hand-off: content is the star, title/hook lead it,
+ *  the reference link (if any) closes it. */
 function formatForCopy(card: PillarCard): string {
   const parts = [];
   if (card.title.trim()) parts.push(card.title.trim());
   if (card.hook.trim()) parts.push(card.hook.trim());
   const head = parts.join('\n');
-  if (card.content.trim()) return head ? `${head}\n\n${card.content.trim()}` : card.content.trim();
-  return head;
+  const link = card.link?.trim() ?? '';
+  let out = card.content.trim() ? (head ? `${head}\n\n${card.content.trim()}` : card.content.trim()) : head;
+  if (link) out = out ? `${out}\n\n${link}` : link;
+  return out;
+}
+
+/** Prefix bare links with https:// so they open instead of 404ing in-app. */
+function toHref(link: string): string {
+  return /^https?:\/\//i.test(link) ? link : `https://${link}`;
 }
 
 export default function PillarsView({ clientId }: { clientId: string }) {
@@ -47,7 +55,7 @@ export default function PillarsView({ clientId }: { clientId: string }) {
 
   function newCard(pillarId: string) {
     const now = new Date().toISOString();
-    setEditingCard({ id: generateId(), pillarId, title: '', hook: '', content: '', status: 'idea', createdAt: now, updatedAt: now });
+    setEditingCard({ id: generateId(), pillarId, title: '', hook: '', content: '', link: '', status: 'idea', createdAt: now, updatedAt: now });
   }
 
   function saveCard(card: PillarCard) {
@@ -220,6 +228,19 @@ function TopicCard({ card, onOpen, onStatus }: {
     >
       <p className="text-sm font-medium text-stone-900 leading-snug line-clamp-2">{card.title || 'Untitled topic'}</p>
       {card.hook && <p className="text-xs text-stone-500 mt-1 line-clamp-2">{card.hook}</p>}
+      {card.link?.trim() && (
+        <a
+          href={toHref(card.link.trim())}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          className="inline-flex items-center gap-1 mt-1.5 max-w-full text-[11px] text-sky-600 hover:text-sky-800 hover:underline"
+          title={card.link.trim()}
+        >
+          <Link2 size={11} className="shrink-0" />
+          <span className="truncate">{card.link.trim().replace(/^https?:\/\/(www\.)?/i, '')}</span>
+        </a>
+      )}
       <div className="flex items-center gap-1 mt-2">
         <button
           onClick={cycleStatus}
@@ -308,7 +329,23 @@ function TableView({ pillars, cards, onOpenCard, onStatus }: {
                     </span>
                   )}
                 </td>
-                <td className="px-3 py-2 font-medium text-stone-900">{card.title || 'Untitled topic'}</td>
+                <td className="px-3 py-2 font-medium text-stone-900">
+                  <span className="inline-flex items-center gap-1.5">
+                    {card.title || 'Untitled topic'}
+                    {card.link?.trim() && (
+                      <a
+                        href={toHref(card.link.trim())}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-sky-500 hover:text-sky-700"
+                        title={card.link.trim()}
+                      >
+                        <Link2 size={13} />
+                      </a>
+                    )}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-stone-500 hidden md:table-cell max-w-xs truncate">{card.hook}</td>
                 <td className="px-3 py-2">
                   <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5" style={{ color: meta.color, backgroundColor: meta.bg }}>
@@ -356,16 +393,17 @@ function CardEditor({ card, pillars, onClose, onSave, onDelete }: {
   const [title, setTitle] = useState(card.title);
   const [hook, setHook] = useState(card.hook);
   const [content, setContent] = useState(card.content);
+  const [link, setLink] = useState(card.link ?? '');
   const [status, setStatus] = useState<PillarCardStatus>(card.status);
   const [pillarId, setPillarId] = useState(card.pillarId);
   const [copied, setCopied] = useState(false);
 
   function save() {
-    onSave({ ...card, title: title.trim(), hook: hook.trim(), content, status, pillarId });
+    onSave({ ...card, title: title.trim(), hook: hook.trim(), content, link: link.trim(), status, pillarId });
   }
 
   function copyAll() {
-    const text = formatForCopy({ ...card, title, hook, content });
+    const text = formatForCopy({ ...card, title, hook, content, link });
     if (text) navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); });
   }
 
@@ -406,6 +444,30 @@ function CardEditor({ card, pillars, onClose, onSave, onDelete }: {
             placeholder="The scroll-stopping opening line..."
             className="input-base w-full"
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Link (optional)</label>
+          <div className="relative">
+            <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+            <input
+              value={link}
+              onChange={e => setLink(e.target.value)}
+              placeholder="Paste a link: a doc, Canva draft, or a reel to reference"
+              className="input-base w-full pl-9"
+              inputMode="url"
+            />
+          </div>
+          {link.trim() && (
+            <a
+              href={toHref(link.trim())}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-1.5 text-xs text-sky-600 hover:underline"
+            >
+              Open link ↗
+            </a>
+          )}
         </div>
 
         <div>

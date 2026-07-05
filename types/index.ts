@@ -208,6 +208,7 @@ export interface PillarCard {
   title: string;      // post title or working name
   hook: string;       // the opening hook / first line
   content: string;    // full body content, ready to copy-paste
+  link?: string;      // reference link (doc, Canva, reel) instead of / alongside text
   status: PillarCardStatus;
   createdAt: string;
   updatedAt: string;

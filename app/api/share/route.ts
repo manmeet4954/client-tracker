@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { authConfigured, verifyToken, roleForPasscode, SESSION_COOKIE } from '@/lib/auth';
+import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 import { readState, writeState } from '@/lib/supabaseServer';
 import { allowedClientIds, normalizeState, mergeRoleWrite, type Role } from '@/lib/access';
 import { generateId } from '@/lib/utils';
@@ -14,19 +14,12 @@ function currentRole(): Role | null {
   return verifyToken(cookies().get(SESSION_COOKIE)?.value);
 }
 
-// POST { url, title, text, passcode?, client? } → saves a link Reference.
-// Auth is either the session cookie (Android share target opens inside the
-// installed app) or a passcode in the body (iOS Shortcuts can't send our
-// cookie, so the shortcut includes the same passcode used to log in).
-// `client` optionally picks which allowed client to save to, by name.
+// POST { url, title, text } → saves a link Reference to the caller's client.
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
-
-  let role = currentRole();
-  if (!role && typeof body?.passcode === 'string') {
-    role = roleForPasscode(body.passcode);
-  }
+  const role = currentRole();
   if (!role) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
   const url = String(body?.url ?? '').trim();
   const text = String(body?.text ?? '').trim();
   const title = String(body?.title ?? '').trim();
@@ -40,14 +33,7 @@ export async function POST(req: Request) {
   if (!current) return NextResponse.json({ error: 'no-state' }, { status: 409 });
   const norm = normalizeState(current);
 
-  // Pick the target client: an explicit `client` name (matched within the
-  // caller's allowed clients) wins; otherwise the first allowed client.
-  const allowed = allowedClientIds(norm, role);
-  const wanted = String(body?.client ?? '').trim().toLowerCase();
-  const byName = wanted
-    ? norm.clients.find(c => allowed.includes(c.id) && c.name.toLowerCase().includes(wanted))?.id
-    : undefined;
-  const targetId = byName ?? allowed[0];
+  const targetId = allowedClientIds(norm, role)[0];
   if (!targetId) return NextResponse.json({ error: 'no-client' }, { status: 409 });
 
   const ref: Reference = {
