@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   Plus, Trash2, Pencil, Copy, Check, Columns3, Table2, LayoutGrid,
-  MoreHorizontal, Sparkles, Link2,
+  MoreHorizontal, Sparkles, Link2, Users, Share2,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, CLIENT_COLORS } from '@/lib/utils';
@@ -33,6 +33,22 @@ function formatForCopy(card: PillarCard): string {
 /** Prefix bare links with https:// so they open instead of 404ing in-app. */
 function toHref(link: string): string {
   return /^https?:\/\//i.test(link) ? link : `https://${link}`;
+}
+
+/** Small chip naming the other accounts a topic is shared with (a collab). */
+function CollabBadge({ card, className = '' }: { card: PillarCard; className?: string }) {
+  const partners = card.collabWith ?? [];
+  if (!card.collabId || partners.length === 0) return null;
+  const label = partners.map(p => p.clientName).join(', ');
+  return (
+    <span
+      className={`inline-flex items-center gap-1 max-w-full text-[11px] text-violet-700 bg-violet-50 rounded-full px-1.5 py-0.5 ${className}`}
+      title={`Shared with ${label}`}
+    >
+      <Users size={10} className="shrink-0" />
+      <span className="truncate">{label}</span>
+    </span>
+  );
 }
 
 export default function PillarsView({ clientId }: { clientId: string }) {
@@ -116,6 +132,7 @@ export default function PillarsView({ clientId }: { clientId: string }) {
         <CardEditor
           card={editingCard}
           pillars={pillars}
+          sourceClientId={clientId}
           onClose={() => setEditingCard(null)}
           onSave={saveCard}
           onDelete={cards.some(c => c.id === editingCard.id) ? () => deleteCard(editingCard.id) : undefined}
@@ -241,6 +258,7 @@ function TopicCard({ card, onOpen, onStatus }: {
           <span className="truncate">{card.link.trim().replace(/^https?:\/\/(www\.)?/i, '')}</span>
         </a>
       )}
+      <CollabBadge card={card} className="mt-1.5" />
       <div className="flex items-center gap-1 mt-2">
         <button
           onClick={cycleStatus}
@@ -344,6 +362,11 @@ function TableView({ pillars, cards, onOpenCard, onStatus }: {
                         <Link2 size={13} />
                       </a>
                     )}
+                    {card.collabId && (card.collabWith?.length ?? 0) > 0 && (
+                      <span className="text-violet-500" title={`Shared with ${(card.collabWith ?? []).map(p => p.clientName).join(', ')}`}>
+                        <Users size={13} />
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="px-3 py-2 text-stone-500 hidden md:table-cell max-w-xs truncate">{card.hook}</td>
@@ -383,13 +406,15 @@ function CopyIconButton({ card }: { card: PillarCard }) {
 
 // ── Card editor ──────────────────────────────────────────────────────────────
 
-function CardEditor({ card, pillars, onClose, onSave, onDelete }: {
+function CardEditor({ card, pillars, sourceClientId, onClose, onSave, onDelete }: {
   card: PillarCard;
   pillars: ContentPillar[];
+  sourceClientId: string;
   onClose: () => void;
   onSave: (card: PillarCard) => void;
   onDelete?: () => void;
 }) {
+  const { state, role, dispatch } = useApp();
   const [title, setTitle] = useState(card.title);
   const [hook, setHook] = useState(card.hook);
   const [content, setContent] = useState(card.content);
@@ -397,9 +422,37 @@ function CardEditor({ card, pillars, onClose, onSave, onDelete }: {
   const [status, setStatus] = useState<PillarCardStatus>(card.status);
   const [pillarId, setPillarId] = useState(card.pillarId);
   const [copied, setCopied] = useState(false);
+  const [shareClientId, setShareClientId] = useState('');
+  const [sharePillarId, setSharePillarId] = useState('');
+
+  // Read the live card so collab links added mid-session (via Send) show up
+  // immediately, without reopening the editor.
+  const liveCard = (state.clientData[sourceClientId]?.pillarCards ?? []).find(c => c.id === card.id);
+  const collabId = liveCard?.collabId ?? card.collabId;
+  const collabWith = liveCard?.collabWith ?? card.collabWith ?? [];
+
+  // Other accounts this topic can be sent to, with their own pillar buckets.
+  const otherClients = state.clients
+    .filter(c => c.id !== sourceClientId)
+    .map(c => ({ id: c.id, name: c.name, pillars: state.clientData[c.id]?.pillars ?? [] }));
+  const shareTarget = otherClients.find(c => c.id === shareClientId);
+
+  function editedCard(): PillarCard {
+    return { ...card, title: title.trim(), hook: hook.trim(), content, link: link.trim(), status, pillarId, collabId, collabWith };
+  }
 
   function save() {
-    onSave({ ...card, title: title.trim(), hook: hook.trim(), content, link: link.trim(), status, pillarId });
+    onSave(editedCard());
+  }
+
+  function sendToAccount() {
+    if (!shareTarget || !sharePillarId) return;
+    dispatch({
+      type: 'SHARE_PILLAR_CARD',
+      payload: { sourceClientId, sourceCard: editedCard(), targetClientId: shareTarget.id, targetPillarId: sharePillarId },
+    });
+    setShareClientId('');
+    setSharePillarId('');
   }
 
   function copyAll() {
@@ -480,6 +533,62 @@ function CardEditor({ card, pillars, onClose, onSave, onDelete }: {
             className="input-base w-full resize-y font-mono text-[13px] leading-relaxed"
           />
         </div>
+
+        {role === 'owner' && otherClients.length > 0 && (
+          <div className="border-t border-stone-100 pt-4">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-stone-500 mb-2">
+              <Share2 size={13} /> Collaborate — also post on another account
+            </label>
+
+            {collabWith.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                {collabWith.map(p => (
+                  <span key={p.clientId} className="inline-flex items-center gap-1 text-[11px] text-violet-700 bg-violet-50 rounded-full px-2 py-0.5">
+                    <Users size={11} /> {p.clientName}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-2">
+              <select
+                value={shareClientId}
+                onChange={e => {
+                  const id = e.target.value;
+                  setShareClientId(id);
+                  setSharePillarId(otherClients.find(c => c.id === id)?.pillars[0]?.id ?? '');
+                }}
+                className="input-base flex-1 min-w-[140px]"
+              >
+                <option value="">Choose account…</option>
+                {otherClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <select
+                value={sharePillarId}
+                onChange={e => setSharePillarId(e.target.value)}
+                disabled={!shareTarget || shareTarget.pillars.length === 0}
+                className="input-base flex-1 min-w-[140px] disabled:opacity-50"
+              >
+                <option value="">{shareTarget ? 'Choose bucket…' : 'Bucket'}</option>
+                {shareTarget?.pillars.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button
+                onClick={sendToAccount}
+                disabled={!shareTarget || !sharePillarId}
+                className="btn-secondary flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <Share2 size={14} /> Send
+              </button>
+            </div>
+
+            {shareTarget && shareTarget.pillars.length === 0 && (
+              <p className="text-[11px] text-amber-600 mt-1.5">{shareTarget.name} has no pillars yet. Add one on their board first.</p>
+            )}
+            <p className="text-[11px] text-stone-400 mt-1.5">
+              Title, hook, content, and link stay in sync across linked accounts. Bucket and status stay separate.
+            </p>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <button onClick={copyAll} className="btn-secondary flex items-center gap-1.5">

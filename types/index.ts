@@ -202,6 +202,16 @@ export const PILLAR_CARD_STATUSES: { id: PillarCardStatus; label: string; color:
   { id: 'done',    label: 'Done',    color: '#059669', bg: '#d1fae5' },
 ];
 
+// A collaboration link: a topic can live on more than one account's board.
+// Linked twin cards share a `collabId`; each card also carries `collabWith` —
+// the OTHER accounts it's shared with — so the badge renders without needing
+// those accounts' data (client logins never receive it). Title/hook/content/
+// link stay in sync across the set; each account keeps its own bucket + status.
+export interface CollabRef {
+  clientId: string;
+  clientName: string;
+}
+
 export interface PillarCard {
   id: string;
   pillarId: string;
@@ -210,6 +220,8 @@ export interface PillarCard {
   content: string;    // full body content, ready to copy-paste
   link?: string;      // reference link (doc, Canva, reel) instead of / alongside text
   status: PillarCardStatus;
+  collabId?: string;         // shared id linking twin cards across accounts
+  collabWith?: CollabRef[];  // the other accounts this topic is shared with
   createdAt: string;
   updatedAt: string;
 }

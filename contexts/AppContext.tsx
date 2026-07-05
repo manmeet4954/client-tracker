@@ -7,7 +7,7 @@ import {
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
   PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
-  ContentPillar, PillarCard,
+  ContentPillar, PillarCard, CollabRef,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -134,7 +134,8 @@ export type Action =
   | { type: 'DELETE_PILLAR'; payload: { clientId: string; pillarId: string } }
   | { type: 'ADD_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
   | { type: 'UPDATE_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
-  | { type: 'DELETE_PILLAR_CARD'; payload: { clientId: string; cardId: string } };
+  | { type: 'DELETE_PILLAR_CARD'; payload: { clientId: string; cardId: string } }
+  | { type: 'SHARE_PILLAR_CARD'; payload: { sourceClientId: string; sourceCard: PillarCard; targetClientId: string; targetPillarId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -477,17 +478,117 @@ function reducer(state: AppState, action: Action): AppState {
         pillarCards: [...(cd(action.payload.clientId).pillarCards ?? []), action.payload.card],
       });
 
-    case 'UPDATE_PILLAR_CARD':
-      return updateClient(action.payload.clientId, {
-        pillarCards: (cd(action.payload.clientId).pillarCards ?? []).map(c =>
-          c.id === action.payload.card.id ? action.payload.card : c
-        ),
+    case 'UPDATE_PILLAR_CARD': {
+      const { clientId, card } = action.payload;
+      // Update the card in its own account.
+      const next = updateClient(clientId, {
+        pillarCards: (cd(clientId).pillarCards ?? []).map(c => c.id === card.id ? card : c),
       });
+      // If it's part of a collaboration, push the shared fields (title/hook/
+      // content/link) to its twins on the other accounts. Bucket and status
+      // stay per-account, so they're deliberately left untouched.
+      if (!card.collabId) return next;
+      const synced = { title: card.title, hook: card.hook, content: card.content, link: card.link, updatedAt: card.updatedAt };
+      const patched = { ...next.clientData };
+      for (const [cid, cdata] of Object.entries(next.clientData)) {
+        if (cid === clientId) continue;
+        const list = cdata.pillarCards ?? [];
+        if (list.some(c => c.collabId === card.collabId)) {
+          patched[cid] = { ...cdata, pillarCards: list.map(c => c.collabId === card.collabId ? { ...c, ...synced } : c) };
+        }
+      }
+      return { ...next, clientData: patched };
+    }
 
-    case 'DELETE_PILLAR_CARD':
-      return updateClient(action.payload.clientId, {
-        pillarCards: (cd(action.payload.clientId).pillarCards ?? []).filter(c => c.id !== action.payload.cardId),
+    case 'DELETE_PILLAR_CARD': {
+      const { clientId, cardId } = action.payload;
+      const removed = (cd(clientId).pillarCards ?? []).find(c => c.id === cardId);
+      const next = updateClient(clientId, {
+        pillarCards: (cd(clientId).pillarCards ?? []).filter(c => c.id !== cardId),
       });
+      // If the deleted card was in a collaboration, drop this account from the
+      // twins' `collabWith` so their badge updates. A card left with no
+      // partners loses its collab link entirely.
+      if (!removed?.collabId) return next;
+      const patched = { ...next.clientData };
+      for (const [cid, cdata] of Object.entries(next.clientData)) {
+        const list = cdata.pillarCards ?? [];
+        if (list.some(c => c.collabId === removed.collabId)) {
+          patched[cid] = {
+            ...cdata,
+            pillarCards: list.map(c => {
+              if (c.collabId !== removed.collabId) return c;
+              const nextWith = (c.collabWith ?? []).filter(w => w.clientId !== clientId);
+              return { ...c, collabWith: nextWith, collabId: nextWith.length ? c.collabId : undefined };
+            }),
+          };
+        }
+      }
+      return { ...next, clientData: patched };
+    }
+
+    case 'SHARE_PILLAR_CARD': {
+      const { sourceClientId, sourceCard, targetClientId, targetPillarId } = action.payload;
+      if (sourceClientId === targetClientId) return state;
+      const now = new Date().toISOString();
+      const collabId = sourceCard.collabId ?? generateId();
+      const nameOf = (id: string) => state.clients.find(c => c.id === id)?.name ?? '';
+
+      // Full member set = every account already in this collab + source + target.
+      const memberSet = new Set<string>([sourceClientId, targetClientId]);
+      for (const [cid, cdata] of Object.entries(state.clientData)) {
+        if ((cdata.pillarCards ?? []).some(c => c.collabId === collabId)) memberSet.add(cid);
+      }
+      const memberIds = Array.from(memberSet);
+      const collabWithFor = (selfId: string): CollabRef[] =>
+        memberIds.filter(id => id !== selfId).map(id => ({ clientId: id, clientName: nameOf(id) }));
+
+      const clientData = { ...state.clientData };
+
+      // 1. Persist the (edited) source card + its collab metadata.
+      const srcData = clientData[sourceClientId] ?? defaultClientData();
+      const srcList = srcData.pillarCards ?? [];
+      const updatedSource: PillarCard = { ...sourceCard, collabId, collabWith: collabWithFor(sourceClientId), updatedAt: now };
+      clientData[sourceClientId] = {
+        ...srcData,
+        pillarCards: srcList.some(c => c.id === sourceCard.id)
+          ? srcList.map(c => c.id === sourceCard.id ? updatedSource : c)
+          : [...srcList, updatedSource],
+      };
+
+      // 2. Create the twin on the target account, in the chosen bucket.
+      const tgtData = clientData[targetClientId] ?? defaultClientData();
+      const twin: PillarCard = {
+        id: generateId(),
+        pillarId: targetPillarId,
+        title: sourceCard.title,
+        hook: sourceCard.hook,
+        content: sourceCard.content,
+        link: sourceCard.link,
+        status: 'idea',
+        collabId,
+        collabWith: collabWithFor(targetClientId),
+        createdAt: now,
+        updatedAt: now,
+      };
+      clientData[targetClientId] = { ...tgtData, pillarCards: [...(tgtData.pillarCards ?? []), twin] };
+
+      // 3. Refresh collabWith on any pre-existing members so their badges list
+      //    the newly added account too.
+      for (const id of memberIds) {
+        if (id === sourceClientId || id === targetClientId) continue;
+        const data = clientData[id];
+        if (!data) continue;
+        clientData[id] = {
+          ...data,
+          pillarCards: (data.pillarCards ?? []).map(c =>
+            c.collabId === collabId ? { ...c, collabWith: collabWithFor(id) } : c
+          ),
+        };
+      }
+
+      return { ...state, clientData };
+    }
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
