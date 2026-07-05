@@ -10,29 +10,38 @@ export function authConfigured(): boolean {
   return !!process.env.OWNER_PASSCODE;
 }
 
+// Every role's passcode env var, in one place so secret() and
+// roleForPasscode() can never drift apart.
+const PASSCODE_ENVS: [Role, string][] = [
+  ['owner', 'OWNER_PASSCODE'],
+  ['intern', 'INTERN_PASSCODE'],
+  ['sonia', 'MOM_PASSCODE'],
+  ['shiva', 'SHIVA_PASSCODE'],
+  ['merushri', 'MERUSHRI_PASSCODE'],
+];
+
+const ALL_ROLES: Role[] = PASSCODE_ENVS.map(([r]) => r);
+
 function secret(): string {
-  const o = process.env.OWNER_PASSCODE ?? '';
-  const i = process.env.INTERN_PASSCODE ?? '';
-  const m = process.env.MOM_PASSCODE ?? '';
-  return `${o}::${i}::${m}::dash-session-v1`;
+  const parts = PASSCODE_ENVS.map(([, env]) => process.env[env] ?? '');
+  return `${parts.join('::')}::dash-session-v1`;
 }
 
 /** Match a submitted passcode to a role, or null if it matches none.
  *  Trims both sides so a stray space/newline in the env value can't break it. */
 export function roleForPasscode(passcode: string): Role | null {
   const p = passcode.trim();
-  const o = process.env.OWNER_PASSCODE?.trim();
-  const i = process.env.INTERN_PASSCODE?.trim();
-  const m = process.env.MOM_PASSCODE?.trim();
-  if (o && p === o) return 'owner';
-  if (i && p === i) return 'intern';
-  if (m && p === m) return 'sonia';
+  for (const [role, env] of PASSCODE_ENVS) {
+    const v = process.env[env]?.trim();
+    if (v && p === v) return role;
+  }
   return null;
 }
 
-/** True for roles that should stay logged in across app opens. */
+/** True for roles that should stay logged in across app opens.
+ *  Everyone except the owner persists (intern, mom, client logins). */
 export function rolePersists(role: Role): boolean {
-  return role === 'sonia' || role === 'intern';
+  return role !== 'owner';
 }
 
 /** Sign a role into a tamper-proof session token (role.hmac). */
@@ -46,9 +55,9 @@ export function verifyToken(token: string | undefined | null): Role | null {
   if (!token) return null;
   const dot = token.lastIndexOf('.');
   if (dot < 0) return null;
-  const role = token.slice(0, dot);
+  const role = token.slice(0, dot) as Role;
   const sig = token.slice(dot + 1);
-  if (role !== 'owner' && role !== 'intern' && role !== 'sonia') return null;
+  if (!ALL_ROLES.includes(role)) return null;
   const expected = crypto.createHmac('sha256', secret()).update(role).digest('hex');
   if (sig.length !== expected.length) return null;
   try {

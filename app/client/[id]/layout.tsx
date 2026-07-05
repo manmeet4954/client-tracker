@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -40,8 +40,16 @@ export default function ClientLayout({
   const { client, data } = useClient(params.id);
   const { role } = useApp();
   const pathname = usePathname();
+  const router = useRouter();
   const base = `/client/${params.id}`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Client logins (Shiva, Merushri) don't get the Dashboard tab, so the
+  // client's landing page for them is the Kanban board.
+  const isClientRole = role === 'shiva' || role === 'merushri';
+  useEffect(() => {
+    if (isClientRole && pathname === base) router.replace(`${base}/kanban`);
+  }, [isClientRole, pathname, base, router]);
 
   // Derive accent from brand kit; falls back to the client's stored color
   const accent = client ? pickAccent(data.brandKit?.colors ?? [], client.color) : '#ea4711';
@@ -63,9 +71,13 @@ export default function ClientLayout({
     tabs.push({ label: 'Catalogue', href: '/catalogue', icon: Images });
   }
 
-  // Sonia only sees References, Orders, and Catalogue
+  // Restricted roles get a reduced tab set:
+  //  - Sonia: References, Orders, Catalogue
+  //  - Client logins (Shiva, Merushri): Kanban, Pillars, References, Previews
   const visibleTabs = role === 'sonia'
     ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
+    : isClientRole
+    ? tabs.filter(t => ['/kanban', '/pillars', '/references', '/previews'].includes(t.href))
     : tabs;
 
   return (

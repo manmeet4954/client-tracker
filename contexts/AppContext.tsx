@@ -714,8 +714,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const { role: r } = await res.json().catch(() => ({ role: 'owner' }));
-      if (r === 'sonia' || r === 'intern') localStorage.setItem('dash_persist', '1'); // stays logged in
-      else sessionStorage.setItem('dash_active', '1');                                  // owner: this session only
+      if (r && r !== 'owner') localStorage.setItem('dash_persist', '1'); // restricted roles stay logged in
+      else sessionStorage.setItem('dash_active', '1');                   // owner: this session only
       setStatus('loading');
       await loadState();
     } catch {

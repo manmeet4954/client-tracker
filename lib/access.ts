@@ -1,6 +1,10 @@
 import { AppState, ClientData } from '@/types';
 
-export type Role = 'owner' | 'intern' | 'sonia';
+export type Role = 'owner' | 'intern' | 'sonia' | 'shiva' | 'merushri';
+
+/** Roles that belong to a client brand (they see only their own workspace,
+ *  with a reduced tab set). */
+export const CLIENT_ROLES: Role[] = ['shiva', 'merushri'];
 
 const EMPTY_BRAIN = { nodes: [], edges: [] };
 
@@ -9,6 +13,8 @@ const EMPTY_BRAIN = { nodes: [], edges: [] };
 const RESTRICTED_MATCHERS: Record<Exclude<Role, 'owner'>, (name: string) => boolean> = {
   intern: (n) => /divine/i.test(n) || /resume/i.test(n),
   sonia: (n) => /sonia/i.test(n) || /crochet/i.test(n),
+  shiva: (n) => /shiva/i.test(n),
+  merushri: (n) => /meru/i.test(n),
 };
 
 export function clientAllowedForRole(role: Role, name: string): boolean {
