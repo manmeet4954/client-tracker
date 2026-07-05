@@ -14,7 +14,7 @@ const RESTRICTED_MATCHERS: Record<Exclude<Role, 'owner'>, (name: string) => bool
   intern: (n) => /divine/i.test(n) || /resume/i.test(n),
   sonia: (n) => /sonia/i.test(n) || /crochet/i.test(n),
   shiva: (n) => /shiva/i.test(n),
-  merushri: (n) => /meru/i.test(n),
+  merushri: (n) => /career|bubble/i.test(n),
 };
 
 export function clientAllowedForRole(role: Role, name: string): boolean {
