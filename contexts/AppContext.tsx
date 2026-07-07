@@ -7,7 +7,7 @@ import {
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
   PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
-  ContentPillar, PillarCard, CollabRef,
+  ContentPillar, PillarCard, CollabRef, LeadAnswer,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -55,6 +55,7 @@ function defaultClientData(): ClientData {
     previewPosts: [],
     pillars: [],
     pillarCards: [],
+    leadAnswers: [],
   };
 }
 
@@ -135,7 +136,10 @@ export type Action =
   | { type: 'ADD_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
   | { type: 'UPDATE_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
   | { type: 'DELETE_PILLAR_CARD'; payload: { clientId: string; cardId: string } }
-  | { type: 'SHARE_PILLAR_CARD'; payload: { sourceClientId: string; sourceCard: PillarCard; targetClientId: string; targetPillarId: string } };
+  | { type: 'SHARE_PILLAR_CARD'; payload: { sourceClientId: string; sourceCard: PillarCard; targetClientId: string; targetPillarId: string } }
+  | { type: 'ADD_LEAD_ANSWER'; payload: { clientId: string; answer: LeadAnswer } }
+  | { type: 'UPDATE_LEAD_ANSWER'; payload: { clientId: string; answer: LeadAnswer } }
+  | { type: 'DELETE_LEAD_ANSWER'; payload: { clientId: string; answerId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -589,6 +593,23 @@ function reducer(state: AppState, action: Action): AppState {
 
       return { ...state, clientData };
     }
+
+    case 'ADD_LEAD_ANSWER':
+      return updateClient(action.payload.clientId, {
+        leadAnswers: [...(cd(action.payload.clientId).leadAnswers ?? []), action.payload.answer],
+      });
+
+    case 'UPDATE_LEAD_ANSWER':
+      return updateClient(action.payload.clientId, {
+        leadAnswers: (cd(action.payload.clientId).leadAnswers ?? []).map(a =>
+          a.id === action.payload.answer.id ? action.payload.answer : a
+        ),
+      });
+
+    case 'DELETE_LEAD_ANSWER':
+      return updateClient(action.payload.clientId, {
+        leadAnswers: (cd(action.payload.clientId).leadAnswers ?? []).filter(a => a.id !== action.payload.answerId),
+      });
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
