@@ -51,9 +51,9 @@ Read the map top to bottom — that is exactly the journey, stage by stage. Each
 `What happens here:
 A person hears about me from a referral (Merushri, Divine, Shiva's network) or finds me on LinkedIn — through my content, or my outreach to service-based founders.
 
-The rule: every route converges on ONE booking link. Even a WhatsApp referral gets the Calendly link. Booking is never negotiated in chat — no "are you free Tuesday" back and forth, ever.
+The rule: every route converges on ONE booking link. Even a WhatsApp referral gets the same link. Booking is never negotiated in chat — no "are you free Tuesday" back and forth, ever.
 
-What this stage needs built: the Calendly with two event types, and the brief booking form inside it.`,
+What this stage needs built: the Topmate profile with two services, and the brief booking form inside it.`,
     '#8c52ff', 1);
 
   const s2 = stage('cm-intro', 'The Intro Call', 'Free, 15-20 min · fit + how I work',
@@ -146,13 +146,17 @@ Nothing in this stage depends on client discipline. The page layout itself argue
     root,
 
     s1,
-    task(s1.id, 'Calendly: two event types', 'Intro Call free · Finding Session paid',
-`Set up Calendly with two event types:
+    task(s1.id, 'Topmate: two services', 'Intro Call free · Finding Session paid via UPI',
+`Set up a Topmate profile with two services:
 
 1. Intro Call — free, 15-20 minutes, with the brief booking form attached (no form, no call)
-2. Finding Session — paid, longer (60-90 min), booking allowed only after payment
+2. Finding Session — ₹1,500-2,000, 60-90 min, payment collected AT booking (UPI/card). The no-payment-no-session rule, enforced automatically.
 
-Share ONLY this link everywhere: referrals, LinkedIn, WhatsApp. One door in.`),
+Share ONLY this one link everywhere: referrals, LinkedIn, WhatsApp. One door in.
+
+Why Topmate over Calendly (decided 2026-07-08): Calendly can't collect rupees cleanly (Stripe/PayPal only), which would mean chasing payments manually — the exact thing the system exists to kill. Topmate takes a small commission; worth it for automatic enforcement.
+
+Positioning note: never lead with the platform. The language is "here's the link to book," not "check my Topmate." Endgame: booking + payment move into KRNL OS later (Rohit-side).`),
     task(s1.id, 'Booking form questions', 'Brief on purpose — depth happens live',
 `The questions on the booking form (short answers, just enough to prepare):
 
@@ -194,10 +198,14 @@ Keep this card in front of me on every call. Money does not override the veto �
 Sent within 24 hours of the call. I never deliver a rejection live, and I never get talked into a client on a call.`),
 
     s3,
-    task(s3.id, 'Payment link wired to booking', 'No payment, no session — enforced',
-`A UPI / Razorpay payment link connected to the Finding Session booking.
+    task(s3.id, 'Payment gate verified', 'No payment, no session — enforced',
+`The rule: the session is booked only AFTER the payment lands. No exceptions, no "I'll pay after." This one rule ends free consumption of my deepest work.
 
-The rule the system enforces: the session is booked only AFTER the payment lands. No exceptions, no "I'll pay after." This one rule ends free consumption of my deepest work.`),
+With Topmate, payment is collected at booking automatically — so this task is:
+1. Verify the paid flow end to end (book a test session, pay, confirm payout reaches my bank)
+2. Keep a UPI / Razorpay link saved as backup for anyone who can't pay through the platform
+
+If the backup link is ever used: payment first, then I share the session slot. Same rule, manual door.`),
     task(s3.id, 'Recorder tool picked + installed', 'One tool, every session',
 `Pick ONE and install it once:
 · Google Meet built-in recording
