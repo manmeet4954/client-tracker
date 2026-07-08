@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -64,10 +64,7 @@ export default function ClientLayout({
 
   // Client-specific extra tabs
   const tabs: Tab[] = [...TABS];
-  if (/divine/i.test(client.name)) {
-    tabs.push({ label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall });
-    tabs.push({ label: 'Answers', href: '/answers', icon: MessageCircle });
-  }
+  if (/divine/i.test(client.name)) tabs.push({ label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall });
   if (/shiva/i.test(client.name)) tabs.push({ label: 'Onboarding', href: '/onboarding', icon: ClipboardList });
   if (/sonia|crochet/i.test(client.name)) {
     tabs.push({ label: 'Orders', href: '/orders', icon: ShoppingBag });

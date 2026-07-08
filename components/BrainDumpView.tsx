@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Plus, Link2, Pencil, Trash2, Lightbulb, Sparkles,
-  Check, ChevronDown, X,
+  Check, ChevronDown, X, Network,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
@@ -154,6 +154,13 @@ export default function BrainDumpView() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => router.push('/map')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-stone-200 text-stone-600 hover:border-stone-400 transition-colors"
+          >
+            <Network size={13} className="text-stone-700" />
+            <span className="hidden sm:inline">Container Map</span>
+          </button>
           {linkFrom && (
             <span className="hidden sm:flex items-center gap-1.5 text-xs text-violet-600 bg-violet-50 px-2.5 py-1.5 rounded-lg">
               <Link2 size={12} /> Tap another node to connect

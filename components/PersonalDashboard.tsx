@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Plus, Check, Calendar, Trash2, Pencil,
-  ChevronDown, CheckCircle2, Circle, Sparkles, Users,
+  ChevronDown, CheckCircle2, Circle, Sparkles, Users, Network,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { generateId, formatDate } from '@/lib/utils';
@@ -88,6 +88,21 @@ export default function PersonalDashboard() {
               >
                 <Users size={14} className="text-white" />
                 <span className="text-white text-xs font-semibold">Clients</span>
+              </button>
+
+              {/* Container Map shortcut */}
+              <button
+                onClick={() => router.push('/map')}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]"
+                style={{
+                  background: 'rgba(255,255,255,0.16)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(255,255,255,0.28)',
+                }}
+              >
+                <Network size={14} className="text-white" />
+                <span className="text-white text-xs font-semibold">Container</span>
               </button>
 
               {/* Brain Dump shortcut */}

@@ -150,25 +150,6 @@ export interface ColdCall {
   createdAt: string;
 }
 
-// ── Lead Answers (Divine Studio) ─────────────────────────────────────────────
-// Ready-to-paste DM replies for leads, grouped by topic. `reply` is what gets
-// copied and sent; `rule` is optional internal guidance (what to do / not do,
-// when to escalate) that is never part of the copied text.
-
-export const LEAD_ANSWER_STARTER_CATEGORIES = [
-  'Gym membership', 'Yoga batch', 'Personal training', 'Workshops', 'Trial visit', 'Discounts',
-];
-
-export interface LeadAnswer {
-  id: string;
-  category: string;
-  question: string;   // how the lead asks it
-  reply: string;      // paste-ready text reply
-  rule?: string;      // internal: do's/don'ts, escalation — never sent
-  createdAt: string;
-  updatedAt: string;
-}
-
 // ── Onboarding questionnaire (per client) ────────────────────────────────────
 
 export interface OnboardingItem {
@@ -264,7 +245,6 @@ export interface ClientData {
   previewPosts: PreviewPost[];
   pillars: ContentPillar[];
   pillarCards: PillarCard[];
-  leadAnswers: LeadAnswer[];
 }
 
 export interface Client {
@@ -322,11 +302,32 @@ export interface BrainDump {
   edges: BrainEdge[];
 }
 
+// ── Container Map (project mind map) ─────────────────────────────────────────
+
+export interface MapNode {
+  id: string;
+  parentId?: string;     // absent = the root node
+  label: string;
+  note?: string;         // optional small note under the label
+  detail?: string;       // full brief shown in the detail panel — plain text with line breaks
+  checkable?: boolean;   // build items that can be ticked off
+  done?: boolean;
+  collapsed?: boolean;   // branch nodes: hide children
+  color?: string;        // branch accent; leaves inherit visually
+  order: number;         // sibling sort
+  createdAt: string;
+}
+
+export interface ContainerMap {
+  nodes: MapNode[];
+}
+
 export interface AppState {
   clients: Client[];
   clientData: Record<string, ClientData>;
   personalTasks: PersonalTask[];
   brainDump: BrainDump;
+  containerMap: ContainerMap;
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────
