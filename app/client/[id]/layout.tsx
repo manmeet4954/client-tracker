@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3 } from 'lucide-react';
+import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -14,6 +14,7 @@ const TABS = [
   { label: 'Dashboard', href: '', icon: LayoutDashboard },
   { label: 'Kanban', href: '/kanban', icon: Kanban },
   { label: 'Pillars', href: '/pillars', icon: Columns3 },
+  { label: 'Assets', href: '/assets', icon: FolderOpen },
   { label: 'Evergreen', href: '/evergreen', icon: Repeat },
   { label: 'References', href: '/references', icon: BookMarked },
   { label: 'Brand', href: '/brand', icon: Palette },
@@ -73,11 +74,11 @@ export default function ClientLayout({
 
   // Restricted roles get a reduced tab set:
   //  - Sonia: References, Orders, Catalogue
-  //  - Client logins (Shiva, Merushri): Kanban, Pillars, References, Previews
+  //  - Client logins (Shiva, Merushri): Kanban, Pillars, Assets, References, Previews
   const visibleTabs = role === 'sonia'
     ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
     : isClientRole
-    ? tabs.filter(t => ['/kanban', '/pillars', '/references', '/previews'].includes(t.href))
+    ? tabs.filter(t => ['/kanban', '/pillars', '/assets', '/references', '/previews'].includes(t.href))
     : tabs;
 
   return (

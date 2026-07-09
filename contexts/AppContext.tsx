@@ -7,7 +7,7 @@ import {
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
   PersonalTask, BrainNode, BrainEdge, MapNode, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
-  ContentPillar, PillarCard, CollabRef,
+  ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -55,6 +55,9 @@ function defaultClientData(): ClientData {
     previewPosts: [],
     pillars: [],
     pillarCards: [],
+    assetSets: [],
+    assetItems: [],
+    driveFolderUrl: '',
   };
 }
 
@@ -140,7 +143,13 @@ export type Action =
   | { type: 'ADD_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
   | { type: 'UPDATE_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
   | { type: 'DELETE_PILLAR_CARD'; payload: { clientId: string; cardId: string } }
-  | { type: 'SHARE_PILLAR_CARD'; payload: { sourceClientId: string; sourceCard: PillarCard; targetClientId: string; targetPillarId: string } };
+  | { type: 'SHARE_PILLAR_CARD'; payload: { sourceClientId: string; sourceCard: PillarCard; targetClientId: string; targetPillarId: string } }
+  | { type: 'ADD_ASSET_SET'; payload: { clientId: string; set: AssetSet } }
+  | { type: 'RENAME_ASSET_SET'; payload: { clientId: string; setId: string; name: string } }
+  | { type: 'DELETE_ASSET_SET'; payload: { clientId: string; setId: string } }
+  | { type: 'ADD_ASSET_ITEM'; payload: { clientId: string; item: AssetItem } }
+  | { type: 'DELETE_ASSET_ITEM'; payload: { clientId: string; itemId: string } }
+  | { type: 'SET_DRIVE_FOLDER'; payload: { clientId: string; url: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -439,6 +448,39 @@ function reducer(state: AppState, action: Action): AppState {
       return updateClient(action.payload.clientId, {
         catalogueItems: (cd(action.payload.clientId).catalogueItems ?? []).filter(i => i.id !== action.payload.itemId),
       });
+
+    case 'ADD_ASSET_SET':
+      return updateClient(action.payload.clientId, {
+        assetSets: [...(cd(action.payload.clientId).assetSets ?? []), action.payload.set],
+      });
+
+    case 'RENAME_ASSET_SET':
+      return updateClient(action.payload.clientId, {
+        assetSets: (cd(action.payload.clientId).assetSets ?? []).map(s =>
+          s.id === action.payload.setId ? { ...s, name: action.payload.name } : s
+        ),
+      });
+
+    case 'DELETE_ASSET_SET': {
+      const { clientId, setId } = action.payload;
+      return updateClient(clientId, {
+        assetSets: (cd(clientId).assetSets ?? []).filter(s => s.id !== setId),
+        assetItems: (cd(clientId).assetItems ?? []).filter(i => i.setId !== setId),
+      });
+    }
+
+    case 'ADD_ASSET_ITEM':
+      return updateClient(action.payload.clientId, {
+        assetItems: [action.payload.item, ...(cd(action.payload.clientId).assetItems ?? [])],
+      });
+
+    case 'DELETE_ASSET_ITEM':
+      return updateClient(action.payload.clientId, {
+        assetItems: (cd(action.payload.clientId).assetItems ?? []).filter(i => i.id !== action.payload.itemId),
+      });
+
+    case 'SET_DRIVE_FOLDER':
+      return updateClient(action.payload.clientId, { driveFolderUrl: action.payload.url });
 
     case 'UPDATE_INSTAGRAM':
       return updateClient(action.payload.clientId, { instagram: action.payload.instagram });
