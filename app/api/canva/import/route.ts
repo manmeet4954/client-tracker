@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { designIdFromInput, getValidAccessToken, exportDesignPages } from '@/lib/canva';
+import { resolveDesignId, getValidAccessToken, exportDesignPages } from '@/lib/canva';
 import { uploadToStorage } from '@/lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
@@ -19,8 +19,13 @@ export async function POST(req: Request) {
   if (!isOwner()) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const designId = designIdFromInput(String(body?.link ?? ''));
-  if (!designId) return NextResponse.json({ error: 'bad-link' }, { status: 400 });
+  const designId = await resolveDesignId(String(body?.link ?? ''));
+  if (!designId) {
+    return NextResponse.json(
+      { error: 'Could not read a design from that link. Open the design in Canva and copy the link from the address bar, then paste it here.' },
+      { status: 400 },
+    );
+  }
 
   const token = await getValidAccessToken();
   if (!token) return NextResponse.json({ error: 'not-connected' }, { status: 409 });

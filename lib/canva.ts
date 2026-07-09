@@ -117,13 +117,40 @@ export async function isConnected(): Promise<boolean> {
   return (await readCanvaToken()) !== null;
 }
 
-// A Canva design link looks like https://www.canva.com/design/<ID>/<...>. Accept
-// either a full link or a bare design id.
+// A full Canva design link looks like https://www.canva.com/design/<ID>/<...>.
+// Accept a full link or a bare design id. Short links (canva.link/xxx) do not
+// carry the id — resolveDesignId() follows those.
 export function designIdFromInput(input: string): string | null {
   const trimmed = input.trim();
   const m = trimmed.match(/canva\.com\/design\/([A-Za-z0-9_-]+)/);
   if (m) return m[1];
   if (/^[A-Za-z0-9_-]{6,}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
+// Resolve any Canva link (including short canva.link/... share links) to a
+// design id. Short links carry no id, so follow the redirect and read the id
+// from the final canva.com/design/<ID> URL.
+export async function resolveDesignId(input: string): Promise<string | null> {
+  const direct = designIdFromInput(input);
+  if (direct) return direct;
+  const trimmed = input.trim();
+  if (/^https?:\/\//i.test(trimmed) && /canva\.(link|com|site)/i.test(trimmed)) {
+    try {
+      const res = await fetch(trimmed, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClientDashboard/1.0)' },
+      });
+      const fromFinal = designIdFromInput(res.url || '');
+      if (fromFinal) return fromFinal;
+      // Some redirects land on a page whose body still references the design id.
+      const body = await res.text().catch(() => '');
+      const m = body.match(/canva\.com\/design\/([A-Za-z0-9_-]+)/);
+      if (m) return m[1];
+    } catch {
+      // fall through to null
+    }
+  }
   return null;
 }
 
