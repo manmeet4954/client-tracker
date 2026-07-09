@@ -210,6 +210,29 @@ export interface PreviewPost {
 
 export const MAX_CAROUSEL_SLIDES = 20;
 
+// ── Asset Vault (per client) ─────────────────────────────────────────────────
+// The collection point where clients drop their photos. Originals are stored
+// untouched in the `assets` bucket (no resize, no recompression) plus a small
+// browser-generated thumbnail for fast grids. Videos never live here — they
+// live in the client's Google Drive folder, reached through the Videos tile.
+
+export interface AssetSet {
+  id: string;
+  name: string;       // e.g. "March shoot", "Products"
+  createdAt: string;
+}
+
+export interface AssetItem {
+  id: string;
+  setId: string;
+  url: string;        // public URL of the untouched original
+  thumbUrl: string;   // small webp preview (falls back to `url` if generation failed)
+  fileName: string;   // original filename, kept for download
+  size: number;       // bytes
+  uploadedBy: string; // role that uploaded it
+  createdAt: string;
+}
+
 // ── Content Pillars (per client) ─────────────────────────────────────────────
 // A pillar is a content theme (a column). Each pillar holds topic cards; a
 // card is a ready-to-produce post: title/hook + full content, so the work can
@@ -274,6 +297,9 @@ export interface ClientData {
   previewPosts: PreviewPost[];
   pillars: ContentPillar[];
   pillarCards: PillarCard[];
+  assetSets: AssetSet[];
+  assetItems: AssetItem[];
+  driveFolderUrl: string;  // the client's Google Drive video folder (the Videos tile)
   leadAnswers: LeadAnswer[];
 }
 
@@ -332,11 +358,32 @@ export interface BrainDump {
   edges: BrainEdge[];
 }
 
+// ── Container Map (project mind map) ─────────────────────────────────────────
+
+export interface MapNode {
+  id: string;
+  parentId?: string;     // absent = the root node
+  label: string;
+  note?: string;         // optional small note under the label
+  detail?: string;       // full brief shown in the detail panel — plain text with line breaks
+  checkable?: boolean;   // build items that can be ticked off
+  done?: boolean;
+  collapsed?: boolean;   // branch nodes: hide children
+  color?: string;        // branch accent; leaves inherit visually
+  order: number;         // sibling sort
+  createdAt: string;
+}
+
+export interface ContainerMap {
+  nodes: MapNode[];
+}
+
 export interface AppState {
   clients: Client[];
   clientData: Record<string, ClientData>;
   personalTasks: PersonalTask[];
   brainDump: BrainDump;
+  containerMap: ContainerMap;
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────

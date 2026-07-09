@@ -7,6 +7,7 @@ export type Role = 'owner' | 'intern' | 'sonia' | 'shiva' | 'merushri';
 export const CLIENT_ROLES: Role[] = ['shiva', 'merushri'];
 
 const EMPTY_BRAIN = { nodes: [], edges: [] };
+const EMPTY_MAP = { nodes: [] };
 
 // Which clients each restricted role may access — matched by NAME so it's
 // robust to generated client ids.
@@ -30,7 +31,7 @@ export function allowedClientIds(state: AppState, role: Role): string[] {
 
 /** An empty, valid AppState (used when there is no saved row yet). */
 export function emptyState(): AppState {
-  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN } };
+  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP } };
 }
 
 /** Normalize older saved states so every top-level field exists. */
@@ -54,6 +55,7 @@ export function normalizeState(state: AppState): AppState {
     clientData,
     personalTasks: state.personalTasks ?? [],
     brainDump: state.brainDump ?? { ...EMPTY_BRAIN },
+    containerMap: state.containerMap ?? { ...EMPTY_MAP },
   };
 }
 
@@ -71,7 +73,7 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
   ids.forEach(id => {
     if (norm.clientData[id]) clientData[id] = norm.clientData[id];
   });
-  return { clients, clientData, personalTasks: [], brainDump: { ...EMPTY_BRAIN } };
+  return { clients, clientData, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP } };
 }
 
 /**
@@ -94,5 +96,6 @@ export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role
     clientData,
     personalTasks: cur.personalTasks,
     brainDump: cur.brainDump,
+    containerMap: cur.containerMap,
   };
 }
