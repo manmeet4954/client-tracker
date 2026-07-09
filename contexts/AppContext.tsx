@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation';
 import {
   AppState, Client, ClientData, KanbanCard, AgendaItem,
   Reference, BrandOverview, BrandKit, CustomFieldDef, ColumnId, EvergreenIdea, StudioComposition,
-  PersonalTask, BrainNode, BrainEdge, MapNode, ColdCall, OnboardingItem, SoniaOrder,
+  PersonalTask, BrainNode, BrainEdge, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
-  ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem,
+  ContentPillar, PillarCard, CollabRef, LeadAnswer,
 } from '@/types';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
@@ -55,9 +55,7 @@ function defaultClientData(): ClientData {
     previewPosts: [],
     pillars: [],
     pillarCards: [],
-    assetSets: [],
-    assetItems: [],
-    driveFolderUrl: '',
+    leadAnswers: [],
   };
 }
 
@@ -74,7 +72,6 @@ const SEED: AppState = {
   },
   personalTasks: [],
   brainDump: { nodes: [], edges: [] },
-  containerMap: { nodes: [] },
 };
 
 export type Action =
@@ -114,10 +111,6 @@ export type Action =
   | { type: 'DELETE_BRAIN_NODE'; payload: { nodeId: string } }
   | { type: 'ADD_BRAIN_EDGE'; payload: { edge: BrainEdge } }
   | { type: 'DELETE_BRAIN_EDGE'; payload: { edgeId: string } }
-  | { type: 'SEED_CONTAINER_MAP'; payload: { nodes: MapNode[] } }
-  | { type: 'ADD_MAP_NODE'; payload: { node: MapNode } }
-  | { type: 'UPDATE_MAP_NODE'; payload: { node: MapNode } }
-  | { type: 'DELETE_MAP_NODE'; payload: { nodeId: string } }
   | { type: 'ADD_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
   | { type: 'ADD_COLD_CALLS'; payload: { clientId: string; calls: ColdCall[] } }
   | { type: 'UPDATE_COLD_CALL'; payload: { clientId: string; call: ColdCall } }
@@ -144,12 +137,9 @@ export type Action =
   | { type: 'UPDATE_PILLAR_CARD'; payload: { clientId: string; card: PillarCard } }
   | { type: 'DELETE_PILLAR_CARD'; payload: { clientId: string; cardId: string } }
   | { type: 'SHARE_PILLAR_CARD'; payload: { sourceClientId: string; sourceCard: PillarCard; targetClientId: string; targetPillarId: string } }
-  | { type: 'ADD_ASSET_SET'; payload: { clientId: string; set: AssetSet } }
-  | { type: 'RENAME_ASSET_SET'; payload: { clientId: string; setId: string; name: string } }
-  | { type: 'DELETE_ASSET_SET'; payload: { clientId: string; setId: string } }
-  | { type: 'ADD_ASSET_ITEM'; payload: { clientId: string; item: AssetItem } }
-  | { type: 'DELETE_ASSET_ITEM'; payload: { clientId: string; itemId: string } }
-  | { type: 'SET_DRIVE_FOLDER'; payload: { clientId: string; url: string } };
+  | { type: 'ADD_LEAD_ANSWER'; payload: { clientId: string; answer: LeadAnswer } }
+  | { type: 'UPDATE_LEAD_ANSWER'; payload: { clientId: string; answer: LeadAnswer } }
+  | { type: 'DELETE_LEAD_ANSWER'; payload: { clientId: string; answerId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -176,7 +166,6 @@ function reducer(state: AppState, action: Action): AppState {
         clientData: patchedClientData,
         personalTasks: payload.personalTasks ?? [],
         brainDump: payload.brainDump ?? { nodes: [], edges: [] },
-        containerMap: payload.containerMap ?? { nodes: [] },
       };
     }
 
@@ -449,39 +438,6 @@ function reducer(state: AppState, action: Action): AppState {
         catalogueItems: (cd(action.payload.clientId).catalogueItems ?? []).filter(i => i.id !== action.payload.itemId),
       });
 
-    case 'ADD_ASSET_SET':
-      return updateClient(action.payload.clientId, {
-        assetSets: [...(cd(action.payload.clientId).assetSets ?? []), action.payload.set],
-      });
-
-    case 'RENAME_ASSET_SET':
-      return updateClient(action.payload.clientId, {
-        assetSets: (cd(action.payload.clientId).assetSets ?? []).map(s =>
-          s.id === action.payload.setId ? { ...s, name: action.payload.name } : s
-        ),
-      });
-
-    case 'DELETE_ASSET_SET': {
-      const { clientId, setId } = action.payload;
-      return updateClient(clientId, {
-        assetSets: (cd(clientId).assetSets ?? []).filter(s => s.id !== setId),
-        assetItems: (cd(clientId).assetItems ?? []).filter(i => i.setId !== setId),
-      });
-    }
-
-    case 'ADD_ASSET_ITEM':
-      return updateClient(action.payload.clientId, {
-        assetItems: [action.payload.item, ...(cd(action.payload.clientId).assetItems ?? [])],
-      });
-
-    case 'DELETE_ASSET_ITEM':
-      return updateClient(action.payload.clientId, {
-        assetItems: (cd(action.payload.clientId).assetItems ?? []).filter(i => i.id !== action.payload.itemId),
-      });
-
-    case 'SET_DRIVE_FOLDER':
-      return updateClient(action.payload.clientId, { driveFolderUrl: action.payload.url });
-
     case 'UPDATE_INSTAGRAM':
       return updateClient(action.payload.clientId, { instagram: action.payload.instagram });
 
@@ -638,6 +594,23 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, clientData };
     }
 
+    case 'ADD_LEAD_ANSWER':
+      return updateClient(action.payload.clientId, {
+        leadAnswers: [...(cd(action.payload.clientId).leadAnswers ?? []), action.payload.answer],
+      });
+
+    case 'UPDATE_LEAD_ANSWER':
+      return updateClient(action.payload.clientId, {
+        leadAnswers: (cd(action.payload.clientId).leadAnswers ?? []).map(a =>
+          a.id === action.payload.answer.id ? action.payload.answer : a
+        ),
+      });
+
+    case 'DELETE_LEAD_ANSWER':
+      return updateClient(action.payload.clientId, {
+        leadAnswers: (cd(action.payload.clientId).leadAnswers ?? []).filter(a => a.id !== action.payload.answerId),
+      });
+
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
 
@@ -718,44 +691,6 @@ function reducer(state: AppState, action: Action): AppState {
           edges: (state.brainDump?.edges ?? []).filter(e => e.id !== action.payload.edgeId),
         },
       };
-
-    case 'SEED_CONTAINER_MAP':
-      // Only ever fills an empty map — never overwrites her edits.
-      if ((state.containerMap?.nodes?.length ?? 0) > 0) return state;
-      return { ...state, containerMap: { nodes: action.payload.nodes } };
-
-    case 'ADD_MAP_NODE':
-      return {
-        ...state,
-        containerMap: { nodes: [...(state.containerMap?.nodes ?? []), action.payload.node] },
-      };
-
-    case 'UPDATE_MAP_NODE':
-      return {
-        ...state,
-        containerMap: {
-          nodes: (state.containerMap?.nodes ?? []).map(n =>
-            n.id === action.payload.node.id ? action.payload.node : n
-          ),
-        },
-      };
-
-    case 'DELETE_MAP_NODE': {
-      const all = state.containerMap?.nodes ?? [];
-      // cascade: remove the node and all its descendants
-      const doomed = new Set<string>([action.payload.nodeId]);
-      let grew = true;
-      while (grew) {
-        grew = false;
-        for (const n of all) {
-          if (n.parentId && doomed.has(n.parentId) && !doomed.has(n.id)) {
-            doomed.add(n.id);
-            grew = true;
-          }
-        }
-      }
-      return { ...state, containerMap: { nodes: all.filter(n => !doomed.has(n.id)) } };
-    }
 
     default:
       return state;

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { AppState, InstagramProfile, PreviewPost } from '@/types';
+import { AppState, InstagramProfile, PreviewPost, CanvaToken } from '@/types';
 
 // Server-only Supabase access. Prefer the service role key (bypasses RLS) so
 // public pages like /p/[shareId] can always read state without auth context.
@@ -7,6 +7,7 @@ import { AppState, InstagramProfile, PreviewPost } from '@/types';
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const DB_ROW_ID = 'manmeet';
+const CANVA_ROW_ID = 'canva_oauth';
 
 const supabase = createClient(url, key);
 
@@ -26,6 +27,43 @@ export async function writeState(state: AppState): Promise<void> {
     .from('app_state')
     .upsert({ id: DB_ROW_ID, data: state, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);
+}
+
+// ── Canva token storage ──────────────────────────────────────────────────────
+// Kept in its own row of the same app_state table (no new table needed) and
+// only ever touched server-side, so the token never reaches the browser.
+
+export async function readCanvaToken(): Promise<CanvaToken | null> {
+  const { data, error } = await supabase
+    .from('app_state')
+    .select('data')
+    .eq('id', CANVA_ROW_ID)
+    .single();
+  if (error || !data?.data) return null;
+  return data.data as CanvaToken;
+}
+
+export async function writeCanvaToken(token: CanvaToken): Promise<void> {
+  const { error } = await supabase
+    .from('app_state')
+    .upsert({ id: CANVA_ROW_ID, data: token, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+}
+
+export async function clearCanvaToken(): Promise<void> {
+  await supabase.from('app_state').delete().eq('id', CANVA_ROW_ID);
+}
+
+// Upload raw bytes to a public Storage bucket and return the public URL. Used to
+// re-host Canva export images (whose own URLs expire) in `post-images`.
+export async function uploadToStorage(
+  bucket: string, bytes: ArrayBuffer, contentType: string, ext: string,
+): Promise<string> {
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabase.storage.from(bucket).upload(filename, bytes, { contentType, upsert: false });
+  if (error) throw new Error(error.message);
+  const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filename);
+  return publicUrl;
 }
 
 /** Public preview lookup: find a post by its share token across all clients.

@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Plus, Trash2, Pencil, Copy, Check, ExternalLink, Instagram,
-  ChevronLeft, ChevronRight, X, ImagePlus, Layers, Loader2, Play,
+  ChevronLeft, ChevronRight, X, ImagePlus, Layers, Loader2, Play, Download,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, generateShareId, isVideoUrl } from '@/lib/utils';
@@ -304,6 +304,104 @@ function PostCard({ post, onEdit, onDelete }: {
 
 // ── Post editor ──────────────────────────────────────────────────────────────
 
+// ── Canva import ─────────────────────────────────────────────────────────────
+// Pulls a design's pages straight into the slide list. Shows nothing until the
+// integration is set up (env vars present); then a Connect button until the
+// owner has authorised, and an Import box after that.
+
+type CanvaStatus = { configured: boolean; connected: boolean };
+
+function CanvaImport({ onImport, disabled }: { onImport: (urls: string[]) => void; disabled: boolean }) {
+  const [status, setStatus] = useState<CanvaStatus | null>(null);
+  const [open, setOpen] = useState(false);
+  const [link, setLink] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/canva/status')
+      .then(r => (r.ok ? r.json() : null))
+      .then(s => { if (alive && s) setStatus(s); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  if (!status?.configured) return null;
+
+  if (!status.connected) {
+    return (
+      <button
+        type="button"
+        onClick={() => { window.location.href = `/api/canva/connect?from=${encodeURIComponent(window.location.pathname)}`; }}
+        className="mt-2 flex items-center gap-1.5 text-xs text-sky-600 hover:text-sky-800"
+      >
+        <Download size={13} /> Connect Canva to import slides
+      </button>
+    );
+  }
+
+  async function runImport() {
+    if (!link.trim() || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch('/api/canva/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link: link.trim() }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Import failed. Check the link and try again.');
+      if (!json.images?.length) throw new Error('That design had no pages to import.');
+      onImport(json.images as string[]);
+      setLink('');
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        className="mt-2 flex items-center gap-1.5 text-xs text-sky-600 hover:text-sky-800 disabled:opacity-40"
+      >
+        <Download size={13} /> Import slides from Canva
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-sky-200 bg-sky-50/50 p-2.5">
+      <label className="block text-[11px] font-medium text-stone-500 mb-1.5">Paste a Canva design link</label>
+      <div className="flex gap-2">
+        <input
+          autoFocus
+          value={link}
+          onChange={e => setLink(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && runImport()}
+          placeholder="https://www.canva.com/design/..."
+          className="input-base flex-1 text-[13px]"
+          inputMode="url"
+        />
+        <button onClick={runImport} disabled={!link.trim() || busy} className="btn-primary flex items-center gap-1.5 disabled:opacity-40">
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {busy ? 'Importing...' : 'Import'}
+        </button>
+        <button onClick={() => { setOpen(false); setError(''); }} className="btn-secondary" disabled={busy}>Cancel</button>
+      </div>
+      {error && <p className="text-xs text-red-500 mt-1.5">{error}</p>}
+      <p className="text-[11px] text-stone-400 mt-1.5">Every page comes in as a slide, in order. Large designs take a few seconds.</p>
+    </div>
+  );
+}
+
 function PostEditorModal({ post, onClose, onSave }: {
   post: PreviewPost | null;
   onClose: () => void;
@@ -351,6 +449,12 @@ function PostEditorModal({ post, onClose, onSave }: {
 
   function removeAt(index: number) {
     setImages(prev => prev.filter((_, i) => i !== index));
+  }
+
+  // Append already-hosted slide URLs (e.g. imported from Canva), capped at the
+  // carousel limit and in the order returned.
+  function addImageUrls(urls: string[]) {
+    setImages(prev => [...prev, ...urls].slice(0, MAX_CAROUSEL_SLIDES));
   }
 
   async function save() {
@@ -449,6 +553,11 @@ function PostEditorModal({ post, onClose, onSave }: {
             onChange={e => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ''; }}
           />
           {uploadError && <p className="text-xs text-red-500 mt-1.5">{uploadError}</p>}
+
+          <CanvaImport
+            disabled={uploading || images.length >= MAX_CAROUSEL_SLIDES}
+            onImport={addImageUrls}
+          />
         </div>
 
         <div>
