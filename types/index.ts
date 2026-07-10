@@ -242,7 +242,61 @@ export interface ContentPillar {
   id: string;
   name: string;
   color: string;      // hex accent for the column header
+  targetPct?: number; // strategy mix target (e.g. ResumeGuru AI lane = 40) — Journey compares actual vs this
   createdAt: string;
+}
+
+// ── Lists (pipelines, per client) ────────────────────────────────────────────
+// A reusable list maker where each list defines its own stages, so a list IS
+// a pipeline: colleges move not-contacted → reached-out → agreed → conducted.
+// Covers collaborators, workshops, locations — one feature, endless lists.
+
+export interface ListStage {
+  id: string;
+  name: string;
+}
+
+export interface TrackList {
+  id: string;
+  name: string;          // e.g. "Colleges & Workshops"
+  stages: ListStage[];   // ordered, user-defined
+  createdAt: string;
+}
+
+export interface ListRow {
+  id: string;
+  listId: string;
+  stageId: string;
+  name: string;          // person / college / place
+  link?: string;         // profile, website, contact
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Journey (per client) ─────────────────────────────────────────────────────
+// The strategy-meets-progress layer: one goal, channel statuses, monthly
+// check-in numbers. Content mix is computed from contentCards, not stored.
+
+export interface JourneyCheckIn {
+  month: string;   // yyyy-MM
+  value: number;   // the north-star number that month (signups, leads...)
+}
+
+export interface JourneyChannel {
+  id: string;
+  name: string;    // Instagram / YouTube / LinkedIn / SEO...
+  note: string;    // where it stands, next move
+}
+
+export interface JourneyData {
+  northStar: string;      // e.g. "Signups" — empty until she sets it
+  targetValue?: number;   // e.g. 300
+  targetDate?: string;    // yyyy-MM
+  startMonth?: string;    // when the journey began (defaults to first post month)
+  checkIns: JourneyCheckIn[];
+  channels: JourneyChannel[];
+  nextSteps: string;      // the ordered 3-5 moves, plain text
 }
 
 export type PillarCardStatus = 'idea' | 'writing' | 'ready' | 'done';
@@ -352,6 +406,9 @@ export interface ClientData {
   leadAnswers: LeadAnswer[];
   contentCards: ContentCard[];
   platforms?: string[];    // enabled platforms; UI shows a platform picker only when >1
+  lists: TrackList[];
+  listRows: ListRow[];
+  journey?: JourneyData;
 }
 
 export interface Client {
@@ -371,12 +428,16 @@ export const TASK_BUCKETS: { id: TaskBucket; label: string; sub: string }[] = [
   { id: 'todo',  label: 'To-Do',     sub: 'Everything pending' },
 ];
 
+export type TaskRepeat = '' | 'weekly' | 'monthly';
+
 export interface PersonalTask {
   id: string;
   text: string;
-  bucket: TaskBucket;
+  bucket: TaskBucket;    // legacy — sections are computed from dates now
   clientId?: string;     // optional — which client this is for
   dueDate?: string;      // optional ISO date (yyyy-mm-dd)
+  repeat?: TaskRepeat;   // recurring: recreates itself on completion
+  pinnedOn?: string;     // yyyy-mm-dd — manually pulled into Today for that day
   done: boolean;
   completedAt?: string;  // ISO timestamp when checked off
   createdAt: string;

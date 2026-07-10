@@ -8,7 +8,7 @@ import {
   PersonalTask, BrainNode, BrainEdge, MapNode, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
-  ContentCard, ContentStage,
+  ContentCard, ContentStage, TrackList, ListRow, JourneyData,
 } from '@/types';
 import { migrateToContentCards } from '@/lib/migrateContent';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
@@ -62,6 +62,8 @@ function defaultClientData(): ClientData {
     driveFolderUrl: '',
     leadAnswers: [],
     contentCards: [],
+    lists: [],
+    listRows: [],
   };
 }
 
@@ -162,7 +164,14 @@ export type Action =
   | { type: 'DELETE_CONTENT_CARD'; payload: { clientId: string; cardId: string } }
   | { type: 'MOVE_CONTENT_CARD'; payload: { clientId: string; cardId: string; stage: ContentStage } }
   | { type: 'SHARE_CONTENT_CARD'; payload: { sourceClientId: string; sourceCard: ContentCard; targetClientId: string; targetPillarId: string } }
-  | { type: 'SET_PLATFORMS'; payload: { clientId: string; platforms: string[] } };
+  | { type: 'SET_PLATFORMS'; payload: { clientId: string; platforms: string[] } }
+  | { type: 'ADD_LIST'; payload: { clientId: string; list: TrackList } }
+  | { type: 'UPDATE_LIST'; payload: { clientId: string; list: TrackList } }
+  | { type: 'DELETE_LIST'; payload: { clientId: string; listId: string } }
+  | { type: 'ADD_LIST_ROW'; payload: { clientId: string; row: ListRow } }
+  | { type: 'UPDATE_LIST_ROW'; payload: { clientId: string; row: ListRow } }
+  | { type: 'DELETE_LIST_ROW'; payload: { clientId: string; rowId: string } }
+  | { type: 'UPDATE_JOURNEY'; payload: { clientId: string; journey: JourneyData } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -799,6 +808,40 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_PLATFORMS':
       return updateClient(action.payload.clientId, { platforms: action.payload.platforms });
 
+    case 'ADD_LIST':
+      return updateClient(action.payload.clientId, {
+        lists: [...(cd(action.payload.clientId).lists ?? []), action.payload.list],
+      });
+
+    case 'UPDATE_LIST':
+      return updateClient(action.payload.clientId, {
+        lists: (cd(action.payload.clientId).lists ?? []).map(l => l.id === action.payload.list.id ? action.payload.list : l),
+      });
+
+    case 'DELETE_LIST':
+      return updateClient(action.payload.clientId, {
+        lists: (cd(action.payload.clientId).lists ?? []).filter(l => l.id !== action.payload.listId),
+        listRows: (cd(action.payload.clientId).listRows ?? []).filter(r => r.listId !== action.payload.listId),
+      });
+
+    case 'ADD_LIST_ROW':
+      return updateClient(action.payload.clientId, {
+        listRows: [...(cd(action.payload.clientId).listRows ?? []), action.payload.row],
+      });
+
+    case 'UPDATE_LIST_ROW':
+      return updateClient(action.payload.clientId, {
+        listRows: (cd(action.payload.clientId).listRows ?? []).map(r => r.id === action.payload.row.id ? action.payload.row : r),
+      });
+
+    case 'DELETE_LIST_ROW':
+      return updateClient(action.payload.clientId, {
+        listRows: (cd(action.payload.clientId).listRows ?? []).filter(r => r.id !== action.payload.rowId),
+      });
+
+    case 'UPDATE_JOURNEY':
+      return updateClient(action.payload.clientId, { journey: action.payload.journey });
+
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
 
@@ -810,15 +853,23 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       };
 
-    case 'TOGGLE_TASK':
-      return {
-        ...state,
-        personalTasks: (state.personalTasks ?? []).map(t =>
-          t.id === action.payload.taskId
-            ? { ...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : undefined }
-            : t
-        ),
-      };
+    case 'TOGGLE_TASK': {
+      const target = (state.personalTasks ?? []).find(t => t.id === action.payload.taskId);
+      const toggled = (state.personalTasks ?? []).map(t =>
+        t.id === action.payload.taskId
+          ? { ...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : undefined }
+          : t
+      );
+      // A repeating task recreates itself for the next cycle when completed.
+      if (target && !target.done && target.repeat) {
+        const base = target.dueDate ? new Date(target.dueDate) : new Date();
+        if (target.repeat === 'weekly') base.setDate(base.getDate() + 7);
+        else base.setMonth(base.getMonth() + 1);
+        const nextDue = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
+        toggled.push({ ...target, id: generateId(), done: false, completedAt: undefined, dueDate: nextDue, pinnedOn: undefined, createdAt: new Date().toISOString() });
+      }
+      return { ...state, personalTasks: toggled };
+    }
 
     case 'DELETE_TASK':
       return {

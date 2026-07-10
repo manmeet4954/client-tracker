@@ -20,6 +20,14 @@ import Modal from './Modal';
 
 const STARTER_PILLARS = ['Educational', 'Founder story', 'Client wins / Trust', 'Community', 'Behind the scenes', 'Promotional'];
 
+// ResumeGuru's locked strategy mix — seeds pillars with targets + platforms.
+const RESUMEGURU_PILLARS: { name: string; targetPct: number }[] = [
+  { name: 'AI lane', targetPct: 40 },
+  { name: 'Value', targetPct: 25 },
+  { name: 'Career OS', targetPct: 20 },
+  { name: 'Proof', targetPct: 15 },
+];
+
 type ViewId = 'board' | 'pillars' | 'table';
 
 function stageMeta(id: ContentStage) {
@@ -67,7 +75,8 @@ class SmartPointerSensor extends PointerSensor {
 
 export default function ContentView({ clientId }: { clientId: string }) {
   const { dispatch, role, selectedMonth: month, setSelectedMonth: setMonth } = useApp();
-  const { data } = useClient(clientId);
+  const { client, data } = useClient(clientId);
+  const isResumeGuru = /resume/i.test(client?.name ?? '');
   const [view, setView] = useState<ViewId>(() => {
     if (typeof window === 'undefined') return 'board';
     return (localStorage.getItem(`content_view_${clientId}`) as ViewId) || 'board';
@@ -135,6 +144,18 @@ export default function ContentView({ clientId }: { clientId: string }) {
       type: 'ADD_PILLAR',
       payload: { clientId, pillar: { id: generateId(), name: name.trim(), color, createdAt: new Date().toISOString() } },
     });
+  }
+
+  // One-click ResumeGuru setup: the 4 strategy pillars (with mix targets the
+  // Journey tab measures against) + the three platforms.
+  function loadResumeGuruPack() {
+    RESUMEGURU_PILLARS.forEach((p, i) => {
+      dispatch({
+        type: 'ADD_PILLAR',
+        payload: { clientId, pillar: { id: generateId(), name: p.name, targetPct: p.targetPct, color: CLIENT_COLORS[i % CLIENT_COLORS.length], createdAt: new Date().toISOString() } },
+      });
+    });
+    dispatch({ type: 'SET_PLATFORMS', payload: { clientId, platforms: ['Instagram', 'LinkedIn', 'YouTube'] } });
   }
 
   const sensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
@@ -224,7 +245,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
 
       {view === 'pillars' && (
         pillars.length === 0 && pillarCards.length === 0 ? (
-          <PillarsEmptyState onAdd={addPillar} />
+          <PillarsEmptyState onAdd={addPillar} onLoadPack={isResumeGuru ? loadResumeGuruPack : undefined} />
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-4 items-start">
             {pillars.map(pillar => (
@@ -830,12 +851,19 @@ function RenamePillarModal({ pillar, onClose, onSave }: {
 }) {
   const [name, setName] = useState(pillar.name);
   const [color, setColor] = useState(pillar.color);
+  const [target, setTarget] = useState(pillar.targetPct?.toString() ?? '');
   return (
     <Modal open onClose={onClose} title="Edit Pillar" size="sm">
       <div className="p-6 space-y-4">
         <div>
           <label className="block text-xs font-medium text-stone-500 mb-1.5">Name</label>
           <input autoFocus value={name} onChange={e => setName(e.target.value)} className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">
+            Mix target % <span className="text-stone-400 font-normal">optional — the Journey tab measures against it</span>
+          </label>
+          <input type="number" min={0} max={100} value={target} onChange={e => setTarget(e.target.value)} placeholder="e.g. 40" className="input-base w-full" />
         </div>
         <div>
           <label className="block text-xs font-medium text-stone-500 mb-1.5">Colour</label>
@@ -849,7 +877,7 @@ function RenamePillarModal({ pillar, onClose, onSave }: {
         </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={() => name.trim() && onSave({ ...pillar, name: name.trim(), color })} disabled={!name.trim()} className="btn-primary">Save</button>
+          <button onClick={() => name.trim() && onSave({ ...pillar, name: name.trim(), color, targetPct: target ? Number(target) : undefined })} disabled={!name.trim()} className="btn-primary">Save</button>
         </div>
       </div>
     </Modal>
@@ -892,7 +920,7 @@ function PlatformsModal({ platforms, onClose, onSave }: {
 
 // ── Empty state (pillars view) ───────────────────────────────────────────────
 
-function PillarsEmptyState({ onAdd }: { onAdd: (name: string) => void }) {
+function PillarsEmptyState({ onAdd, onLoadPack }: { onAdd: (name: string) => void; onLoadPack?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center mb-4">
@@ -902,6 +930,11 @@ function PillarsEmptyState({ onAdd }: { onAdd: (name: string) => void }) {
       <p className="text-sm text-stone-400 mb-6 max-w-sm">
         Pillars are your content themes. Add posts under each, write once, and track them to live on the Board.
       </p>
+      {onLoadPack && (
+        <button onClick={onLoadPack} className="btn-primary flex items-center gap-2 mb-6">
+          <Sparkles size={15} /> Load the ResumeGuru pack (4 pillars with mix targets + 3 platforms)
+        </button>
+      )}
       <div className="flex items-center gap-2 mb-4">
         <Sparkles size={14} className="text-accent" />
         <span className="text-xs font-medium text-stone-500 uppercase tracking-wide">Quick start</span>

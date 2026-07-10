@@ -39,7 +39,7 @@ export function normalizeState(state: AppState): AppState {
   const rawData = state.clientData ?? {};
   const clientData: typeof rawData = {};
   for (const id of Object.keys(rawData)) {
-    const { orders, catalogueCategories, catalogueItems, pillars, pillarCards, leadAnswers, ...rest } = rawData[id];
+    const { orders, catalogueCategories, catalogueItems, pillars, pillarCards, leadAnswers, lists, listRows, ...rest } = rawData[id];
     clientData[id] = {
       ...rest,
       orders: orders ?? [],
@@ -48,6 +48,10 @@ export function normalizeState(state: AppState): AppState {
       pillars: pillars ?? [],
       pillarCards: pillarCards ?? [],
       leadAnswers: leadAnswers ?? [],
+      lists: lists ?? [],
+      listRows: listRows ?? [],
+      // NOTE: contentCards deliberately NOT defaulted here — the client-side
+      // LOAD migration keys off it being undefined.
     };
   }
   return {
