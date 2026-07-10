@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Target, Pencil, Check } from 'lucide-react';
+import { Target, Pencil, Check, ExternalLink, Wand2 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { JourneyData, ContentCard, ContentPillar } from '@/types';
+import Modal from './Modal';
 
 // Journey v2 — the map IS the page. Every month is a stacked bar, each
 // segment a pillar in its own color, so consistency (and drift) is visible
@@ -51,6 +52,7 @@ export default function JourneyView({ clientId }: { clientId: string }) {
 
   const [pillarFilter, setPillarFilter] = useState<string | null>(null); // pillar id, '' = unsorted
   const [platformFilter, setPlatformFilter] = useState('');
+  const [sorting, setSorting] = useState(false);
 
   function save(patch: Partial<JourneyData>) {
     dispatch({ type: 'UPDATE_JOURNEY', payload: { clientId, journey: { ...journey, ...patch } } });
@@ -76,15 +78,24 @@ export default function JourneyView({ clientId }: { clientId: string }) {
       ? (!c.pillarId || !pillars.some(p => p.id === c.pillarId))
       : c.pillarId === segId)).length;
 
+  const unsortedCards = cards.filter(c => !c.pillarId || !pillars.some(p => p.id === c.pillarId));
+
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-5">
+    <div className="p-4 md:p-8 space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <h2 className="text-lg font-bold text-stone-900">Journey</h2>
           <p className="text-sm text-stone-400">Every month, told in your pillars&apos; colors.</p>
         </div>
+        {unsortedCards.length > 0 && pillars.length > 0 && (
+          <button onClick={() => setSorting(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white rounded-lg ml-auto transition-opacity hover:opacity-90"
+            style={{ backgroundColor: accent }}>
+            <Wand2 size={13} /> Sort {unsortedCards.length} posts into pillars
+          </button>
+        )}
         {multiPlatform && (
-          <div className="flex items-center gap-0.5 border border-stone-200 bg-white rounded-lg p-0.5 ml-auto">
+          <div className={`flex items-center gap-0.5 border border-stone-200 bg-white rounded-lg p-0.5 ${unsortedCards.length > 0 && pillars.length > 0 ? '' : 'ml-auto'}`}>
             <button onClick={() => setPlatformFilter('')}
               className={`px-2.5 py-1 text-xs rounded-md transition-colors ${platformFilter === '' ? 'bg-[#1f1f1f] text-white' : 'text-stone-500 hover:text-stone-900'}`}>
               All
@@ -146,7 +157,82 @@ export default function JourneyView({ clientId }: { clientId: string }) {
 
       {/* ── Goal ── */}
       <GoalCard journey={journey} accent={accent} onSave={save} />
+
+      {sorting && (
+        <SortModal
+          cards={unsortedCards}
+          pillars={pillars}
+          onAssign={(card, pillarId) =>
+            dispatch({ type: 'UPDATE_CONTENT_CARD', payload: { clientId, card: { ...card, pillarId, updatedAt: new Date().toISOString() } } })
+          }
+          onClose={() => setSorting(false)}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Sort into pillars (one-time triage for migrated posts) ──────────────────
+
+function SortModal({ cards, pillars, onAssign, onClose }: {
+  cards: ContentCard[];
+  pillars: ContentPillar[];
+  onAssign: (card: ContentCard, pillarId: string) => void;
+  onClose: () => void;
+}) {
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const queue = cards.filter(c => !skipped.includes(c.id));
+  const card = queue[0];
+
+  if (!card) {
+    return (
+      <Modal open onClose={onClose} title="Sort into pillars" size="md">
+        <div className="p-8 text-center">
+          <p className="font-medium text-stone-700">All sorted.</p>
+          <p className="text-sm text-stone-400 mt-1">The map is in full color now.</p>
+          <button onClick={onClose} className="btn-primary mt-5">Done</button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Sort into pillars — ${queue.length} left`} size="md">
+      <div className="p-6 space-y-5">
+        <div className="bg-stone-50 border border-stone-200 rounded-xl p-4">
+          <p className="font-medium text-stone-900 leading-snug">{card.title || 'Untitled post'}</p>
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            {card.createdMonth && <span className="text-xs text-stone-400">{card.createdMonth}</span>}
+            {card.contentType && <span className="text-xs text-stone-500">{card.contentType}</span>}
+            {card.postUrl?.trim() && (
+              <a href={/^https?:\/\//i.test(card.postUrl) ? card.postUrl : `https://${card.postUrl}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-sky-600 hover:underline">
+                <ExternalLink size={11} /> open the live post
+              </a>
+            )}
+          </div>
+          {card.hook && <p className="text-xs text-stone-500 mt-2 line-clamp-2">{card.hook}</p>}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {pillars.map(p => (
+            <button key={p.id} onClick={() => onAssign(card, p.id)}
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-stone-800 bg-white border border-stone-200 rounded-xl hover:border-stone-400 hover:shadow-sm transition-all text-left">
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+              {p.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <button onClick={() => setSkipped(s => [...s, card.id])} className="text-xs text-stone-400 hover:text-stone-700">
+            Skip this one
+          </button>
+          <button onClick={onClose} className="btn-secondary">Stop for now</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -167,7 +253,7 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
   const visible = (segId: string) => pillarFilter === null || pillarFilter === segId;
   const totalFor = (m: string) => segments.reduce((n, s) => n + (visible(s.id) ? countFor(m, s.id) : 0), 0);
   const maxTotal = Math.max(1, ...months.map(totalFor));
-  const BAR_H = 120;
+  const BAR_H = 180;
 
   const checkIn = (m: string) => journey.checkIns.find(c => c.month === m);
 
@@ -180,12 +266,12 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
 
   return (
     <div className="overflow-x-auto">
-      <div className="flex items-end gap-3 min-w-max pb-1">
+      <div className="flex items-end gap-4 min-w-max pb-1">
         {months.map(m => {
           const total = totalFor(m);
           const ci = checkIn(m);
           return (
-            <div key={m} className="flex flex-col items-center gap-1.5 w-16">
+            <div key={m} className="flex flex-col items-center gap-1.5 w-20">
               {/* north-star number, tap to log */}
               {editingMonth === m ? (
                 <input autoFocus type="number" value={draft}
@@ -203,7 +289,7 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
               )}
 
               {/* stacked bar */}
-              <div className="w-9 flex flex-col-reverse rounded-md overflow-hidden bg-stone-100" style={{ height: BAR_H }}>
+              <div className="w-14 flex flex-col-reverse rounded-md overflow-hidden bg-stone-100" style={{ height: BAR_H }}>
                 {segments.map(seg => {
                   if (!visible(seg.id)) return null;
                   const count = countFor(m, seg.id);
