@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // One upload endpoint, two destinations: catalogue images (Sonia's shop) and
 // post-images (Instagram preview slides). Callers pick via the `bucket` field;
 // omitting it keeps the original catalogue behaviour.
-const ALLOWED_BUCKETS = new Set(['catalogue', 'post-images']);
+const ALLOWED_BUCKETS = new Set(['catalogue', 'post-images', 'assets']);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;  // 10 MB per image
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;  // 50 MB per video (Supabase free-tier default cap)
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];

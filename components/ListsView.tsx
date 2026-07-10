@@ -93,35 +93,22 @@ export default function ListsView({ clientId }: { clientId: string }) {
           {/* Pipeline board */}
           {active && (
             <div className="flex gap-4 overflow-x-auto pb-4 items-start">
-              {active.stages.map((stage, i) => {
-                const stageRows = activeRows.filter(r => r.stageId === stage.id);
-                const color = STAGE_COLORS[i % STAGE_COLORS.length];
-                return (
-                  <div key={stage.id} className="w-64 shrink-0 bg-stone-50 border border-stone-200 rounded-xl flex flex-col max-h-[calc(100vh-280px)]">
-                    <div className="flex items-center gap-2 px-3 py-2.5 border-b border-stone-200">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <h3 className="text-sm font-semibold text-stone-800 truncate flex-1">{stage.name}</h3>
-                      <span className="text-[11px] text-stone-400 tabular-nums">{stageRows.length}</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                      {stageRows.map(row => (
-                        <RowCard key={row.id} row={row} list={active}
-                          onOpen={() => setEditingRow(row)}
-                          onMove={sid => moveRow(row, sid)}
-                        />
-                      ))}
-                      <button
-                        onClick={() => {
-                          const now = new Date().toISOString();
-                          setEditingRow({ id: generateId(), listId: active.id, stageId: stage.id, name: '', link: '', note: '', createdAt: now, updatedAt: now });
-                        }}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-stone-500 hover:text-stone-900 hover:bg-white rounded-lg border border-dashed border-stone-300 transition-colors">
-                        <Plus size={13} /> Add
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {active.stages.map((stage, i) => (
+                <StageColumn
+                  key={stage.id}
+                  stage={stage}
+                  color={STAGE_COLORS[i % STAGE_COLORS.length]}
+                  isFinal={i === active.stages.length - 1 && active.stages.length > 1}
+                  rows={activeRows.filter(r => r.stageId === stage.id)}
+                  list={active}
+                  onOpen={setEditingRow}
+                  onMove={moveRow}
+                  onAdd={() => {
+                    const now = new Date().toISOString();
+                    setEditingRow({ id: generateId(), listId: active.id, stageId: stage.id, name: '', link: '', note: '', createdAt: now, updatedAt: now });
+                  }}
+                />
+              ))}
             </div>
           )}
         </>
@@ -154,6 +141,49 @@ export default function ListsView({ clientId }: { clientId: string }) {
           onDelete={() => { dispatch({ type: 'DELETE_LIST_ROW', payload: { clientId, rowId: editingRow.id } }); setEditingRow(null); }}
         />
       )}
+    </div>
+  );
+}
+
+// ── Stage column ─────────────────────────────────────────────────────────────
+// The final stage of a pipeline is its archive (Conducted, Done, Final) — its
+// rows fold behind a count, same treatment as posted cards in Pillars.
+
+function StageColumn({ stage, color, isFinal, rows, list, onOpen, onMove, onAdd }: {
+  stage: ListStage;
+  color: string;
+  isFinal: boolean;
+  rows: ListRow[];
+  list: TrackList;
+  onOpen: (r: ListRow) => void;
+  onMove: (r: ListRow, stageId: string) => void;
+  onAdd: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const folded = isFinal && !expanded;
+
+  return (
+    <div className="w-64 shrink-0 bg-stone-50 border border-stone-200 rounded-xl flex flex-col max-h-[calc(100vh-280px)]">
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-stone-200">
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+        <h3 className="text-sm font-semibold text-stone-800 truncate flex-1">{stage.name}</h3>
+        <span className="text-[11px] text-stone-400 tabular-nums">{rows.length}</span>
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        {!folded && rows.map(row => (
+          <RowCard key={row.id} row={row} list={list} onOpen={() => onOpen(row)} onMove={sid => onMove(row, sid)} />
+        ))}
+        {isFinal && rows.length > 0 && (
+          <button onClick={() => setExpanded(e => !e)}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-stone-400 hover:text-stone-700 rounded-lg transition-colors">
+            {expanded ? '▾ Collapse' : `▸ Show all (${rows.length})`}
+          </button>
+        )}
+        <button onClick={onAdd}
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-stone-500 hover:text-stone-900 hover:bg-white rounded-lg border border-dashed border-stone-300 transition-colors">
+          <Plus size={13} /> Add
+        </button>
+      </div>
     </div>
   );
 }

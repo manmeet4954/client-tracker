@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Trash2, Pencil, Check, X, Target, Briefcase, Users, Lightbulb, DollarSign, Palette, Type as TypeIcon } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Trash2, Pencil, Check, X, Target, Briefcase, Users, Lightbulb, DollarSign, Palette, Type as TypeIcon, ImageIcon, Download, Loader2 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
-import { BrandOverview, BrandService, BrandKit, BrandColor, BrandFont } from '@/types';
+import { BrandOverview, BrandService, BrandKit, BrandColor, BrandFont, BrandLogo } from '@/types';
 import Modal from './Modal';
 
 export default function BrandView({ clientId }: { clientId: string }) {
@@ -24,6 +24,9 @@ export default function BrandView({ clientId }: { clientId: string }) {
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-5">
       {/* Brand Kit */}
       <BrandKitSection kit={brandKit} onUpdate={updateKit} />
+
+      {/* Logos — clients download these themselves instead of asking */}
+      <LogosPanel logos={brandKit.logos ?? []} onUpdate={logos => updateKit({ logos })} />
 
       {/* Tagline */}
       <TaglineEditor tagline={brand.tagline} onSave={tagline => updateBrand({ tagline })} />
@@ -64,6 +67,107 @@ export default function BrandView({ clientId }: { clientId: string }) {
         services={brand.services}
         onUpdate={services => updateBrand({ services })}
       />
+    </div>
+  );
+}
+
+// ── Logos ────────────────────────────────────────────────────────────────────
+// Upload once, download forever — the whole point is that clients (and future
+// you) grab the files here instead of asking for "the logo" every time.
+
+function LogosPanel({ logos, onUpdate }: { logos: BrandLogo[]; onUpdate: (l: BrandLogo[]) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function upload(files: FileList) {
+    setUploading(true);
+    setError('');
+    try {
+      const added: BrandLogo[] = [];
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('bucket', 'assets');
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.url) throw new Error(json.error || 'Upload failed');
+        added.push({ id: generateId(), name: file.name.replace(/\.[^.]+$/, ''), url: json.url });
+      }
+      onUpdate([...logos, ...added]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function download(logo: BrandLogo) {
+    try {
+      const res = await fetch(logo.url);
+      const blob = await res.blob();
+      const ext = logo.url.split('.').pop()?.split('?')[0] || 'png';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${logo.name}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      window.open(logo.url, '_blank');
+    }
+  }
+
+  function rename(logo: BrandLogo) {
+    const name = prompt('Logo name', logo.name);
+    if (name?.trim()) onUpdate(logos.map(l => l.id === logo.id ? { ...l, name: name.trim() } : l));
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-stone-200 p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <ImageIcon size={16} className="text-violet-500" />
+        <h3 className="font-semibold text-stone-900 text-sm">Logos</h3>
+        <button onClick={() => fileRef.current?.click()} disabled={uploading}
+          className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 border border-stone-200 rounded-lg hover:border-stone-400 hover:text-stone-900 transition-colors disabled:opacity-50">
+          {uploading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+          {uploading ? 'Uploading...' : 'Add logo'}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*,.svg" multiple className="hidden"
+          onChange={e => { if (e.target.files?.length) upload(e.target.files); e.target.value = ''; }} />
+      </div>
+
+      {logos.length === 0 ? (
+        <p className="text-sm text-stone-400">Upload the logo files once. Anyone with access downloads them here, no asking.</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {logos.map(logo => (
+            <div key={logo.id} className="group border border-stone-200 rounded-xl overflow-hidden">
+              <div className="aspect-square bg-[repeating-conic-gradient(#f5f5f4_0%_25%,white_0%_50%)] bg-[length:16px_16px] flex items-center justify-center p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+              </div>
+              <div className="px-2.5 py-2 border-t border-stone-100">
+                <p className="text-xs font-medium text-stone-700 truncate">{logo.name}</p>
+                <div className="flex items-center gap-1 mt-1.5">
+                  <button onClick={() => download(logo)}
+                    className="flex items-center gap-1 px-2 py-1 text-[11px] text-stone-600 border border-stone-200 rounded-md hover:border-stone-400 transition-colors">
+                    <Download size={11} /> Download
+                  </button>
+                  <button onClick={() => rename(logo)} className="p-1 rounded text-stone-300 hover:text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    onClick={() => { if (confirm('Remove this logo?')) onUpdate(logos.filter(l => l.id !== logo.id)); }}
+                    className="p-1 rounded text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
     </div>
   );
 }

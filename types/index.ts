@@ -79,9 +79,16 @@ export interface BrandFont {
   weights: string; // e.g. "Light, Regular, Medium"
 }
 
+export interface BrandLogo {
+  id: string;
+  name: string;   // e.g. "Primary logo", "White version"
+  url: string;    // public storage URL — clients download it themselves
+}
+
 export interface BrandKit {
   colors: BrandColor[];
   fonts: BrandFont[];
+  logos?: BrandLogo[];
 }
 
 export interface MonthData {
