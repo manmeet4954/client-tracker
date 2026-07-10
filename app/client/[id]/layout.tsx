@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Kanban, BookMarked, Palette, Repeat, Menu, Sparkles, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, BookMarked, Palette, Menu, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen, MessageCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -12,13 +12,10 @@ import { useClient, useApp } from '@/contexts/AppContext';
 
 const TABS = [
   { label: 'Dashboard', href: '', icon: LayoutDashboard },
-  { label: 'Kanban', href: '/kanban', icon: Kanban },
-  { label: 'Pillars', href: '/pillars', icon: Columns3 },
+  { label: 'Content', href: '/content', icon: Columns3 },
   { label: 'Assets', href: '/assets', icon: FolderOpen },
-  { label: 'Evergreen', href: '/evergreen', icon: Repeat },
   { label: 'References', href: '/references', icon: BookMarked },
   { label: 'Brand', href: '/brand', icon: Palette },
-  { label: 'Studio', href: '/studio', icon: Sparkles },
   { label: 'Previews', href: '/previews', icon: Instagram },
 ];
 
@@ -46,10 +43,10 @@ export default function ClientLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Client logins (Shiva, Merushri) don't get the Dashboard tab, so the
-  // client's landing page for them is the Kanban board.
+  // client's landing page for them is the Content board.
   const isClientRole = role === 'shiva' || role === 'merushri';
   useEffect(() => {
-    if (isClientRole && pathname === base) router.replace(`${base}/kanban`);
+    if (isClientRole && pathname === base) router.replace(`${base}/content`);
   }, [isClientRole, pathname, base, router]);
 
   // Derive accent from brand kit; falls back to the client's stored color
@@ -77,11 +74,11 @@ export default function ClientLayout({
 
   // Restricted roles get a reduced tab set:
   //  - Sonia: References, Orders, Catalogue
-  //  - Client logins (Shiva, Merushri): Kanban, Pillars, Assets, References, Previews
+  //  - Client logins (Shiva, Merushri): Content, Assets, References, Brand, Previews
   const visibleTabs = role === 'sonia'
     ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
     : isClientRole
-    ? tabs.filter(t => ['/kanban', '/pillars', '/assets', '/references', '/previews'].includes(t.href))
+    ? tabs.filter(t => ['/content', '/assets', '/references', '/brand', '/previews'].includes(t.href))
     : tabs;
 
   return (

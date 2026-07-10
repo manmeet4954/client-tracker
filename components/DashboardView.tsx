@@ -30,9 +30,9 @@ export default function DashboardView({ clientId }: { clientId: string }) {
   const agendaDone = agenda.filter(i => i.done).length;
   const agendaTotal = agenda.length;
 
-  // Count posts in Done OR Scheduled/Posted for this month only
-  const postsDone = data.cards.filter(c =>
-    (c.columnId === 'done' || c.columnId === 'scheduled') &&
+  // Count posts that made it out (scheduled or live) for this month only
+  const postsDone = (data.contentCards ?? []).filter(c =>
+    (c.stage === 'scheduled' || c.stage === 'posted') &&
     c.createdMonth === month
   ).length;
   const postTarget = data.postTarget ?? 0;

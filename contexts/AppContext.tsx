@@ -8,7 +8,9 @@ import {
   PersonalTask, BrainNode, BrainEdge, MapNode, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
+  ContentCard, ContentStage,
 } from '@/types';
+import { migrateToContentCards } from '@/lib/migrateContent';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
 import PasscodeGate from '@/components/PasscodeGate';
@@ -59,6 +61,7 @@ function defaultClientData(): ClientData {
     assetItems: [],
     driveFolderUrl: '',
     leadAnswers: [],
+    contentCards: [],
   };
 }
 
@@ -153,7 +156,13 @@ export type Action =
   | { type: 'SET_DRIVE_FOLDER'; payload: { clientId: string; url: string } }
   | { type: 'ADD_LEAD_ANSWER'; payload: { clientId: string; answer: LeadAnswer } }
   | { type: 'UPDATE_LEAD_ANSWER'; payload: { clientId: string; answer: LeadAnswer } }
-  | { type: 'DELETE_LEAD_ANSWER'; payload: { clientId: string; answerId: string } };
+  | { type: 'DELETE_LEAD_ANSWER'; payload: { clientId: string; answerId: string } }
+  | { type: 'ADD_CONTENT_CARD'; payload: { clientId: string; card: ContentCard } }
+  | { type: 'UPDATE_CONTENT_CARD'; payload: { clientId: string; card: ContentCard } }
+  | { type: 'DELETE_CONTENT_CARD'; payload: { clientId: string; cardId: string } }
+  | { type: 'MOVE_CONTENT_CARD'; payload: { clientId: string; cardId: string; stage: ContentStage } }
+  | { type: 'SHARE_CONTENT_CARD'; payload: { sourceClientId: string; sourceCard: ContentCard; targetClientId: string; targetPillarId: string } }
+  | { type: 'SET_PLATFORMS'; payload: { clientId: string; platforms: string[] } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -173,6 +182,9 @@ function reducer(state: AppState, action: Action): AppState {
           catalogueCategories: (cdata.catalogueCategories?.length ?? 0) > 0
             ? cdata.catalogueCategories
             : [...DEFAULT_CATALOGUE_CATEGORIES],
+          // One-time migration: fold legacy kanban + pillar cards into the
+          // unified content cards. Only when the client has never migrated.
+          contentCards: cdata.contentCards ?? migrateToContentCards(cdata),
         };
       }
       return {
@@ -521,8 +533,12 @@ function reducer(state: AppState, action: Action): AppState {
     case 'DELETE_PILLAR':
       return updateClient(action.payload.clientId, {
         pillars: (cd(action.payload.clientId).pillars ?? []).filter(p => p.id !== action.payload.pillarId),
-        // cascade: drop the topic cards that belonged to the deleted pillar
+        // legacy cascade: drop old-style topic cards of the deleted pillar
         pillarCards: (cd(action.payload.clientId).pillarCards ?? []).filter(c => c.pillarId !== action.payload.pillarId),
+        // unified cards are NOT deleted with their theme — they move to Unsorted
+        contentCards: (cd(action.payload.clientId).contentCards ?? []).map(c =>
+          c.pillarId === action.payload.pillarId ? { ...c, pillarId: '' } : c
+        ),
       });
 
     case 'ADD_PILLAR_CARD':
@@ -658,6 +674,130 @@ function reducer(state: AppState, action: Action): AppState {
       return updateClient(action.payload.clientId, {
         leadAnswers: (cd(action.payload.clientId).leadAnswers ?? []).filter(a => a.id !== action.payload.answerId),
       });
+
+    case 'ADD_CONTENT_CARD':
+      return updateClient(action.payload.clientId, {
+        contentCards: [...(cd(action.payload.clientId).contentCards ?? []), action.payload.card],
+      });
+
+    case 'UPDATE_CONTENT_CARD': {
+      const { clientId, card } = action.payload;
+      const next = updateClient(clientId, {
+        contentCards: (cd(clientId).contentCards ?? []).map(c => c.id === card.id ? card : c),
+      });
+      // Collab live-sync: push the shared writing fields to twins on other
+      // accounts. Stage, dates, and per-account fields stay local.
+      if (!card.collabId) return next;
+      const synced = { title: card.title, hook: card.hook, content: card.content, link: card.link, updatedAt: card.updatedAt };
+      const patched = { ...next.clientData };
+      for (const [cid, cdata] of Object.entries(next.clientData)) {
+        if (cid === clientId) continue;
+        const list = cdata.contentCards ?? [];
+        if (list.some(c => c.collabId === card.collabId)) {
+          patched[cid] = { ...cdata, contentCards: list.map(c => c.collabId === card.collabId ? { ...c, ...synced } : c) };
+        }
+      }
+      return { ...next, clientData: patched };
+    }
+
+    case 'DELETE_CONTENT_CARD': {
+      const { clientId, cardId } = action.payload;
+      const removed = (cd(clientId).contentCards ?? []).find(c => c.id === cardId);
+      const next = updateClient(clientId, {
+        contentCards: (cd(clientId).contentCards ?? []).filter(c => c.id !== cardId),
+      });
+      if (!removed?.collabId) return next;
+      const patched = { ...next.clientData };
+      for (const [cid, cdata] of Object.entries(next.clientData)) {
+        const list = cdata.contentCards ?? [];
+        if (list.some(c => c.collabId === removed.collabId)) {
+          patched[cid] = {
+            ...cdata,
+            contentCards: list.map(c => {
+              if (c.collabId !== removed.collabId) return c;
+              const nextWith = (c.collabWith ?? []).filter(w => w.clientId !== clientId);
+              return { ...c, collabWith: nextWith, collabId: nextWith.length ? c.collabId : undefined };
+            }),
+          };
+        }
+      }
+      return { ...next, clientData: patched };
+    }
+
+    case 'MOVE_CONTENT_CARD':
+      return updateClient(action.payload.clientId, {
+        contentCards: (cd(action.payload.clientId).contentCards ?? []).map(c =>
+          c.id === action.payload.cardId ? { ...c, stage: action.payload.stage, updatedAt: new Date().toISOString() } : c
+        ),
+      });
+
+    case 'SHARE_CONTENT_CARD': {
+      const { sourceClientId, sourceCard, targetClientId, targetPillarId } = action.payload;
+      if (sourceClientId === targetClientId) return state;
+      const now = new Date().toISOString();
+      const collabId = sourceCard.collabId ?? generateId();
+      const nameOf = (id: string) => state.clients.find(c => c.id === id)?.name ?? '';
+
+      const memberSet = new Set<string>([sourceClientId, targetClientId]);
+      for (const [cid, cdata] of Object.entries(state.clientData)) {
+        if ((cdata.contentCards ?? []).some(c => c.collabId === collabId)) memberSet.add(cid);
+      }
+      const memberIds = Array.from(memberSet);
+      const collabWithFor = (selfId: string): CollabRef[] =>
+        memberIds.filter(id => id !== selfId).map(id => ({ clientId: id, clientName: nameOf(id) }));
+
+      const clientData = { ...state.clientData };
+
+      const srcData = clientData[sourceClientId] ?? defaultClientData();
+      const srcList = srcData.contentCards ?? [];
+      const updatedSource: ContentCard = { ...sourceCard, collabId, collabWith: collabWithFor(sourceClientId), updatedAt: now };
+      clientData[sourceClientId] = {
+        ...srcData,
+        contentCards: srcList.some(c => c.id === sourceCard.id)
+          ? srcList.map(c => c.id === sourceCard.id ? updatedSource : c)
+          : [...srcList, updatedSource],
+      };
+
+      const tgtData = clientData[targetClientId] ?? defaultClientData();
+      const twin: ContentCard = {
+        id: generateId(),
+        pillarId: targetPillarId,
+        title: sourceCard.title,
+        hook: sourceCard.hook,
+        content: sourceCard.content,
+        link: sourceCard.link,
+        stage: 'idea',
+        contentType: sourceCard.contentType,
+        role: sourceCard.role,
+        scheduledDate: '',
+        postUrl: '',
+        notes: '',
+        customValues: {},
+        createdMonth: now.slice(0, 7),
+        collabId,
+        collabWith: collabWithFor(targetClientId),
+        createdAt: now,
+        updatedAt: now,
+      };
+      clientData[targetClientId] = { ...tgtData, contentCards: [...(tgtData.contentCards ?? []), twin] };
+
+      for (const id of memberIds) {
+        if (id === sourceClientId || id === targetClientId) continue;
+        const data = clientData[id];
+        if (!data) continue;
+        clientData[id] = {
+          ...data,
+          contentCards: (data.contentCards ?? []).map(c =>
+            c.collabId === collabId ? { ...c, collabWith: collabWithFor(id) } : c
+          ),
+        };
+      }
+
+      return { ...state, clientData };
+    }
+
+    case 'SET_PLATFORMS':
+      return updateClient(action.payload.clientId, { platforms: action.payload.platforms });
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };

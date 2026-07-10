@@ -278,6 +278,55 @@ export interface PillarCard {
   updatedAt: string;
 }
 
+// ── Unified Content cards ────────────────────────────────────────────────────
+// ONE card per post, from idea to live. Replaces the old split where the same
+// post lived twice (a PillarCard for its content + a KanbanCard for its
+// timeline). The Content tab renders these in three views: Board (by stage),
+// Pillars (by theme), Table. Legacy `cards`/`pillarCards` are migrated into
+// this on first load and kept dormant as a safety copy.
+
+export type ContentStage = 'idea' | 'writing' | 'ready' | 'scheduled' | 'posted';
+
+export const CONTENT_STAGES: { id: ContentStage; label: string; color: string; bg: string }[] = [
+  { id: 'idea',      label: 'Idea',      color: '#7c3aed', bg: '#ede9fe' },
+  { id: 'writing',   label: 'Writing',   color: '#d97706', bg: '#fef3c7' },
+  { id: 'ready',     label: 'Ready',     color: '#0284c7', bg: '#e0f2fe' },
+  { id: 'scheduled', label: 'Scheduled', color: '#0891b2', bg: '#cffafe' },
+  { id: 'posted',    label: 'Posted',    color: '#059669', bg: '#d1fae5' },
+];
+
+// Content role — feeds the monthly mix assessment. Optional, one tap.
+export type ContentRole = 'brand' | 'value' | 'general';
+export const CONTENT_ROLES: { id: ContentRole; label: string }[] = [
+  { id: 'brand',   label: 'Brand story' },
+  { id: 'value',   label: 'Value' },
+  { id: 'general', label: 'General' },
+];
+
+export const DEFAULT_PLATFORMS = ['Instagram', 'LinkedIn', 'YouTube'];
+
+export interface ContentCard {
+  id: string;
+  pillarId: string;          // '' = unsorted (no theme yet)
+  title: string;
+  hook: string;
+  content: string;           // full post body, ready to copy
+  link?: string;             // reference link (doc, Canva draft, reel)
+  stage: ContentStage;
+  contentType: string;       // Static / Carousel / Reel / ...
+  role?: ContentRole | '';   // brand / value / general (assessment fuel)
+  platform?: string;         // only meaningful for multi-platform clients
+  scheduledDate: string;     // the go-live date (drives My Day + calendar)
+  postUrl: string;           // final live link
+  notes: string;
+  customValues: Record<string, string | string[]>;
+  createdMonth: string;      // yyyy-MM bucket for month filtering
+  collabId?: string;
+  collabWith?: CollabRef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ClientData {
   cards: KanbanCard[];
   customFields: CustomFieldDef[];
@@ -301,6 +350,8 @@ export interface ClientData {
   assetItems: AssetItem[];
   driveFolderUrl: string;  // the client's Google Drive video folder (the Videos tile)
   leadAnswers: LeadAnswer[];
+  contentCards: ContentCard[];
+  platforms?: string[];    // enabled platforms; UI shows a platform picker only when >1
 }
 
 export interface Client {

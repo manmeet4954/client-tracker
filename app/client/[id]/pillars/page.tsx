@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import PillarsView from '@/components/PillarsView';
-
+// Pillars merged into the unified Content tab (Pillars view).
 export default function PillarsPage({ params }: { params: { id: string } }) {
-  return <PillarsView clientId={params.id} />;
+  redirect(`/client/${params.id}/content`);
 }
