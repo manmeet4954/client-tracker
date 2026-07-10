@@ -13,7 +13,7 @@ import {
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, CLIENT_COLORS, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate } from '@/lib/utils';
 import {
-  ContentPillar, ContentCard, ContentStage, CONTENT_STAGES, CONTENT_ROLES,
+  ContentPillar, ContentCard, ContentStage, CONTENT_STAGES,
   DEFAULT_CONTENT_TYPES, DEFAULT_PLATFORMS, CustomFieldDef,
 } from '@/types';
 import Modal from './Modal';
@@ -85,6 +85,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
   const [renamingPillar, setRenamingPillar] = useState<ContentPillar | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [platformFilter, setPlatformFilter] = useState('');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
 
   const pillars = data.pillars ?? [];
@@ -100,8 +101,12 @@ export default function ContentView({ clientId }: { clientId: string }) {
   // Month filter applies to Board and Table (the timeline lenses). The
   // Pillars lens is the idea library — it always shows everything.
   const monthFiltered = cards.filter(c => !c.createdMonth || c.createdMonth === month);
-  const searched = (list: ContentCard[]) =>
-    search ? list.filter(c => [c.title, c.hook, c.content].some(s => s.toLowerCase().includes(search.toLowerCase()))) : list;
+  const searched = (list: ContentCard[]) => {
+    let out = list;
+    if (platformFilter) out = out.filter(c => c.platform === platformFilter);
+    if (search) out = out.filter(c => [c.title, c.hook, c.content].some(s => s.toLowerCase().includes(search.toLowerCase())));
+    return out;
+  };
 
   const boardCards = searched(monthFiltered);
   const pillarCards = searched(cards);
@@ -207,6 +212,20 @@ export default function ContentView({ clientId }: { clientId: string }) {
           placeholder="Search posts..."
           className="px-3 py-1.5 text-sm border border-stone-200 bg-white rounded-lg focus:outline-none w-44"
         />
+        {multiPlatform && (
+          <div className="flex items-center gap-0.5 border border-stone-200 bg-white rounded-lg p-0.5">
+            <button onClick={() => setPlatformFilter('')}
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${platformFilter === '' ? 'bg-[#1f1f1f] text-white' : 'text-stone-500 hover:text-stone-900'}`}>
+              All
+            </button>
+            {platforms.map(p => (
+              <button key={p} onClick={() => setPlatformFilter(platformFilter === p ? '' : p)}
+                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${platformFilter === p ? 'bg-[#1f1f1f] text-white' : 'text-stone-500 hover:text-stone-900'}`}>
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
         {view !== 'pillars' && (
           <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-lg p-0.5 ml-auto">
             <button onClick={() => setMonth(prevMonth(month))} className="p-1.5 rounded-md text-stone-500 hover:bg-stone-50"><ChevronLeft size={15} /></button>
@@ -413,7 +432,7 @@ function PostCardBody({ card, pillars, multiPlatform, showStage, onStage }: {
             {meta.label}
           </button>
         )}
-        {card.content.trim() && <span className="text-[10px] text-stone-400">content ready</span>}
+        {card.stage === 'idea' && card.content.trim() && <span className="text-[10px] text-stone-400">content ready</span>}
         <button onClick={copy}
           className={`ml-auto p-1 rounded transition-colors ${copied ? 'text-emerald-600' : 'text-stone-400 hover:text-stone-700'}`}
           title="Copy for hand-off">
@@ -489,6 +508,19 @@ function PillarColumn({ title, color, cards, multiPlatform, onAdd, onOpen, onSta
   onStage: (cardId: string, s: ContentStage) => void;
   menu?: React.ReactNode;
 }) {
+  // Posted cards are archive, not work — fold them behind a footer so the
+  // column shows only what's current. Expand to browse history.
+  const [showPosted, setShowPosted] = useState(false);
+  const active = cards.filter(c => c.stage !== 'posted');
+  const posted = cards.filter(c => c.stage === 'posted');
+
+  const renderCard = (card: ContentCard) => (
+    <div key={card.id} onClick={() => onOpen(card)}
+      className="group bg-white border border-stone-200 rounded-lg p-2.5 cursor-pointer hover:shadow-sm hover:border-stone-300 transition-all">
+      <PostCardBody card={card} pillars={[]} multiPlatform={multiPlatform} showStage onStage={s => onStage(card.id, s)} />
+    </div>
+  );
+
   return (
     <div className="w-72 shrink-0 bg-stone-50 border border-stone-200 rounded-xl flex flex-col max-h-[calc(100vh-260px)]">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-stone-200">
@@ -498,16 +530,18 @@ function PillarColumn({ title, color, cards, multiPlatform, onAdd, onOpen, onSta
         {menu}
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {cards.map(card => (
-          <div key={card.id} onClick={() => onOpen(card)}
-            className="group bg-white border border-stone-200 rounded-lg p-2.5 cursor-pointer hover:shadow-sm hover:border-stone-300 transition-all">
-            <PostCardBody card={card} pillars={[]} multiPlatform={multiPlatform} showStage onStage={s => onStage(card.id, s)} />
-          </div>
-        ))}
+        {active.map(renderCard)}
         <button onClick={onAdd}
           className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-stone-500 hover:text-stone-900 hover:bg-white rounded-lg border border-dashed border-stone-300 transition-colors">
           <Plus size={13} /> Add topic
         </button>
+        {posted.length > 0 && (
+          <button onClick={() => setShowPosted(s => !s)}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-stone-400 hover:text-stone-700 rounded-lg transition-colors">
+            {showPosted ? '▾' : '▸'} Posted ({posted.length})
+          </button>
+        )}
+        {showPosted && posted.map(renderCard)}
       </div>
     </div>
   );
@@ -660,13 +694,6 @@ function CardEditor({ card, pillars, customFields, platforms, sourceClientId, on
             <label className="block text-xs font-medium text-stone-500 mb-1.5">Stage</label>
             <select value={draft.stage} onChange={e => set({ stage: e.target.value as ContentStage })} className="input-base w-full">
               {CONTENT_STAGES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </div>
-          <div className="min-w-[130px]">
-            <label className="block text-xs font-medium text-stone-500 mb-1.5">Role</label>
-            <select value={draft.role ?? ''} onChange={e => set({ role: e.target.value as ContentCard['role'] })} className="input-base w-full">
-              <option value="">Untagged</option>
-              {CONTENT_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
             </select>
           </div>
           {multiPlatform && (
