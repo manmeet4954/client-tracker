@@ -14,10 +14,15 @@ const GRAPH = 'https://graph.instagram.com/v23.0';
 // Older posts can be backfilled later; their lifetime totals never expire.
 const TRACK_SINCE = '2026-05-01';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+// Lazy so a missing env var can never crash the build, only this route at runtime.
+// Service role key is required for real use: the ig_* tables keep RLS on with no
+// policies (tokens live there), so the anon key cannot read or write them.
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Supabase env vars missing');
+  return createClient(url, key);
+}
 
 type IgMedia = {
   id: string; caption?: string; media_type: string; media_product_type?: string;
@@ -66,6 +71,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  const supabase = getSupabase();
   const errors: string[] = [];
 
   // 1. Load the connected account, seeding from the env token on first run.
