@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Plus, Briefcase, Trash2, X, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { Plus, Briefcase, Trash2, X, ChevronLeft, ChevronRight, Sparkles, BarChart3 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import Modal from './Modal';
 
@@ -163,6 +163,42 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
               >
                 <Sparkles size={15} />
                 <span className="font-medium">My Day</span>
+                <span className="ml-auto text-white/40 text-xs">→</span>
+              </Link>
+            )}
+          </div>
+          )}
+
+          {/* ── Analytics shortcut (owner only) ── */}
+          {isOwner && (
+          <div className="px-2 pb-2">
+            {collapsed ? (
+              <div className="relative group flex justify-center">
+                <Link
+                  href="/analytics"
+                  onClick={handleLinkClick}
+                  className="flex items-center justify-center w-9 h-9 rounded-xl text-white/90 hover:bg-white/15 transition-all"
+                  title="Analytics"
+                  style={{ border: '1px solid rgba(255,255,255,0.25)' }}
+                >
+                  <BarChart3 size={15} />
+                </Link>
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 bg-stone-900/90 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                  Analytics
+                </div>
+              </div>
+            ) : (
+              <Link
+                href="/analytics"
+                onClick={handleLinkClick}
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/90 hover:text-white transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                }}
+              >
+                <BarChart3 size={15} />
+                <span className="font-medium">Analytics</span>
                 <span className="ml-auto text-white/40 text-xs">→</span>
               </Link>
             )}
