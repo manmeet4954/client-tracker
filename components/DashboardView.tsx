@@ -65,7 +65,7 @@ export default function DashboardView({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-5">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-5">
 
       {/* Month nav */}
       <div className="flex items-center justify-between">
@@ -167,7 +167,7 @@ export default function DashboardView({ clientId }: { clientId: string }) {
                   />
                 </div>
                 <p className="text-xs text-stone-400 mt-2">
-                  Counts cards moved to <strong className="text-stone-500">Done</strong> in Kanban this month
+                  Counts posts that reached <strong className="text-stone-500">Scheduled</strong> or <strong className="text-stone-500">Posted</strong> this month
                 </p>
               </div>
             </div>

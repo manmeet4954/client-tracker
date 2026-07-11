@@ -110,8 +110,11 @@ export default function JourneyView({ clientId }: { clientId: string }) {
         )}
       </div>
 
+      {/* ── Goal (slim, above the stage) ── */}
+      <GoalCard journey={journey} accent={accent} onSave={save} />
+
       {/* ── THE MAP ── */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5">
+      <div className="bg-white rounded-xl border border-stone-200 p-5 md:p-8">
         {/* Pillar legend — tap to isolate */}
         <div className="flex flex-wrap gap-1.5 mb-5">
           {segments.map(seg => {
@@ -154,9 +157,6 @@ export default function JourneyView({ clientId }: { clientId: string }) {
           />
         )}
       </div>
-
-      {/* ── Goal ── */}
-      <GoalCard journey={journey} accent={accent} onSave={save} />
 
       {sorting && (
         <SortModal
@@ -253,7 +253,7 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
   const visible = (segId: string) => pillarFilter === null || pillarFilter === segId;
   const totalFor = (m: string) => segments.reduce((n, s) => n + (visible(s.id) ? countFor(m, s.id) : 0), 0);
   const maxTotal = Math.max(1, ...months.map(totalFor));
-  const BAR_H = 180;
+  const BAR_H = 260;
 
   const checkIn = (m: string) => journey.checkIns.find(c => c.month === m);
 
@@ -266,12 +266,19 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
 
   return (
     <div className="overflow-x-auto">
-      <div className="flex items-end gap-4 min-w-max pb-1">
-        {months.map(m => {
+      {/* The wipe: each month's bar rises from the floor, left to right */}
+      <style>{`
+        @keyframes journeyRise {
+          from { transform: scaleY(0); }
+          to { transform: scaleY(1); }
+        }
+      `}</style>
+      <div className="flex items-end gap-5 md:gap-7 min-w-max pb-1">
+        {months.map((m, mi) => {
           const total = totalFor(m);
           const ci = checkIn(m);
           return (
-            <div key={m} className="flex flex-col items-center gap-1.5 w-20">
+            <div key={m} className="flex flex-col items-center gap-2 w-24 group">
               {/* north-star number, tap to log */}
               {editingMonth === m ? (
                 <input autoFocus type="number" value={draft}
@@ -288,13 +295,21 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
                 </button>
               )}
 
-              {/* stacked bar */}
-              <div className="w-14 flex flex-col-reverse rounded-md overflow-hidden bg-stone-100" style={{ height: BAR_H }}>
+              {/* stacked bar — rises on load, lifts on hover */}
+              <div
+                className="w-16 md:w-20 flex flex-col-reverse rounded-lg overflow-hidden bg-stone-100 transition-transform duration-200 group-hover:-translate-y-1.5 group-hover:shadow-lg"
+                style={{
+                  height: BAR_H,
+                  transformOrigin: 'bottom',
+                  animation: `journeyRise 0.65s cubic-bezier(0.22, 1, 0.36, 1) both`,
+                  animationDelay: `${mi * 110}ms`,
+                }}
+              >
                 {segments.map(seg => {
                   if (!visible(seg.id)) return null;
                   const count = countFor(m, seg.id);
                   if (!count) return null;
-                  const h = Math.max(4, Math.round((count / maxTotal) * BAR_H));
+                  const h = Math.max(6, Math.round((count / maxTotal) * BAR_H));
                   return (
                     <div key={seg.id || 'unsorted'} style={{ height: h, backgroundColor: seg.color }}
                       title={`${seg.name}: ${count} post${count > 1 ? 's' : ''}`} />
@@ -302,8 +317,8 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
                 })}
               </div>
 
-              <span className="text-[10px] text-stone-400">{monthLabel(m)}</span>
-              <span className="text-[10px] font-medium text-stone-500 tabular-nums -mt-1">{total || ''}</span>
+              <span className="text-[10px] uppercase tracking-wide text-stone-400">{monthLabel(m)}</span>
+              <span className="text-sm font-bold text-stone-700 tabular-nums -mt-1.5">{total || ''}</span>
             </div>
           );
         })}
