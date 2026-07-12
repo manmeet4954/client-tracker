@@ -6,7 +6,7 @@ import {
   Trash2, Plus, CalendarPlus, Target, Pencil, Check,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
-import { generateId, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate } from '@/lib/utils';
+import { generateId, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate, contentMonth } from '@/lib/utils';
 import { AgendaItem } from '@/types';
 
 function pickAccent(brandColors: { hex: string; role?: string }[] | undefined, fallback: string): string {
@@ -30,10 +30,11 @@ export default function DashboardView({ clientId }: { clientId: string }) {
   const agendaDone = agenda.filter(i => i.done).length;
   const agendaTotal = agenda.length;
 
-  // Count posts that made it out (scheduled or live) for this month only
+  // Count posts that made it out (scheduled or live) for this month —
+  // the go-live date decides the month, same rule as Board and Journey.
   const postsDone = (data.contentCards ?? []).filter(c =>
     (c.stage === 'scheduled' || c.stage === 'posted') &&
-    c.createdMonth === month
+    contentMonth(c) === month
   ).length;
   const postTarget = data.postTarget ?? 0;
   const postPct = postTarget === 0 ? 0 : Math.min(100, Math.round((postsDone / postTarget) * 100));

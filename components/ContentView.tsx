@@ -11,7 +11,7 @@ import {
   ExternalLink, Settings2, GripVertical, Target,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
-import { generateId, CLIENT_COLORS, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate } from '@/lib/utils';
+import { generateId, CLIENT_COLORS, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate, contentMonth } from '@/lib/utils';
 import {
   ContentPillar, ContentCard, ContentStage, CONTENT_STAGES,
   DEFAULT_CONTENT_TYPES, DEFAULT_PLATFORMS, CustomFieldDef,
@@ -100,7 +100,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
 
   // Month filter applies to Board and Table (the timeline lenses). The
   // Pillars lens is the idea library — it always shows everything.
-  const monthFiltered = cards.filter(c => !c.createdMonth || c.createdMonth === month);
+  const monthFiltered = cards.filter(c => !contentMonth(c) || contentMonth(c) === month);
   const searched = (list: ContentCard[]) => {
     let out = list;
     if (platformFilter) out = out.filter(c => c.platform === platformFilter);
@@ -111,7 +111,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
   const boardCards = searched(monthFiltered);
   const pillarCards = searched(cards);
 
-  const postedThisMonth = monthFiltered.filter(c => c.stage === 'posted').length;
+  const postedThisMonth = monthFiltered.filter(c => c.stage === 'posted').length; // month = go-live month via contentMonth
   const postTarget = data.postTarget ?? 0;
 
   function newCard(preset: Partial<ContentCard>) {

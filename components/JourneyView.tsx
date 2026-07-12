@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Target, Pencil, Check, ExternalLink, Wand2 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { JourneyData, ContentCard, ContentPillar } from '@/types';
+import { contentMonth } from '@/lib/utils';
 import Modal from './Modal';
 
 // Journey v2 — the map IS the page. Every month is a stacked bar, each
@@ -61,11 +62,11 @@ export default function JourneyView({ clientId }: { clientId: string }) {
   let posted = cards.filter(c => c.stage === 'posted');
   if (platformFilter) posted = posted.filter(c => c.platform === platformFilter);
 
-  const postedMonths = posted.map(c => c.createdMonth).filter(Boolean).sort();
+  const postedMonths = posted.map(c => contentMonth(c)).filter(Boolean).sort();
   const startMonth = journey.startMonth || postedMonths[0] || currentMonth();
   const months = monthsBetween(startMonth, currentMonth());
   const thisMonth = currentMonth();
-  const postedThisMonth = posted.filter(c => c.createdMonth === thisMonth);
+  const postedThisMonth = posted.filter(c => contentMonth(c) === thisMonth);
 
   const hasUnsorted = posted.some(c => !c.pillarId || !pillars.some(p => p.id === c.pillarId));
   const segments: { id: string; name: string; color: string; targetPct?: number }[] = [
@@ -74,7 +75,7 @@ export default function JourneyView({ clientId }: { clientId: string }) {
   ];
 
   const countFor = (month: string, segId: string) =>
-    posted.filter(c => c.createdMonth === month && (segId === ''
+    posted.filter(c => contentMonth(c) === month && (segId === ''
       ? (!c.pillarId || !pillars.some(p => p.id === c.pillarId))
       : c.pillarId === segId)).length;
 

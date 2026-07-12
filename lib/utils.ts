@@ -24,6 +24,14 @@ export function formatMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** The month a content card belongs to, everywhere (Board, Dashboard target,
+ *  Journey map): the go-live date wins; only dateless cards fall back to the
+ *  month they were created in. */
+export function contentMonth(card: { scheduledDate?: string; createdMonth?: string }): string {
+  if (card.scheduledDate?.trim()) return card.scheduledDate.slice(0, 7);
+  return card.createdMonth ?? '';
+}
+
 export function parseMonthKey(key: string): Date {
   const [year, month] = key.split('-').map(Number);
   return new Date(year, month - 1, 1);

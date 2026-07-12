@@ -44,12 +44,12 @@ export default function ClientLayout({
   const base = `/client/${params.id}`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Client logins (Shiva, Merushri) don't get the Dashboard tab, so the
-  // client's landing page for them is the Content board.
+  // Shiva's login doesn't get the Dashboard tab, so her landing page is the
+  // Content board. Merushri has the full workspace including Dashboard.
   const isClientRole = role === 'shiva' || role === 'merushri';
   useEffect(() => {
-    if (isClientRole && pathname === base) router.replace(`${base}/content`);
-  }, [isClientRole, pathname, base, router]);
+    if (role === 'shiva' && pathname === base) router.replace(`${base}/content`);
+  }, [role, pathname, base, router]);
 
   // Derive accent from brand kit; falls back to the client's stored color
   const accent = client ? pickAccent(data.brandKit?.colors ?? [], client.color) : '#ea4711';
@@ -76,10 +76,12 @@ export default function ClientLayout({
 
   // Restricted roles get a reduced tab set:
   //  - Sonia: References, Orders, Catalogue
-  //  - Client logins (Shiva, Merushri): Content, Assets, References, Brand, Previews
+  //  - Shiva: Content, Assets, References, Brand, Previews
+  //  - Merushri: the full workspace (Dashboard, Content, Journey, Lists,
+  //    Assets, References, Brand, Previews)
   const visibleTabs = role === 'sonia'
     ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
-    : isClientRole
+    : role === 'shiva'
     ? tabs.filter(t => ['/content', '/assets', '/references', '/brand', '/previews'].includes(t.href))
     : tabs;
 
