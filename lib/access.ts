@@ -57,7 +57,15 @@ export function normalizeState(state: AppState): AppState {
   return {
     clients: state.clients ?? [],
     clientData,
-    personalTasks: state.personalTasks ?? [],
+    // Migrate older tasks to the typed model. Existing tasks become plain
+    // personal tasks that keep their client tag for display (via clientIds);
+    // they never retroactively spawn cards or agenda items. Idempotent: a task
+    // already carrying taskType / clientIds is left untouched.
+    personalTasks: (state.personalTasks ?? []).map(t => ({
+      ...t,
+      taskType: t.taskType ?? 'personal',
+      clientIds: t.clientIds ?? (t.clientId ? [t.clientId] : []),
+    })),
     brainDump: state.brainDump ?? { ...EMPTY_BRAIN },
     containerMap: state.containerMap ?? { ...EMPTY_MAP },
   };

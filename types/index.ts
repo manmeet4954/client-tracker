@@ -350,7 +350,8 @@ export type ContentStage = 'idea' | 'writing' | 'ready' | 'scheduled' | 'posted'
 
 export const CONTENT_STAGES: { id: ContentStage; label: string; color: string; bg: string }[] = [
   { id: 'idea',      label: 'Idea',      color: '#7c3aed', bg: '#ede9fe' },
-  { id: 'writing',   label: 'Writing',   color: '#d97706', bg: '#fef3c7' },
+  // id stays 'writing' (no migration); label is "Making" — covers get-content + creation.
+  { id: 'writing',   label: 'Making',    color: '#d97706', bg: '#fef3c7' },
   { id: 'ready',     label: 'Ready',     color: '#0284c7', bg: '#e0f2fe' },
   { id: 'scheduled', label: 'Scheduled', color: '#0891b2', bg: '#cffafe' },
   { id: 'posted',    label: 'Posted',    color: '#059669', bg: '#d1fae5' },
@@ -437,14 +438,25 @@ export const TASK_BUCKETS: { id: TaskBucket; label: string; sub: string }[] = [
 
 export type TaskRepeat = '' | 'weekly' | 'monthly';
 
+// A My Day task is one of three kinds. Content and client tasks are pointers
+// into client data (a content card / an agenda item); personal is standalone.
+export type TaskType = 'content' | 'client-task' | 'personal';
+
 export interface PersonalTask {
   id: string;
   text: string;
   bucket: TaskBucket;    // legacy — sections are computed from dates now
-  clientId?: string;     // optional — which client this is for
+  taskType: TaskType;    // content | client-task | personal (migrated: old tasks = personal)
+  clientIds: string[];   // which clients this is for (replaces the old single clientId)
+  clientId?: string;     // legacy — kept readable; migrated into clientIds
   dueDate?: string;      // optional ISO date (yyyy-mm-dd)
   repeat?: TaskRepeat;   // recurring: recreates itself on completion
   pinnedOn?: string;     // yyyy-mm-dd — manually pulled into Today for that day
+  // Content tasks point at one content card per chosen client. The task's
+  // status is READ from these cards' stage, never copied.
+  linkedCards?: { clientId: string; cardId: string }[];
+  // Client tasks point at one agenda item per chosen client's Dashboard.
+  linkedAgenda?: { clientId: string; month: string; itemId: string }[];
   done: boolean;
   completedAt?: string;  // ISO timestamp when checked off
   createdAt: string;

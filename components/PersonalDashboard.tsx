@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Plus, Check, Calendar, Trash2, Pencil,
   ChevronDown, CheckCircle2, Circle, Sparkles, Users, Network,
-  Instagram, Pin, PinOff, Repeat,
+  Instagram, Pin, PinOff, Repeat, Ban,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { generateId, formatDate } from '@/lib/utils';
-import { PersonalTask, TaskRepeat, Client, ContentCard } from '@/types';
+import { generateId, formatDate, formatMonthKey } from '@/lib/utils';
+import {
+  PersonalTask, TaskRepeat, TaskType, Client, ContentCard,
+  ContentStage, CONTENT_STAGES, AgendaItem,
+} from '@/types';
+import CardEditor from './CardEditor';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +76,9 @@ export default function PersonalDashboard() {
   const today = todayISO();
   const weekEnd = addDaysISO(7);
 
+  // When she starts a Content task, the real card editor opens here, pre-filled.
+  const [contentFlow, setContentFlow] = useState<{ clientIds: string[]; card: ContentCard } | null>(null);
+
   const accentFor = (clientId?: string): string => {
     if (!clientId) return '#8c52ff';
     const c = state.clients.find(x => x.id === clientId);
@@ -100,6 +107,123 @@ export default function PersonalDashboard() {
   const active = tasks.filter(t => !t.done);
   const doneTodayList = tasks.filter(t => t.done && t.completedAt && t.completedAt.slice(0, 10) === today);
   const bySection = (s: Section) => active.filter(t => sectionOf(t, today, weekEnd) === s);
+
+  // A content task shows its linked card's live stage — read from state, never
+  // copied. If it has several cards, the first found card's stage wins.
+  function contentStageOf(task: PersonalTask): ContentStage | null {
+    if (task.taskType !== 'content' || !task.linkedCards?.length) return null;
+    for (const lc of task.linkedCards) {
+      const card = state.clientData[lc.clientId]?.contentCards?.find(c => c.id === lc.cardId);
+      if (card) return card.stage;
+    }
+    return null;
+  }
+
+  // ── Content flow: open the real card editor, fill once, one card per client ──
+  function startContent(clientIds: string[], title: string, dueDate: string) {
+    const first = clientIds[0];
+    if (!first) return;
+    const now = new Date().toISOString();
+    const platforms = state.clientData[first]?.platforms ?? [];
+    setContentFlow({
+      clientIds,
+      card: {
+        id: generateId(), pillarId: '', title, hook: '', content: '', link: '',
+        stage: 'idea', contentType: '', role: '',
+        platform: platforms.length > 1 ? platforms[0] : undefined,
+        scheduledDate: dueDate || '', postUrl: '', notes: '', customValues: {},
+        createdMonth: formatMonthKey(new Date()), createdAt: now, updatedAt: now,
+      },
+    });
+  }
+
+  function saveContent(draft: ContentCard) {
+    if (!contentFlow) return;
+    const now = new Date().toISOString();
+    const linkedCards: { clientId: string; cardId: string }[] = [];
+    contentFlow.clientIds.forEach((cid, i) => {
+      const cardId = generateId();
+      const card: ContentCard = {
+        ...draft,
+        id: cardId,
+        // A pillar id belongs to the first client only; other clients start Unsorted.
+        pillarId: i === 0 ? draft.pillarId : '',
+        collabId: undefined,
+        collabWith: undefined,
+        createdMonth: draft.createdMonth || formatMonthKey(new Date()),
+        createdAt: now,
+        updatedAt: now,
+      };
+      dispatch({ type: 'ADD_CONTENT_CARD', payload: { clientId: cid, card } });
+      linkedCards.push({ clientId: cid, cardId });
+    });
+    const task: PersonalTask = {
+      id: generateId(), text: draft.title || 'Untitled post', bucket: 'todo',
+      taskType: 'content', clientIds: [...contentFlow.clientIds],
+      dueDate: draft.scheduledDate || undefined, linkedCards,
+      done: false, createdAt: now,
+    };
+    dispatch({ type: 'ADD_TASK', payload: { task } });
+    setContentFlow(null);
+  }
+
+  // ── Client task: an agenda item on each chosen client's Dashboard ──
+  function addClientTask(clientIds: string[], text: string, dueDate: string) {
+    const now = new Date().toISOString();
+    const month = dueDate ? dueDate.slice(0, 7) : formatMonthKey(new Date());
+    const linkedAgenda: { clientId: string; month: string; itemId: string }[] = [];
+    clientIds.forEach(cid => {
+      const itemId = generateId();
+      const item: AgendaItem = { id: itemId, text, dueDate, done: false };
+      dispatch({ type: 'ADD_AGENDA', payload: { clientId: cid, month, item } });
+      linkedAgenda.push({ clientId: cid, month, itemId });
+    });
+    const task: PersonalTask = {
+      id: generateId(), text, bucket: 'todo', taskType: 'client-task',
+      clientIds: [...clientIds], dueDate: dueDate || undefined, linkedAgenda,
+      done: false, createdAt: now,
+    };
+    dispatch({ type: 'ADD_TASK', payload: { task } });
+  }
+
+  // ── Two-way sync on tick ──
+  function toggleTask(task: PersonalTask) {
+    if (task.taskType === 'content' && task.linkedCards?.length) {
+      // Ticking done pushes every linked card to Posted.
+      if (!task.done) {
+        task.linkedCards.forEach(lc =>
+          dispatch({ type: 'MOVE_CONTENT_CARD', payload: { clientId: lc.clientId, cardId: lc.cardId, stage: 'posted' } }));
+      }
+      dispatch({ type: 'TOGGLE_TASK', payload: { taskId: task.id } });
+      return;
+    }
+    if (task.taskType === 'client-task' && task.linkedAgenda?.length) {
+      // Keep the linked agenda items in step with the task's new done state.
+      const target = !task.done;
+      task.linkedAgenda.forEach(la => {
+        const item = state.clientData[la.clientId]?.monthData?.[la.month]?.agenda.find(i => i.id === la.itemId);
+        if (item && item.done !== target) {
+          dispatch({ type: 'TOGGLE_AGENDA', payload: { clientId: la.clientId, month: la.month, itemId: la.itemId } });
+        }
+      });
+      dispatch({ type: 'TOGGLE_TASK', payload: { taskId: task.id } });
+      return;
+    }
+    dispatch({ type: 'TOGGLE_TASK', payload: { taskId: task.id } });
+  }
+
+  // Deleting (or dropping) a task removes the client-side windows it opened:
+  // the linked content card(s) and/or agenda item(s), then the task itself.
+  function deleteTask(task: PersonalTask) {
+    task.linkedCards?.forEach(lc =>
+      dispatch({ type: 'DELETE_CONTENT_CARD', payload: { clientId: lc.clientId, cardId: lc.cardId } }));
+    task.linkedAgenda?.forEach(la =>
+      dispatch({ type: 'DELETE_AGENDA', payload: { clientId: la.clientId, month: la.month, itemId: la.itemId } }));
+    dispatch({ type: 'DELETE_TASK', payload: { taskId: task.id } });
+  }
+
+  const firstClient = contentFlow?.clientIds[0];
+  const flowData = firstClient ? state.clientData[firstClient] : undefined;
 
   return (
     <div className="min-h-screen bg-[#F7F7F5]">
@@ -182,7 +306,9 @@ export default function PersonalDashboard() {
         <QuickAdd
           clients={state.clients}
           accentFor={accentFor}
-          onAdd={task => dispatch({ type: 'ADD_TASK', payload: { task } })}
+          onAddPersonal={task => dispatch({ type: 'ADD_TASK', payload: { task } })}
+          onStartContent={startContent}
+          onAddClientTask={addClientTask}
         />
 
         {/* ── Auto-sorted sections ── */}
@@ -207,10 +333,11 @@ export default function PersonalDashboard() {
                     clients={state.clients}
                     accentFor={accentFor}
                     today={today}
+                    stage={contentStageOf(task)}
                     showPin={sec.id === 'week' || sec.id === 'later'}
-                    onToggle={() => dispatch({ type: 'TOGGLE_TASK', payload: { taskId: task.id } })}
+                    onToggle={() => toggleTask(task)}
                     onEdit={t => dispatch({ type: 'EDIT_TASK', payload: { task: t } })}
-                    onDelete={() => dispatch({ type: 'DELETE_TASK', payload: { taskId: task.id } })}
+                    onDelete={() => deleteTask(task)}
                   />
                 ))}
               </div>
@@ -232,16 +359,29 @@ export default function PersonalDashboard() {
                   clients={state.clients}
                   accentFor={accentFor}
                   today={today}
+                  stage={contentStageOf(task)}
                   showPin={false}
-                  onToggle={() => dispatch({ type: 'TOGGLE_TASK', payload: { taskId: task.id } })}
+                  onToggle={() => toggleTask(task)}
                   onEdit={t => dispatch({ type: 'EDIT_TASK', payload: { task: t } })}
-                  onDelete={() => dispatch({ type: 'DELETE_TASK', payload: { taskId: task.id } })}
+                  onDelete={() => deleteTask(task)}
                 />
               ))}
             </div>
           </div>
         )}
       </main>
+
+      {contentFlow && flowData && firstClient && (
+        <CardEditor
+          card={contentFlow.card}
+          pillars={flowData.pillars ?? []}
+          customFields={flowData.customFields ?? []}
+          platforms={flowData.platforms ?? []}
+          sourceClientId={firstClient}
+          onClose={() => setContentFlow(null)}
+          onSave={saveContent}
+        />
+      )}
     </div>
   );
 }
@@ -269,56 +409,133 @@ function StatPill({ label, value }: { label: string; value: number }) {
 
 // ── Quick add ────────────────────────────────────────────────────────────────
 
-function QuickAdd({ clients, accentFor, onAdd }: {
+const TASK_TYPE_TABS: { id: TaskType; label: string }[] = [
+  { id: 'content', label: 'Content' },
+  { id: 'client-task', label: 'Client task' },
+  { id: 'personal', label: 'Personal' },
+];
+
+function QuickAdd({ clients, accentFor, onAddPersonal, onStartContent, onAddClientTask }: {
   clients: Client[];
   accentFor: (clientId?: string) => string;
-  onAdd: (task: PersonalTask) => void;
+  onAddPersonal: (task: PersonalTask) => void;
+  onStartContent: (clientIds: string[], title: string, dueDate: string) => void;
+  onAddClientTask: (clientIds: string[], text: string, dueDate: string) => void;
 }) {
+  const [taskType, setTaskType] = useState<TaskType>('personal');
   const [text, setText] = useState('');
-  const [clientId, setClientId] = useState<string | undefined>(undefined);
+  const [clientId, setClientId] = useState<string | undefined>(undefined); // personal, single
+  const [clientIds, setClientIds] = useState<string[]>([]);                // content / client task
   const [dueDate, setDueDate] = useState('');
   const [repeat, setRepeat] = useState<TaskRepeat>('');
 
+  const needsClients = taskType === 'content' || taskType === 'client-task';
+  const canAdd =
+    taskType === 'content' ? clientIds.length > 0
+    : taskType === 'client-task' ? !!text.trim() && clientIds.length > 0
+    : !!text.trim();
+
+  function reset() {
+    setText(''); setClientId(undefined); setClientIds([]); setDueDate(''); setRepeat('');
+  }
+
+  function toggleClient(id: string) {
+    setClientIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
   function add() {
-    const t = text.trim();
-    if (!t) return;
-    onAdd({
-      id: generateId(), text: t, bucket: 'todo', clientId,
+    if (!canAdd) return;
+    if (taskType === 'content') {
+      onStartContent(clientIds, text.trim(), dueDate);
+      reset();
+      return;
+    }
+    if (taskType === 'client-task') {
+      onAddClientTask(clientIds, text.trim(), dueDate);
+      reset();
+      return;
+    }
+    onAddPersonal({
+      id: generateId(), text: text.trim(), bucket: 'todo', taskType: 'personal',
+      clientIds: clientId ? [clientId] : [],
       dueDate: dueDate || undefined, repeat: repeat || undefined,
       done: false, createdAt: new Date().toISOString(),
     });
-    setText(''); setClientId(undefined); setDueDate(''); setRepeat('');
+    reset();
   }
+
+  const placeholder =
+    taskType === 'content' ? 'Post title (optional) — set the rest in the editor'
+    : taskType === 'client-task' ? 'What needs doing for the client?'
+    : 'Add a task… set a date and it sorts itself';
 
   return (
     <div className="bg-white rounded-2xl border border-stone-200 px-3 py-3">
+      {/* Type picker */}
+      <div className="flex items-center gap-0.5 mb-2.5 bg-stone-100 rounded-lg p-0.5 w-fit">
+        {TASK_TYPE_TABS.map(t => (
+          <button key={t.id} onClick={() => setTaskType(t.id)}
+            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+              taskType === t.id ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center gap-2 border border-stone-200 rounded-xl px-3 py-2 focus-within:border-stone-400 transition-colors">
         <Plus size={15} className="text-stone-300 shrink-0" />
         <input
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder="Add a task… set a date and it sorts itself"
+          placeholder={placeholder}
           className="flex-1 text-sm bg-transparent focus:outline-none text-stone-700 placeholder-stone-400 min-w-0"
         />
       </div>
+
+      {/* Chosen client chips (content / client task) */}
+      {needsClients && clientIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          {clientIds.map(id => {
+            const c = clients.find(x => x.id === id);
+            if (!c) return null;
+            return (
+              <span key={id} className="inline-flex items-center gap-1 text-[11px] text-stone-600 bg-stone-100 rounded-full pl-2 pr-1 py-0.5">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentFor(id) }} />
+                {c.name}
+                <button onClick={() => toggleClient(id)} className="p-0.5 rounded-full text-stone-400 hover:text-red-500 transition-colors" title="Remove">
+                  <Ban size={11} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 mt-2">
-        <ClientPicker clients={clients} value={clientId} onChange={setClientId} accentFor={accentFor} />
+        {needsClients ? (
+          <MultiClientPicker clients={clients} values={clientIds} onToggle={toggleClient} accentFor={accentFor} />
+        ) : (
+          <ClientPicker clients={clients} value={clientId} onChange={setClientId} accentFor={accentFor} />
+        )}
         <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs text-stone-500 hover:border-stone-400 transition-colors cursor-pointer">
           <Calendar size={12} />
           <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="bg-transparent focus:outline-none text-stone-600 w-[88px]" />
         </label>
-        <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs text-stone-500 hover:border-stone-400 transition-colors">
-          <Repeat size={12} />
-          <select value={repeat} onChange={e => setRepeat(e.target.value as TaskRepeat)} className="bg-transparent focus:outline-none text-stone-600">
-            <option value="">Once</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </label>
-        {text.trim() && (
+        {taskType === 'personal' && (
+          <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs text-stone-500 hover:border-stone-400 transition-colors">
+            <Repeat size={12} />
+            <select value={repeat} onChange={e => setRepeat(e.target.value as TaskRepeat)} className="bg-transparent focus:outline-none text-stone-600">
+              <option value="">Once</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </label>
+        )}
+        {canAdd && (
           <button onClick={add} className="ml-auto px-3 py-1.5 rounded-lg bg-[#1f1f1f] text-white text-xs font-medium hover:bg-stone-700 transition-colors">
-            Add
+            {taskType === 'content' ? 'Next: write the post' : 'Add'}
           </button>
         )}
       </div>
@@ -328,11 +545,12 @@ function QuickAdd({ clients, accentFor, onAdd }: {
 
 // ── Task row ─────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, clients, accentFor, today, showPin, onToggle, onEdit, onDelete }: {
+function TaskRow({ task, clients, accentFor, today, stage, showPin, onToggle, onEdit, onDelete }: {
   task: PersonalTask;
   clients: Client[];
   accentFor: (clientId?: string) => string;
   today: string;
+  stage: ContentStage | null;
   showPin: boolean;
   onToggle: () => void;
   onEdit: (task: PersonalTask) => void;
@@ -341,10 +559,12 @@ function TaskRow({ task, clients, accentFor, today, showPin, onToggle, onEdit, o
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.text);
 
-  const client = task.clientId ? clients.find(c => c.id === task.clientId) : undefined;
-  const accent = accentFor(task.clientId);
+  const taskClients = (task.clientIds ?? []).map(id => clients.find(c => c.id === id)).filter(Boolean) as Client[];
+  const accent = accentFor(task.clientIds?.[0]);
   const overdue = !task.done && !!task.dueDate && task.dueDate < today;
   const pinned = task.pinnedOn === today;
+  const isContent = task.taskType === 'content';
+  const stageMeta = stage ? CONTENT_STAGES.find(s => s.id === stage) : undefined;
 
   function saveEdit() {
     const t = draft.trim();
@@ -377,14 +597,20 @@ function TaskRow({ task, clients, accentFor, today, showPin, onToggle, onEdit, o
           </p>
         )}
 
-        {(client || task.dueDate || task.repeat || pinned) && (
+        {(taskClients.length > 0 || task.dueDate || task.repeat || pinned || stageMeta) && (
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {client && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-stone-500">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accent }} />
-                {client.name}
+            {stageMeta && (
+              <span className="text-[11px] font-medium rounded-full px-1.5 py-0.5"
+                style={{ color: stageMeta.color, backgroundColor: stageMeta.bg }} title="Live stage of the linked post">
+                {stageMeta.label}
               </span>
             )}
+            {taskClients.map(c => (
+              <span key={c.id} className="inline-flex items-center gap-1 text-[11px] text-stone-500">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentFor(c.id) }} />
+                {c.name}
+              </span>
+            ))}
             {task.dueDate && (
               <span className={`inline-flex items-center gap-1 text-[11px] ${overdue ? 'text-red-500 font-medium' : 'text-stone-400'}`}>
                 <Calendar size={10} />
@@ -418,8 +644,9 @@ function TaskRow({ task, clients, accentFor, today, showPin, onToggle, onEdit, o
         <button onClick={() => setEditing(true)} className="p-1 rounded text-stone-400 hover:text-stone-700 transition-colors">
           <Pencil size={13} />
         </button>
-        <button onClick={onDelete} className="p-1 rounded text-stone-400 hover:text-red-500 transition-colors">
-          <Trash2 size={13} />
+        <button onClick={onDelete} className="p-1 rounded text-stone-400 hover:text-red-500 transition-colors"
+          title={isContent ? 'Drop this post (deletes the card)' : 'Delete'}>
+          {isContent ? <Ban size={13} /> : <Trash2 size={13} />}
         </button>
       </div>
     </div>
@@ -477,6 +704,59 @@ function ClientPicker({ clients, value, onChange, accentFor }: {
               <span className={`truncate ${value === c.id ? 'text-stone-900 font-medium' : 'text-stone-600'}`}>{c.name}</span>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Multi client picker (content + client tasks) ─────────────────────────────
+// Same dropdown pattern as ClientPicker, but stays open and toggles many.
+// Chosen clients render as chips in QuickAdd.
+
+function MultiClientPicker({ clients, values, onToggle, accentFor }: {
+  clients: Client[];
+  values: string[];
+  onToggle: (id: string) => void;
+  accentFor: (clientId?: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs text-stone-500 hover:border-stone-400 transition-colors">
+        <Users size={12} className="text-stone-400" />
+        <span className={values.length ? 'text-stone-700' : 'text-stone-400'}>
+          {values.length ? `${values.length} client${values.length > 1 ? 's' : ''}` : 'Pick clients'}
+        </span>
+        <ChevronDown size={12} className="text-stone-400" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-stone-200 rounded-xl shadow-xl py-1 max-h-[60vh] overflow-y-auto">
+          {clients.length === 0 && <p className="px-3 py-2 text-xs text-stone-400">No clients yet</p>}
+          {clients.map(c => {
+            const sel = values.includes(c.id);
+            return (
+              <button key={c.id} onClick={() => onToggle(c.id)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-stone-50 transition-colors">
+                <span className="w-4 shrink-0">{sel && <Check size={12} className="text-stone-700" />}</span>
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: accentFor(c.id) }} />
+                <span className={`truncate ${sel ? 'text-stone-900 font-medium' : 'text-stone-600'}`}>{c.name}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
