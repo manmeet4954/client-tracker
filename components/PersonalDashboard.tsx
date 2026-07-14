@@ -14,6 +14,7 @@ import {
   ContentStage, CONTENT_STAGES, AgendaItem,
 } from '@/types';
 import CardEditor from './CardEditor';
+import Modal from './Modal';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,8 @@ export default function PersonalDashboard() {
 
   // When she starts a Content task, the real card editor opens here, pre-filled.
   const [contentFlow, setContentFlow] = useState<{ clientIds: string[]; card: ContentCard } | null>(null);
+  // The task whose full edit modal is open (pencil control). Null = closed.
+  const [editTask, setEditTask] = useState<PersonalTask | null>(null);
 
   const accentFor = (clientId?: string): string => {
     if (!clientId) return '#8c52ff';
@@ -222,6 +225,56 @@ export default function PersonalDashboard() {
     dispatch({ type: 'DELETE_TASK', payload: { taskId: task.id } });
   }
 
+  // ── Save from the edit modal ──
+  // Move any linked content card(s) if the stage changed, then persist the
+  // task's own edited fields. Non-content tasks pass newStage = null.
+  function saveTaskEdit(updated: PersonalTask, newStage: ContentStage | null) {
+    if (newStage && updated.linkedCards?.length) {
+      updated.linkedCards.forEach(lc =>
+        dispatch({ type: 'MOVE_CONTENT_CARD', payload: { clientId: lc.clientId, cardId: lc.cardId, stage: newStage } }));
+    }
+    dispatch({ type: 'EDIT_TASK', payload: { task: updated } });
+    setEditTask(null);
+  }
+
+  // Renders one auto-sorted section as a card. Overdue + Today fill the split's
+  // right column; This Week + Later sit full width below it. Same behavior as
+  // before: empty sections vanish, except Today which always shows.
+  function renderSection(id: Section) {
+    const sec = SECTION_META.find(s => s.id === id)!;
+    const list = bySection(id);
+    if (list.length === 0 && id !== 'today') return null;
+    return (
+      <div className="bg-white rounded-2xl border border-stone-200">
+        <div className="px-4 pt-4 pb-3 border-b border-stone-100 flex items-baseline justify-between">
+          <div>
+            <h2 className={`font-semibold text-sm ${id === 'overdue' ? 'text-red-600' : 'text-stone-900'}`}>{sec.label}</h2>
+            <p className="text-xs text-stone-400 mt-0.5">{sec.sub}</p>
+          </div>
+          <span className="text-xs text-stone-400 font-medium">{list.length}</span>
+        </div>
+        <div className="px-2 py-2">
+          {list.length === 0 && <p className="text-xs text-stone-300 text-center py-4">Nothing here</p>}
+          {list.map(task => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              clients={state.clients}
+              accentFor={accentFor}
+              today={today}
+              stage={contentStageOf(task)}
+              showPin={id === 'week' || id === 'later'}
+              onToggle={() => toggleTask(task)}
+              onEdit={t => dispatch({ type: 'EDIT_TASK', payload: { task: t } })}
+              onOpenEdit={setEditTask}
+              onDelete={() => deleteTask(task)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const firstClient = contentFlow?.clientIds[0];
   const flowData = firstClient ? state.clientData[firstClient] : undefined;
 
@@ -257,52 +310,7 @@ export default function PersonalDashboard() {
       </header>
 
       <main className="px-4 md:px-10 py-6 max-w-4xl mx-auto space-y-5">
-        {/* ── Going live today ── */}
-        {livePosts.length > 0 && (
-          <div className="bg-white rounded-2xl border border-stone-200">
-            <div className="px-4 pt-4 pb-3 border-b border-stone-100 flex items-center gap-2">
-              <Instagram size={15} className="text-pink-500" />
-              <h2 className="font-semibold text-stone-900 text-sm">Going live</h2>
-              <span className="text-xs text-stone-400 font-medium ml-auto">{livePosts.length}</span>
-            </div>
-            <div className="px-2 py-2">
-              {livePosts.map(({ clientId, clientName, card }) => {
-                const slipped = card.scheduledDate < today;
-                return (
-                  <div key={card.id} className="group flex items-start gap-2.5 px-2 py-2 rounded-lg hover:bg-stone-50 transition-colors">
-                    <button
-                      onClick={() => dispatch({ type: 'MOVE_CONTENT_CARD', payload: { clientId, cardId: card.id, stage: 'posted' } })}
-                      className="shrink-0 mt-0.5" title="Mark posted"
-                    >
-                      <Circle size={18} className="text-stone-300 hover:text-emerald-500" />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm leading-snug text-stone-700">{card.title || 'Untitled post'}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="inline-flex items-center gap-1 text-[11px] text-stone-500">
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentFor(clientId) }} />
-                          {clientName}
-                        </span>
-                        {card.platform && <span className="text-[11px] text-indigo-500">{card.platform}</span>}
-                        <span className={`text-[11px] ${slipped ? 'text-red-500 font-medium' : 'text-stone-400'}`}>
-                          {slipped ? `was due ${formatDate(card.scheduledDate)}` : 'today'}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/client/${clientId}/content`)}
-                      className="opacity-0 group-hover:opacity-100 text-[11px] text-stone-400 hover:text-stone-700 transition-opacity shrink-0 mt-1"
-                    >
-                      open →
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Quick add ── */}
+        {/* ── Quick add (first) ── */}
         <QuickAdd
           clients={state.clients}
           accentFor={accentFor}
@@ -311,39 +319,65 @@ export default function PersonalDashboard() {
           onAddClientTask={addClientTask}
         />
 
-        {/* ── Auto-sorted sections ── */}
-        {SECTION_META.map(sec => {
-          const list = bySection(sec.id);
-          if (list.length === 0 && sec.id !== 'today') return null;
-          return (
-            <div key={sec.id} className="bg-white rounded-2xl border border-stone-200">
-              <div className="px-4 pt-4 pb-3 border-b border-stone-100 flex items-baseline justify-between">
-                <div>
-                  <h2 className={`font-semibold text-sm ${sec.id === 'overdue' ? 'text-red-600' : 'text-stone-900'}`}>{sec.label}</h2>
-                  <p className="text-xs text-stone-400 mt-0.5">{sec.sub}</p>
-                </div>
-                <span className="text-xs text-stone-400 font-medium">{list.length}</span>
-              </div>
-              <div className="px-2 py-2">
-                {list.length === 0 && <p className="text-xs text-stone-300 text-center py-4">Nothing here</p>}
-                {list.map(task => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    clients={state.clients}
-                    accentFor={accentFor}
-                    today={today}
-                    stage={contentStageOf(task)}
-                    showPin={sec.id === 'week' || sec.id === 'later'}
-                    onToggle={() => toggleTask(task)}
-                    onEdit={t => dispatch({ type: 'EDIT_TASK', payload: { task: t } })}
-                    onDelete={() => deleteTask(task)}
-                  />
-                ))}
-              </div>
+        {/* ── Split: Going live (left) + Today's to-do (right) ── */}
+        <div className="grid md:grid-cols-2 gap-5 items-start">
+          {/* Left: posts going live today, pulled from Content cards */}
+          <div className="bg-white rounded-2xl border border-stone-200">
+            <div className="px-4 pt-4 pb-3 border-b border-stone-100 flex items-center gap-2">
+              <Instagram size={15} className="text-pink-500" />
+              <h2 className="font-semibold text-stone-900 text-sm">Going live</h2>
+              {livePosts.length > 0 && <span className="text-xs text-stone-400 font-medium ml-auto">{livePosts.length}</span>}
             </div>
-          );
-        })}
+            {livePosts.length > 0 ? (
+              <div className="px-2 py-2">
+                {livePosts.map(({ clientId, clientName, card }) => {
+                  const slipped = card.scheduledDate < today;
+                  return (
+                    <div key={card.id} className="group flex items-start gap-2.5 px-2 py-2 rounded-lg hover:bg-stone-50 transition-colors">
+                      <button
+                        onClick={() => dispatch({ type: 'MOVE_CONTENT_CARD', payload: { clientId, cardId: card.id, stage: 'posted' } })}
+                        className="shrink-0 mt-0.5" title="Mark posted"
+                      >
+                        <Circle size={18} className="text-stone-300 hover:text-emerald-500" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm leading-snug text-stone-700">{card.title || 'Untitled post'}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-stone-500">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentFor(clientId) }} />
+                            {clientName}
+                          </span>
+                          {card.platform && <span className="text-[11px] text-indigo-500">{card.platform}</span>}
+                          <span className={`text-[11px] ${slipped ? 'text-red-500 font-medium' : 'text-stone-400'}`}>
+                            {slipped ? `was due ${formatDate(card.scheduledDate)}` : 'today'}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => router.push(`/client/${clientId}/content`)}
+                        className="opacity-0 group-hover:opacity-100 text-[11px] text-stone-400 hover:text-stone-700 transition-opacity shrink-0 mt-1"
+                      >
+                        open →
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-stone-400 text-center py-8">Nothing going live today</p>
+            )}
+          </div>
+
+          {/* Right: today's to-do — overdue first, then due today or pinned */}
+          <div className="space-y-5">
+            {renderSection('overdue')}
+            {renderSection('today')}
+          </div>
+        </div>
+
+        {/* ── This Week + Later (full width, below the split) ── */}
+        {renderSection('week')}
+        {renderSection('later')}
 
         {/* ── Done today ── */}
         {doneTodayList.length > 0 && (
@@ -363,6 +397,7 @@ export default function PersonalDashboard() {
                   showPin={false}
                   onToggle={() => toggleTask(task)}
                   onEdit={t => dispatch({ type: 'EDIT_TASK', payload: { task: t } })}
+                  onOpenEdit={setEditTask}
                   onDelete={() => deleteTask(task)}
                 />
               ))}
@@ -380,6 +415,17 @@ export default function PersonalDashboard() {
           sourceClientId={firstClient}
           onClose={() => setContentFlow(null)}
           onSave={saveContent}
+        />
+      )}
+
+      {editTask && (
+        <EditTaskModal
+          task={editTask}
+          clients={state.clients}
+          accentFor={accentFor}
+          currentStage={contentStageOf(editTask)}
+          onClose={() => setEditTask(null)}
+          onSave={saveTaskEdit}
         />
       )}
     </div>
@@ -545,7 +591,7 @@ function QuickAdd({ clients, accentFor, onAddPersonal, onStartContent, onAddClie
 
 // ── Task row ─────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, clients, accentFor, today, stage, showPin, onToggle, onEdit, onDelete }: {
+function TaskRow({ task, clients, accentFor, today, stage, showPin, onToggle, onEdit, onOpenEdit, onDelete }: {
   task: PersonalTask;
   clients: Client[];
   accentFor: (clientId?: string) => string;
@@ -553,7 +599,8 @@ function TaskRow({ task, clients, accentFor, today, stage, showPin, onToggle, on
   stage: ContentStage | null;
   showPin: boolean;
   onToggle: () => void;
-  onEdit: (task: PersonalTask) => void;
+  onEdit: (task: PersonalTask) => void;      // quick writes: inline rename, pin toggle
+  onOpenEdit: (task: PersonalTask) => void;  // opens the full edit modal (pencil)
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -641,7 +688,7 @@ function TaskRow({ task, clients, accentFor, today, stage, showPin, onToggle, on
             {pinned ? <PinOff size={13} /> : <Pin size={13} />}
           </button>
         )}
-        <button onClick={() => setEditing(true)} className="p-1 rounded text-stone-400 hover:text-stone-700 transition-colors">
+        <button onClick={() => onOpenEdit(task)} className="p-1 rounded text-stone-400 hover:text-stone-700 transition-colors" title="Edit task">
           <Pencil size={13} />
         </button>
         <button onClick={onDelete} className="p-1 rounded text-stone-400 hover:text-red-500 transition-colors"
@@ -760,5 +807,127 @@ function MultiClientPicker({ clients, values, onToggle, accentFor }: {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Edit task modal ──────────────────────────────────────────────────────────
+// The pencil on any TaskRow opens this. It edits the task's own fields (name,
+// clients, due date, repeat) and — for a content task — its live stage, which
+// moves the linked post on the board so both surfaces stay in step. Clients
+// here are display tags; changing them does not add or remove linked cards.
+
+function EditTaskModal({ task, clients, accentFor, currentStage, onClose, onSave }: {
+  task: PersonalTask;
+  clients: Client[];
+  accentFor: (clientId?: string) => string;
+  currentStage: ContentStage | null;
+  onClose: () => void;
+  onSave: (updated: PersonalTask, newStage: ContentStage | null) => void;
+}) {
+  const [name, setName] = useState(task.text);
+  const [clientIds, setClientIds] = useState<string[]>(task.clientIds ?? []);
+  const [dueDate, setDueDate] = useState(task.dueDate ?? '');
+  const [repeat, setRepeat] = useState<TaskRepeat>(task.repeat ?? '');
+  const [stage, setStage] = useState<ContentStage>(currentStage ?? 'idea');
+
+  // Only content tasks with a live linked card get the stage control.
+  const isContent = task.taskType === 'content' && !!task.linkedCards?.length && currentStage !== null;
+
+  function toggleClient(id: string) {
+    setClientIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function save() {
+    const updated: PersonalTask = {
+      ...task,
+      text: name.trim() || task.text,
+      clientIds,
+      dueDate: dueDate || undefined,
+      repeat: repeat || undefined,
+    };
+    const newStage = isContent && stage !== currentStage ? stage : null;
+    onSave(updated, newStage);
+  }
+
+  const fieldCls =
+    'text-sm text-stone-700 border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:border-stone-400 transition-colors bg-white';
+
+  return (
+    <Modal open onClose={onClose} title="Edit task">
+      <div className="p-5 space-y-4">
+        {/* Name */}
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Name</label>
+          <input
+            autoFocus
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') save(); }}
+            className={`w-full ${fieldCls}`}
+          />
+        </div>
+
+        {/* Clients */}
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Clients</label>
+          {clientIds.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {clientIds.map(id => {
+                const c = clients.find(x => x.id === id);
+                if (!c) return null;
+                return (
+                  <span key={id} className="inline-flex items-center gap-1 text-[11px] text-stone-600 bg-stone-100 rounded-full pl-2 pr-1 py-0.5">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentFor(id) }} />
+                    {c.name}
+                    <button onClick={() => toggleClient(id)} className="p-0.5 rounded-full text-stone-400 hover:text-red-500 transition-colors" title="Remove">
+                      <Ban size={11} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          <MultiClientPicker clients={clients} values={clientIds} onToggle={toggleClient} accentFor={accentFor} />
+        </div>
+
+        {/* Due date + Repeat */}
+        <div className="flex flex-wrap gap-4">
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Due date</label>
+            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={fieldCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Repeat</label>
+            <select value={repeat} onChange={e => setRepeat(e.target.value as TaskRepeat)} className={fieldCls}>
+              <option value="">Once</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Stage (content tasks only) */}
+        {isContent && (
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Stage</label>
+            <select value={stage} onChange={e => setStage(e.target.value as ContentStage)} className={fieldCls}>
+              {CONTENT_STAGES.map(s => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-stone-400 mt-1.5">Moves the linked post on the board too.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-stone-100">
+        <button onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs font-medium text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors">
+          Cancel
+        </button>
+        <button onClick={save} className="px-3 py-1.5 rounded-lg bg-[#1f1f1f] text-white text-xs font-medium hover:bg-stone-700 transition-colors">
+          Save
+        </button>
+      </div>
+    </Modal>
   );
 }
