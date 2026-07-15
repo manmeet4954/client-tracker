@@ -87,6 +87,17 @@ Needs `.env.local` with the Supabase, Cloudinary, and passcode variables. Variab
 
 ---
 
+## Specs — build plans live in `dashboard/specs/`
+
+Anything bigger than a quick fix gets a spec FILE here first, before code.
+
+- **Location and naming:** `dashboard/specs/`, named `NN — Title.md` (two digits, space, Title Case). `00 — Dashboard Backlog.md` is the master index and decision log; `01`+ are the numbered builds.
+- **Commit specs the moment they are written.** Never leave them as untracked loose files. A spec that is not in git is one folder-clean from gone — this already happened once (the 00–07 set sat uncommitted for two days).
+- **A build session reads the spec by name and builds from it.** Specs are never pasted between chats; you point a chat at the filename, and it reads the file (after pulling `main`).
+- When a spec ships, mark it in `00 — Dashboard Backlog.md`.
+
+---
+
 ## Rules (do not violate)
 
 1. **Clients see curated content only.** Anything AI-generated inside KRNL is internal drafting material. Nothing generated goes client-facing without Manmeet curating it first.
@@ -112,6 +123,7 @@ Needs `.env.local` with the Supabase, Cloudinary, and passcode variables. Variab
 
 - Explain the step in plain language first, discuss until it is clear, then build. Never several features in one go.
 - She does not read code. Give the mental model, the cost, and the tradeoff. Give exact file paths when filing anything.
+- **Report results, not plumbing.** Tell her "done" or "here is the one decision I need." Never narrate git, branches, merges, conflicts, typechecks, stashes, or PRs unless she explicitly asks what is happening under the hood. Routine machinery reads as chaos to her and causes real anxiety; translate any scary-but-normal operation into plain reassurance.
 - Decisions are hers. Draft, show, let her correct. Never declare anything locked on her behalf.
 - If context is missing, ask her directly. Do not go hunting through repos and transcripts.
 - Ship the simple working version first. Infrastructure repair comes after it is live and testable.

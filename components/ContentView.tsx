@@ -14,7 +14,7 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, CLIENT_COLORS, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate, contentMonth } from '@/lib/utils';
 import {
   ContentPillar, ContentCard, ContentStage, CONTENT_STAGES,
-  DEFAULT_PLATFORMS,
+  DEFAULT_PLATFORMS, DEFAULT_CONTENT_TYPES,
 } from '@/types';
 import Modal from './Modal';
 import CardEditor, { formatForCopy } from './CardEditor';
@@ -75,30 +75,43 @@ export default function ContentView({ clientId }: { clientId: string }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [platformFilter, setPlatformFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [pillarFilter, setPillarFilter] = useState('');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
 
   const pillars = data.pillars ?? [];
   const cards = data.contentCards ?? [];
   const platforms = data.platforms ?? [];
   const multiPlatform = platforms.length > 1;
+  // Content types actually present on this client's cards, default order first.
+  const typesInUse = [
+    ...DEFAULT_CONTENT_TYPES.filter(t => cards.some(c => c.contentType === t)),
+    ...Array.from(new Set(cards.map(c => c.contentType))).filter(t => t && !DEFAULT_CONTENT_TYPES.includes(t)),
+  ];
 
   function switchView(v: ViewId) {
     setView(v);
     try { localStorage.setItem(`content_view_${clientId}`, v); } catch {}
   }
 
-  // Month filter applies to Board and Table (the timeline lenses). The
-  // Pillars lens is the idea library — it always shows everything.
+  // Month filter: the selected month's cards plus every dateless card. This now
+  // feeds all three views. Pillars used to show the all-time library; Spec 02
+  // makes it month-aware while keeping the dateless backlog always visible.
   const monthFiltered = cards.filter(c => !contentMonth(c) || contentMonth(c) === month);
+  // Search, platform and content-type filters apply to all three views.
   const searched = (list: ContentCard[]) => {
     let out = list;
     if (platformFilter) out = out.filter(c => c.platform === platformFilter);
+    if (typeFilter) out = out.filter(c => c.contentType === typeFilter);
     if (search) out = out.filter(c => [c.title, c.hook, c.content].some(s => s.toLowerCase().includes(search.toLowerCase())));
     return out;
   };
+  // The pillar filter narrows Board and Table only — in Pillars the columns
+  // already are the pillars, so it would be redundant there.
+  const withPillar = (list: ContentCard[]) => pillarFilter ? list.filter(c => c.pillarId === pillarFilter) : list;
 
-  const boardCards = searched(monthFiltered);
-  const pillarCards = searched(cards);
+  const boardCards = withPillar(searched(monthFiltered));
+  const pillarCards = searched(monthFiltered);
 
   const postedThisMonth = monthFiltered.filter(c => c.stage === 'posted').length; // month = go-live month via contentMonth
   const postTarget = data.postTarget ?? 0;
@@ -215,14 +228,33 @@ export default function ContentView({ clientId }: { clientId: string }) {
             ))}
           </div>
         )}
-        {view !== 'pillars' && (
-          <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-lg p-0.5 ml-auto">
-            <button onClick={() => setMonth(prevMonth(month))} className="p-1.5 rounded-md text-stone-500 hover:bg-stone-50"><ChevronLeft size={15} /></button>
-            <span className="px-2 text-xs font-medium text-stone-700">{formatMonthLabel(month)}</span>
-            <button onClick={() => setMonth(formatMonthKey(new Date()))} className="px-2 py-1 text-xs text-stone-400 hover:text-stone-900">Today</button>
-            <button onClick={() => setMonth(nextMonth(month))} className="p-1.5 rounded-md text-stone-500 hover:bg-stone-50"><ChevronRight size={15} /></button>
+        {typesInUse.length > 0 && (
+          <div className="flex items-center gap-0.5 border border-stone-200 bg-white rounded-lg p-0.5">
+            <button onClick={() => setTypeFilter('')}
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${typeFilter === '' ? 'bg-[#1f1f1f] text-white' : 'text-stone-500 hover:text-stone-900'}`}>
+              All types
+            </button>
+            {typesInUse.map(t => (
+              <button key={t} onClick={() => setTypeFilter(typeFilter === t ? '' : t)}
+                className={`px-2.5 py-1 text-xs rounded-md transition-colors ${typeFilter === t ? 'bg-[#1f1f1f] text-white' : 'text-stone-500 hover:text-stone-900'}`}>
+                {t}
+              </button>
+            ))}
           </div>
         )}
+        {view !== 'pillars' && pillars.length > 0 && (
+          <select value={pillarFilter} onChange={e => setPillarFilter(e.target.value)}
+            className="px-3 py-1.5 text-sm border border-stone-200 bg-white rounded-lg focus:outline-none text-stone-600">
+            <option value="">All pillars</option>
+            {pillars.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        )}
+        <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-lg p-0.5 ml-auto">
+          <button onClick={() => setMonth(prevMonth(month))} className="p-1.5 rounded-md text-stone-500 hover:bg-stone-50"><ChevronLeft size={15} /></button>
+          <span className="px-2 text-xs font-medium text-stone-700">{formatMonthLabel(month)}</span>
+          <button onClick={() => setMonth(formatMonthKey(new Date()))} className="px-2 py-1 text-xs text-stone-400 hover:text-stone-900">Today</button>
+          <button onClick={() => setMonth(nextMonth(month))} className="p-1.5 rounded-md text-stone-500 hover:bg-stone-50"><ChevronRight size={15} /></button>
+        </div>
       </div>
 
       {view === 'board' && (
@@ -252,7 +284,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
       )}
 
       {view === 'pillars' && (
-        pillars.length === 0 && pillarCards.length === 0 ? (
+        pillars.length === 0 && cards.length === 0 ? (
           <PillarsEmptyState onAdd={addPillar} onLoadPack={isResumeGuru ? loadResumeGuruPack : undefined} />
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-4 items-start">
@@ -262,6 +294,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
                 title={pillar.name}
                 color={pillar.color}
                 cards={pillarCards.filter(c => c.pillarId === pillar.id)}
+                month={month}
                 multiPlatform={multiPlatform}
                 onAdd={() => newCard({ pillarId: pillar.id })}
                 onOpen={setEditingCard}
@@ -283,6 +316,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
                 title="Unsorted"
                 color="#a8a29e"
                 cards={pillarCards.filter(c => !c.pillarId || !pillars.some(p => p.id === c.pillarId))}
+                month={month}
                 multiPlatform={multiPlatform}
                 onAdd={() => newCard({})}
                 onOpen={setEditingCard}
@@ -487,10 +521,11 @@ function DraggableCard({ card, dim, onOpen, children }: {
 
 // ── Pillars view (themes) ────────────────────────────────────────────────────
 
-function PillarColumn({ title, color, cards, multiPlatform, onAdd, onOpen, onStage, menu }: {
+function PillarColumn({ title, color, cards, month, multiPlatform, onAdd, onOpen, onStage, menu }: {
   title: string;
   color: string;
   cards: ContentCard[];
+  month: string;
   multiPlatform: boolean;
   onAdd: () => void;
   onOpen: (c: ContentCard) => void;
@@ -500,7 +535,10 @@ function PillarColumn({ title, color, cards, multiPlatform, onAdd, onOpen, onSta
   // Posted cards are archive, not work — fold them behind a footer so the
   // column shows only what's current. Expand to browse history.
   const [showPosted, setShowPosted] = useState(false);
-  const active = cards.filter(c => c.stage !== 'posted');
+  // This month's dated cards vs the dateless backlog. The backlog is ideas with
+  // no date yet — it stays visible in every month, under its own divider.
+  const dated = cards.filter(c => c.stage !== 'posted' && contentMonth(c) === month);
+  const dateless = cards.filter(c => c.stage !== 'posted' && !contentMonth(c));
   const posted = cards.filter(c => c.stage === 'posted');
 
   const renderCard = (card: ContentCard) => (
@@ -519,11 +557,21 @@ function PillarColumn({ title, color, cards, multiPlatform, onAdd, onOpen, onSta
         {menu}
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {active.map(renderCard)}
+        {dated.map(renderCard)}
         <button onClick={onAdd}
           className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-stone-500 hover:text-stone-900 hover:bg-white rounded-lg border border-dashed border-stone-300 transition-colors">
           <Plus size={13} /> Add topic
         </button>
+        {dateless.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 pt-1">
+              <span className="h-px flex-1 bg-stone-200" />
+              <span className="text-[10px] font-medium uppercase tracking-wide text-stone-400">No date yet</span>
+              <span className="h-px flex-1 bg-stone-200" />
+            </div>
+            {dateless.map(renderCard)}
+          </>
+        )}
         {posted.length > 0 && (
           <button onClick={() => setShowPosted(s => !s)}
             className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-stone-400 hover:text-stone-700 rounded-lg transition-colors">
