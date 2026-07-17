@@ -8,7 +8,7 @@ import {
   PersonalTask, BrainNode, BrainEdge, MapNode, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
-  ContentCard, ContentStage, TrackList, ListRow, JourneyData,
+  ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData,
 } from '@/types';
 import { migrateToContentCards } from '@/lib/migrateContent';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
@@ -171,7 +171,8 @@ export type Action =
   | { type: 'ADD_LIST_ROW'; payload: { clientId: string; row: ListRow } }
   | { type: 'UPDATE_LIST_ROW'; payload: { clientId: string; row: ListRow } }
   | { type: 'DELETE_LIST_ROW'; payload: { clientId: string; rowId: string } }
-  | { type: 'UPDATE_JOURNEY'; payload: { clientId: string; journey: JourneyData } };
+  | { type: 'UPDATE_JOURNEY'; payload: { clientId: string; journey: JourneyData } }
+  | { type: 'UPDATE_MOMENTUM'; payload: { clientId: string; momentum: MomentumData } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -841,6 +842,9 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'UPDATE_JOURNEY':
       return updateClient(action.payload.clientId, { journey: action.payload.journey });
+
+    case 'UPDATE_MOMENTUM':
+      return updateClient(action.payload.clientId, { momentum: action.payload.momentum });
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };

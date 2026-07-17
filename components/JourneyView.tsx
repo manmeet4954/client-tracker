@@ -6,6 +6,7 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import { JourneyData, ContentCard, ContentPillar } from '@/types';
 import { contentMonth } from '@/lib/utils';
 import Modal from './Modal';
+import MomentumMeter from './MomentumMeter';
 
 // Journey v2 — the map IS the page. Every month is a stacked bar, each
 // segment a pillar in its own color, so consistency (and drift) is visible
@@ -113,6 +114,9 @@ export default function JourneyView({ clientId }: { clientId: string }) {
 
       {/* ── Goal (slim, above the stage) ── */}
       <GoalCard journey={journey} accent={accent} onSave={save} />
+
+      {/* ── Momentum meter (spec 11 — ResumeGuru first) ── */}
+      {/resume/i.test(client?.name ?? '') && <MomentumMeter clientId={clientId} accent={accent} />}
 
       {/* ── THE MAP ── */}
       <div className="bg-white rounded-xl border border-stone-200 p-5 md:p-8">

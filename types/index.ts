@@ -306,6 +306,37 @@ export interface JourneyData {
   nextSteps: string;      // the ordered 3-5 moves, plain text
 }
 
+// ── Momentum meter (per client — ResumeGuru first) ──────────────────────────
+// Tracks EFFORT, the one thing she controls. The meter value is computed from
+// the log on every render; only the log entries are stored. Posting is never
+// logged by hand — it is derived from contentCards hitting the posted stage.
+
+export interface MomentumEntry {
+  date: string;        // yyyy-mm-dd
+  actions: string[];   // ids from MOMENTUM_ACTIONS
+  note?: string;       // optional one-liner: what she did that day
+}
+
+export interface MomentumData {
+  startDate: string;   // yyyy-mm-dd — the day the meter started counting
+  entries: MomentumEntry[];
+}
+
+// Weights: a full day of work adds up to +8; a skipped day costs −3 (about
+// half a worked day, per her decision 2026-07-17). Posted cards add +4 each,
+// derived from the board.
+export const MOMENTUM_ACTIONS: { id: string; label: string; points: number }[] = [
+  { id: 'story',    label: 'Story',              points: 2 },
+  { id: 'engaged',  label: 'Comments & replies', points: 2 },
+  { id: 'dms',      label: 'DMs',                points: 2 },
+  { id: 'outreach', label: 'Outreach',           points: 2 },
+  { id: 'other',    label: 'Other work',         points: 1 },
+];
+
+export const MOMENTUM_POSTED_POINTS = 4;
+export const MOMENTUM_DAY_CAP = 8;
+export const MOMENTUM_SKIP_PENALTY = 3;
+
 export type PillarCardStatus = 'idea' | 'writing' | 'ready' | 'done';
 
 export const PILLAR_CARD_STATUSES: { id: PillarCardStatus; label: string; color: string; bg: string }[] = [
@@ -417,6 +448,7 @@ export interface ClientData {
   lists: TrackList[];
   listRows: ListRow[];
   journey?: JourneyData;
+  momentum?: MomentumData;
 }
 
 export interface Client {
