@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Flame, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
+import { Flame, TrendingUp, TrendingDown, CheckCircle2, DollarSign, Pencil } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import {
   MomentumData, MomentumEntry, ContentCard,
@@ -102,6 +102,7 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
     const cur = todayEntry ?? { date: today, actions: [] };
     const rest = momentum.entries.filter(e => e.date !== today);
     save({
+      ...momentum, // keep monthlyValue and any future fields (spec 16 bug fix)
       startDate: momentum.startDate || today,
       entries: [...rest, { ...cur, ...patch }],
     });
@@ -144,6 +145,51 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
     setReading(false);
   }
 
+  // ── Money mode (spec 16): effort paid in dollars ───────────────────────────
+  // She sets the month's work value once; a full work day earns its share.
+  // Earned money never decreases: a skipped day earns $0 and the pace mark
+  // shows the gap, instead of taking back dollars already earned.
+  const monthlyValue = momentum.monthlyValue ?? 0;
+  const moneyMode = monthlyValue > 0;
+  const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
+  const rateFor = (day: string) => {
+    const [y, m] = day.split('-').map(Number);
+    return monthlyValue / new Date(y, m, 0).getDate();
+  };
+  const earnFor = (day: string) => {
+    const gain = gainFor(entryFor(day), posted.get(day) ?? 0);
+    const extra = entryFor(day)?.extraValue ?? 0;
+    return (gain / MOMENTUM_DAY_CAP) * rateFor(day) + extra;
+  };
+  const monthStart = today.slice(0, 8) + '01';
+  const earnStart = started && momentum.startDate > monthStart ? momentum.startDate : monthStart;
+  const monthDays = started && moneyMode ? daysBetween(earnStart, today) : [];
+  const earned = monthDays.reduce((n, d) => n + earnFor(d), 0);
+  const todayEarn = moneyMode ? earnFor(today) : 0;
+  const pace = moneyMode ? rateFor(today) * monthDays.length : 0;
+  const paceDiff = earned - pace;
+  const fillPct = moneyMode ? Math.min(100, (earned / monthlyValue) * 100) : 0;
+  const pacePct = moneyMode ? Math.min(100, (pace / monthlyValue) * 100) : 0;
+
+  const [valueDraft, setValueDraft] = useState('');
+  const [editingValue, setEditingValue] = useState(false);
+  function saveMonthlyValue() {
+    const n = Number(valueDraft.replace(/[^0-9.]/g, ''));
+    save({
+      ...momentum,
+      startDate: momentum.startDate || today,
+      monthlyValue: n > 0 ? n : undefined,
+    });
+    setEditingValue(false);
+    setValueDraft('');
+  }
+  const [extraDraft, setExtraDraft] = useState('');
+  function saveExtra() {
+    const n = Number(extraDraft.replace(/[^0-9.]/g, ''));
+    if (n > 0) saveToday({ extraValue: n });
+    setExtraDraft('');
+  }
+
   const postedToday = posted.get(today) ?? 0;
   const strip = daysBetween(addDays(today, -13), today);
 
@@ -156,7 +202,9 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-stone-900 text-sm">Momentum</p>
           <p className="text-xs text-stone-400 mt-0.5">
-            This meter tracks your effort. Results always follow effort, a few weeks behind.
+            {moneyMode
+              ? 'Every day you work earns its share of the month. This is effort money, not revenue. Revenue follows.'
+              : 'This meter tracks your effort. Results always follow effort, a few weeks behind.'}
           </p>
         </div>
         {started && streak > 0 && (
@@ -168,20 +216,99 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
 
       {/* The meter */}
       <div className="mt-4">
-        <div className="flex items-end justify-between">
-          <span className="text-3xl font-bold tabular-nums text-stone-900">{value}</span>
-          {started && todayGain > 0 && (
-            <span className="text-xs font-medium" style={{ color: accent }}>+{todayGain} today</span>
-          )}
-        </div>
-        <div className="relative h-2.5 bg-stone-100 rounded-full overflow-hidden mt-2">
-          <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-            style={{ width: `${value}%`, backgroundColor: accent }} />
-        </div>
-        {!started && (
-          <p className="text-xs text-stone-400 mt-2">
-            The meter starts the first time you log a day. Work moves it forward. A skipped day pulls it back a little. It can never go below zero.
-          </p>
+        {moneyMode ? (
+          <>
+            <div className="flex items-end justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-3xl font-bold tabular-nums text-stone-900">{money(earned)}</span>
+                <span className="text-sm text-stone-400 ml-1.5">of {money(monthlyValue)} this month</span>
+                <button
+                  onClick={() => { setEditingValue(v => !v); setValueDraft(String(monthlyValue)); }}
+                  className="ml-1.5 text-stone-300 hover:text-stone-500 align-middle"
+                  title="Change what this month's work is worth">
+                  <Pencil size={12} />
+                </button>
+              </div>
+              {todayEarn > 0 && (
+                <span className="text-xs font-medium shrink-0" style={{ color: accent }}>+{money(todayEarn)} today</span>
+              )}
+            </div>
+            {editingValue && (
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <input
+                  value={valueDraft}
+                  onChange={e => setValueDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveMonthlyValue(); }}
+                  inputMode="numeric"
+                  placeholder="3000"
+                  className="w-28 text-sm px-2.5 py-1.5 border border-stone-200 rounded-lg focus:outline-none focus:border-stone-400"
+                />
+                <button onClick={saveMonthlyValue}
+                  className="px-2.5 py-1.5 text-xs font-medium text-white rounded-lg hover:opacity-90"
+                  style={{ backgroundColor: accent }}>
+                  Save
+                </button>
+                <span className="text-[11px] text-stone-400">Set it to 0 to go back to points.</span>
+              </div>
+            )}
+            <div className="relative mt-3.5 mb-1.5">
+              <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${fillPct}%`, backgroundColor: accent }} />
+              </div>
+              {pacePct > 0 && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 h-4 w-0.5 rounded bg-stone-300"
+                  style={{ left: `${pacePct}%` }}
+                  title="Where working a full day, every day, would have you by today"
+                />
+              )}
+              <div
+                className="absolute -top-2 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-all duration-500"
+                style={{ left: `calc(${fillPct}% - 11px)`, width: 22, height: 22, backgroundColor: accent }}>
+                <DollarSign size={12} className="text-white" />
+              </div>
+            </div>
+            <p className="text-[11px] text-stone-400">
+              {paceDiff >= 0
+                ? `Ahead of pace by ${money(paceDiff)}. Keep going.`
+                : `${money(-paceDiff)} behind pace. Earned money never goes away, and a worked day catches up fast.`}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex items-end justify-between">
+              <span className="text-3xl font-bold tabular-nums text-stone-900">{value}</span>
+              {started && todayGain > 0 && (
+                <span className="text-xs font-medium" style={{ color: accent }}>+{todayGain} today</span>
+              )}
+            </div>
+            <div className="relative h-2.5 bg-stone-100 rounded-full overflow-hidden mt-2">
+              <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                style={{ width: `${value}%`, backgroundColor: accent }} />
+            </div>
+            {!started && (
+              <p className="text-xs text-stone-400 mt-2">
+                The meter starts the first time you log a day. Work moves it forward. A skipped day pulls it back a little. It can never go below zero.
+              </p>
+            )}
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <span className="text-xs text-stone-500">Count this effort in money instead. This month&apos;s work is worth</span>
+              <input
+                value={valueDraft}
+                onChange={e => setValueDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveMonthlyValue(); }}
+                inputMode="numeric"
+                placeholder="$3000"
+                className="w-24 text-xs px-2.5 py-1.5 border border-stone-200 rounded-lg focus:outline-none focus:border-stone-400"
+              />
+              <button onClick={saveMonthlyValue}
+                className="px-2.5 py-1.5 text-xs font-medium text-white rounded-lg hover:opacity-90"
+                style={{ backgroundColor: accent }}>
+                Start earning
+              </button>
+            </div>
+          </>
         )}
       </div>
 
@@ -227,6 +354,33 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
             );
           })}
         </div>
+
+        {/* A day that deserved more than the flat rate (spec 16, her "Mix" rule) */}
+        {moneyMode && (
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+            <span className="text-[11px] text-stone-400">Was today worth more? Add extra</span>
+            <input
+              value={extraDraft}
+              onChange={e => setExtraDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveExtra(); }}
+              inputMode="numeric"
+              placeholder="$"
+              className="w-16 text-xs px-2 py-1 border border-stone-200 rounded-lg focus:outline-none focus:border-stone-400"
+            />
+            <button onClick={saveExtra} className="text-[11px] font-medium hover:opacity-80" style={{ color: accent }}>
+              Add
+            </button>
+            {(todayEntry?.extraValue ?? 0) > 0 && (
+              <span className="text-[11px] text-stone-500">
+                {money(todayEntry!.extraValue!)} added
+                <button onClick={() => saveToday({ extraValue: undefined })}
+                  className="ml-1.5 text-stone-400 hover:text-stone-600 underline">
+                  remove
+                </button>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 14-day strip */}
@@ -239,7 +393,11 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
             return (
               <button key={day}
                 onClick={() => setSelectedDay(selectedDay === day ? null : day)}
-                title={`${label}${gain > 0 ? ` · worked (+${gain})` : isToday ? '' : ' · skipped'}`}
+                title={`${label}${
+                  moneyMode
+                    ? (earnFor(day) > 0 ? ` · earned ${money(earnFor(day))}` : isToday ? '' : ' · skipped, $0')
+                    : (gain > 0 ? ` · worked (+${gain})` : isToday ? '' : ' · skipped')
+                }`}
                 className={`h-6 flex-1 rounded-md transition-transform hover:scale-y-110 ${
                   isToday && gain === 0 ? 'border-2 border-dashed border-stone-300 bg-white' : ''
                 } ${selectedDay === day ? 'ring-2 ring-offset-1 ring-stone-400' : ''}`}
@@ -266,7 +424,10 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
           return (
             <div className="mt-2 bg-stone-50 rounded-lg px-3 py-2.5">
               <p className="text-[11px] font-medium text-stone-500">
-                {selectedDay}{gain > 0 ? ` · +${gain}` : selectedDay === today ? '' : ' · skipped'}
+                {selectedDay}
+                {moneyMode
+                  ? (earnFor(selectedDay) > 0 ? ` · earned ${money(earnFor(selectedDay))}` : selectedDay === today ? '' : ' · skipped, $0')
+                  : (gain > 0 ? ` · +${gain}` : selectedDay === today ? '' : ' · skipped')}
                 {labels.length > 0 ? ` · ${labels.join(', ')}` : ''}
               </p>
               <p className="text-xs text-stone-700 mt-1 whitespace-pre-wrap">

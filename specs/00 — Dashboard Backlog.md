@@ -182,6 +182,8 @@ Manmeet's framing: decide the parameters that shape the analysis before building
 - NEXT SESSION (Fable, tomorrow): re-open Specs 08-10 design (Brand Profile / Strategy Draft / Playbook+Taste) and the parameter vocabulary session; decide analytics deploy timing.
 - Analytics design audit vs her demands: PASSED (link-join no-double-entry ✓, one-truth sync ✓, interpretation layer ✓, job-based strategy proof ✓, per-client goals ✓, digest ✓). Three standing truths: comparison layer fills last (needs tags), verdicts need 8–12 weeks of data, nothing flows until her tester-invite paperwork (dashboard/docs/spec-03-setup.md).
 
+**ANALYTICS CORE SHIPPED (2026-07-17).** Specs 03, 04, 05, 06 are LIVE on the deployed dashboard (deploy commit 8704156 on client-tracker/main; Vercel success). Reconciled with the four features that shipped after 07-13, analytics v1 retired in the same landing so live and vault main are back in sync. Now visible: per-client Analytics tab (scorecard/funnel/comparison), owner-only /connections screen, nightly link-join + AI tagger crons. STILL EMPTY until her setup day (3 SQL files, ANTHROPIC_API_KEY, tester invites + tokens) — see STATE.md "SETUP DAY STILL OWED".
+
 ---
 
 ## 4. Client onboarding — rework → THE BRAND PROFILE (decoded 2026-07-13)
@@ -305,6 +307,23 @@ language is chained to data health (green may say "working", red says
 **Status:** DISCUSSION AGENDA, not locked. Needs a 30-minute working session
 (agenda at the bottom of the spec). Builds are small and independent; none
 urgent before the analytics core deploys and runs for a few weeks.
+
+---
+
+## 12. Money meter (momentum v2, effort in dollars)
+
+**What:** `16 — Money Meter.md`, requested and built 2026-07-18. The Momentum
+card speaks money instead of points: she sets what the month's work is worth,
+each worked day earns its share (chips + auto-counted posts), a dollar icon
+rides the bar, and an optional extra value marks a day that deserved more.
+Design change from spec 11, deliberate: **earned money never decreases** — a
+skipped day earns $0 and the pace mark shows the gap, instead of taking
+dollars back. Set the value to 0 to return to points mode; old log untouched.
+
+**Status:** BUILT and verified interactively (points mode, conversion, chip
+earning, extra value, pace math all exercised in the browser; one real bug
+found and fixed in verification: logging a day used to drop the monthly
+value). Awaiting her deploy go.
 
 ---
 

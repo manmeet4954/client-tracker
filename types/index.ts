@@ -333,11 +333,16 @@ export interface MomentumEntry {
   date: string;        // yyyy-mm-dd
   actions: string[];   // ids from MOMENTUM_ACTIONS
   note?: string;       // optional one-liner: what she did that day
+  extraValue?: number; // extra dollars for a day that deserved more (spec 16)
 }
 
 export interface MomentumData {
   startDate: string;   // yyyy-mm-dd — the day the meter started counting
   entries: MomentumEntry[];
+  // Money mode (spec 16): the month's work value in dollars. A full work day
+  // earns monthlyValue / days-in-month; earned money never decreases. Unset =
+  // the card stays in the original points mode.
+  monthlyValue?: number;
 }
 
 // Weights: a full day of work adds up to +8; a skipped day costs −3 (about
