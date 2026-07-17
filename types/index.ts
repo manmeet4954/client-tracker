@@ -268,6 +268,11 @@ export interface TrackList {
   name: string;          // e.g. "Colleges & Workshops"
   stages: ListStage[];   // ordered, user-defined
   createdAt: string;
+  // Shared lists (spec 12): ONE list, windows into it from other workspaces.
+  sharedWith?: CollabRef[];  // owner-set: which other workspaces see this list
+  sharedFrom?: CollabRef;    // present ONLY in role-filtered payloads — marks an
+                             // injected window onto another client's list. Never
+                             // stored (normalizeState strips it).
 }
 
 export interface ListRow {

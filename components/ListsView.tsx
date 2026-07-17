@@ -1,11 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Pencil, Link2, MoreHorizontal, ListTodo, X, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Pencil, Link2, MoreHorizontal, ListTodo, X, ChevronRight, Users } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
-import { TrackList, ListRow, ListStage } from '@/types';
+import { TrackList, ListRow, ListStage, CollabRef } from '@/types';
 import Modal from './Modal';
+
+// A shown list knows which client's data its rows live in, so shared lists
+// (spec 12) dispatch their row edits to the right place:
+// - my own lists (and injected windows, for client logins): this workspace
+// - lists another workspace shared with this one (owner view): that workspace
+type ShownList = TrackList & { ownerClientId: string };
 
 // Lists ARE pipelines: each list defines its own stages, rows move through
 // them. One feature, endless uses — collaborators, colleges, workshops,
@@ -24,10 +30,20 @@ function toHref(link: string): string {
 }
 
 export default function ListsView({ clientId }: { clientId: string }) {
-  const { dispatch } = useApp();
+  const { state, dispatch, role } = useApp();
   const { data } = useClient(clientId);
-  const lists = data.lists ?? [];
-  const rows = data.listRows ?? [];
+  const ownLists = data.lists ?? [];
+
+  // My lists (including any windows a client login received), plus lists other
+  // workspaces in this session's state share with this one.
+  const lists: ShownList[] = [
+    ...ownLists.map(l => ({ ...l, ownerClientId: clientId })),
+    ...Object.entries(state.clientData)
+      .filter(([cid]) => cid !== clientId)
+      .flatMap(([cid, cd]) => (cd.lists ?? [])
+        .filter(l => (l.sharedWith ?? []).some(w => w.clientId === clientId))
+        .map(l => ({ ...l, ownerClientId: cid }))),
+  ];
 
   const [activeId, setActiveId] = useState<string | null>(lists[0]?.id ?? null);
   const [creating, setCreating] = useState(false);
@@ -35,7 +51,25 @@ export default function ListsView({ clientId }: { clientId: string }) {
   const [editingRow, setEditingRow] = useState<ListRow | null>(null);
 
   const active = lists.find(l => l.id === activeId) ?? lists[0] ?? null;
-  const activeRows = active ? rows.filter(r => r.listId === active.id) : [];
+  const rowsFor = (l: ShownList) =>
+    ((l.ownerClientId === clientId ? data.listRows : state.clientData[l.ownerClientId]?.listRows) ?? [])
+      .filter(r => r.listId === l.id);
+  const activeRows = active ? rowsFor(active) : [];
+  // The list itself (name, stages, sharing, deletion) belongs to its owner.
+  const canEditActiveList = !!active && active.ownerClientId === clientId && !active.sharedFrom;
+  const shareOptions = role === 'owner'
+    ? state.clients.filter(c => c.id !== clientId).map(c => ({ clientId: c.id, clientName: c.name }))
+    : undefined;
+
+  function sharedBadge(l: ShownList): string | null {
+    if (l.sharedFrom) return `Shared by ${l.sharedFrom.clientName || 'another workspace'}`;
+    if (l.ownerClientId !== clientId) {
+      const owner = state.clients.find(c => c.id === l.ownerClientId);
+      return `Shared from ${owner?.name ?? 'another workspace'}`;
+    }
+    if (l.sharedWith?.length) return `Shared with ${l.sharedWith.map(w => w.clientName).join(', ')}`;
+    return null;
+  }
 
   function createList(list: TrackList) {
     dispatch({ type: 'ADD_LIST', payload: { clientId, list } });
@@ -44,16 +78,18 @@ export default function ListsView({ clientId }: { clientId: string }) {
   }
 
   function saveRow(row: ListRow) {
-    const exists = rows.some(r => r.id === row.id);
+    if (!active) return;
+    const exists = rowsFor(active).some(r => r.id === row.id);
     dispatch({
       type: exists ? 'UPDATE_LIST_ROW' : 'ADD_LIST_ROW',
-      payload: { clientId, row: { ...row, updatedAt: new Date().toISOString() } },
+      payload: { clientId: active.ownerClientId === clientId ? clientId : active.ownerClientId, row: { ...row, updatedAt: new Date().toISOString() } },
     });
     setEditingRow(null);
   }
 
   function moveRow(row: ListRow, stageId: string) {
-    dispatch({ type: 'UPDATE_LIST_ROW', payload: { clientId, row: { ...row, stageId, updatedAt: new Date().toISOString() } } });
+    if (!active) return;
+    dispatch({ type: 'UPDATE_LIST_ROW', payload: { clientId: active.ownerClientId === clientId ? clientId : active.ownerClientId, row: { ...row, stageId, updatedAt: new Date().toISOString() } } });
   }
 
   return (
@@ -80,13 +116,18 @@ export default function ListsView({ clientId }: { clientId: string }) {
                   active?.id === l.id ? 'bg-[#1f1f1f] text-white border-[#1f1f1f]' : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
                 }`}>
                 {l.name}
-                <span className="ml-1.5 text-[11px] opacity-60">{rows.filter(r => r.listId === l.id).length}</span>
+                <span className="ml-1.5 text-[11px] opacity-60">{rowsFor(l).length}</span>
               </button>
             ))}
-            {active && (
+            {canEditActiveList && (
               <button onClick={() => setEditingList(active)} className="p-1.5 rounded-lg text-stone-400 hover:text-stone-900 hover:bg-stone-100 transition-colors" title="Edit list & stages">
                 <Pencil size={14} />
               </button>
+            )}
+            {active && sharedBadge(active) && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-stone-500 bg-stone-100 rounded-lg">
+                <Users size={12} /> {sharedBadge(active)}
+              </span>
             )}
           </div>
 
@@ -114,11 +155,12 @@ export default function ListsView({ clientId }: { clientId: string }) {
         </>
       )}
 
-      {creating && <ListModal onClose={() => setCreating(false)} onSave={createList} />}
+      {creating && <ListModal shareOptions={shareOptions} onClose={() => setCreating(false)} onSave={createList} />}
 
       {editingList && (
         <ListModal
           existing={editingList}
+          shareOptions={shareOptions}
           onClose={() => setEditingList(null)}
           onSave={list => { dispatch({ type: 'UPDATE_LIST', payload: { clientId, list } }); setEditingList(null); }}
           onDelete={() => {
@@ -135,10 +177,10 @@ export default function ListsView({ clientId }: { clientId: string }) {
         <RowModal
           row={editingRow}
           list={active}
-          isNew={!rows.some(r => r.id === editingRow.id)}
+          isNew={!rowsFor(active).some(r => r.id === editingRow.id)}
           onClose={() => setEditingRow(null)}
           onSave={saveRow}
-          onDelete={() => { dispatch({ type: 'DELETE_LIST_ROW', payload: { clientId, rowId: editingRow.id } }); setEditingRow(null); }}
+          onDelete={() => { dispatch({ type: 'DELETE_LIST_ROW', payload: { clientId: active.ownerClientId === clientId ? clientId : active.ownerClientId, rowId: editingRow.id } }); setEditingRow(null); }}
         />
       )}
     </div>
@@ -234,8 +276,9 @@ function RowCard({ row, list, onOpen, onMove }: {
 
 // ── List create / edit ───────────────────────────────────────────────────────
 
-function ListModal({ existing, onClose, onSave, onDelete }: {
+function ListModal({ existing, shareOptions, onClose, onSave, onDelete }: {
   existing?: TrackList;
+  shareOptions?: CollabRef[];   // owner only: other workspaces this list can be shared with
   onClose: () => void;
   onSave: (l: TrackList) => void;
   onDelete?: () => void;
@@ -243,6 +286,13 @@ function ListModal({ existing, onClose, onSave, onDelete }: {
   const [name, setName] = useState(existing?.name ?? '');
   const [stages, setStages] = useState<ListStage[]>(existing?.stages ?? []);
   const [stageInput, setStageInput] = useState('');
+  const [sharedWith, setSharedWith] = useState<CollabRef[]>(existing?.sharedWith ?? []);
+
+  function toggleShare(opt: CollabRef) {
+    setSharedWith(p => p.some(w => w.clientId === opt.clientId)
+      ? p.filter(w => w.clientId !== opt.clientId)
+      : [...p, opt]);
+  }
 
   function addStage() {
     const s = stageInput.trim();
@@ -303,6 +353,28 @@ function ListModal({ existing, onClose, onSave, onDelete }: {
           {existing && <p className="text-[11px] text-stone-400 mt-1.5">Removing a stage hides its rows until they are moved. Add the stage back to see them again.</p>}
         </div>
 
+        {shareOptions && shareOptions.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Share this list</label>
+            <div className="flex flex-wrap gap-1.5">
+              {shareOptions.map(opt => {
+                const on = sharedWith.some(w => w.clientId === opt.clientId);
+                return (
+                  <button key={opt.clientId} onClick={() => toggleShare(opt)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${
+                      on ? 'bg-[#1f1f1f] text-white border-[#1f1f1f]' : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
+                    }`}>
+                    <Users size={12} /> {opt.clientName}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-stone-400 mt-1.5">
+              A shared list shows up in that workspace too. You both see the same board and can add and move entries. Only you can change or delete the list itself.
+            </p>
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           {onDelete && (
             <button onClick={onDelete} className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors">
@@ -312,7 +384,13 @@ function ListModal({ existing, onClose, onSave, onDelete }: {
           <div className="ml-auto flex items-center gap-2">
             <button onClick={onClose} className="btn-secondary">Cancel</button>
             <button
-              onClick={() => canSave && onSave({ id: existing?.id ?? generateId(), name: name.trim(), stages, createdAt: existing?.createdAt ?? new Date().toISOString() })}
+              onClick={() => canSave && onSave({
+                id: existing?.id ?? generateId(),
+                name: name.trim(),
+                stages,
+                createdAt: existing?.createdAt ?? new Date().toISOString(),
+                sharedWith: sharedWith.length ? sharedWith : undefined,
+              })}
               disabled={!canSave} className="btn-primary disabled:opacity-40">
               Save
             </button>

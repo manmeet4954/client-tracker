@@ -1,4 +1,4 @@
-import { AppState, ClientData } from '@/types';
+import { AppState, ClientData, ListRow, TrackList } from '@/types';
 
 export type Role = 'owner' | 'intern' | 'sonia' | 'shiva' | 'merushri';
 
@@ -29,6 +29,18 @@ export function allowedClientIds(state: AppState, role: Role): string[] {
     .map(c => c.id);
 }
 
+/** Shared lists (spec 12): `sharedFrom` marks an injected window onto another
+ *  client's list. Windows exist only in role-filtered payloads — never in the
+ *  stored blob. This strips any stray window (and its rows) before storage. */
+function stripInjectedLists(lists: TrackList[], listRows: ListRow[]): { lists: TrackList[]; listRows: ListRow[] } {
+  if (!lists.some(l => l.sharedFrom)) return { lists, listRows };
+  const injected = new Set(lists.filter(l => l.sharedFrom).map(l => l.id));
+  return {
+    lists: lists.filter(l => !l.sharedFrom),
+    listRows: listRows.filter(r => !injected.has(r.listId)),
+  };
+}
+
 /** An empty, valid AppState (used when there is no saved row yet). */
 export function emptyState(): AppState {
   return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP } };
@@ -48,8 +60,7 @@ export function normalizeState(state: AppState): AppState {
       pillars: pillars ?? [],
       pillarCards: pillarCards ?? [],
       leadAnswers: leadAnswers ?? [],
-      lists: lists ?? [],
-      listRows: listRows ?? [],
+      ...stripInjectedLists(lists ?? [], listRows ?? []),
       // NOTE: contentCards deliberately NOT defaulted here — the client-side
       // LOAD migration keys off it being undefined.
     };
@@ -85,6 +96,34 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
   ids.forEach(id => {
     if (norm.clientData[id]) clientData[id] = norm.clientData[id];
   });
+  // Shared lists (spec 12): inject a window onto any other client's list that
+  // is shared with one of this role's clients. The window carries `sharedFrom`
+  // so the UI can badge it and mergeRoleWrite can route row edits back. Only
+  // the shared list and its rows cross the boundary — nothing else.
+  ids.forEach(id => {
+    const base = clientData[id];
+    if (!base) return;
+    const extraLists: TrackList[] = [];
+    const extraRows: ListRow[] = [];
+    for (const ownerId of Object.keys(norm.clientData)) {
+      if (ownerId === id || ids.has(ownerId)) continue;
+      const od = norm.clientData[ownerId];
+      for (const l of od.lists ?? []) {
+        if ((l.sharedWith ?? []).some(w => w.clientId === id)) {
+          const ownerName = norm.clients.find(c => c.id === ownerId)?.name ?? '';
+          extraLists.push({ ...l, sharedFrom: { clientId: ownerId, clientName: ownerName } });
+          extraRows.push(...(od.listRows ?? []).filter(r => r.listId === l.id));
+        }
+      }
+    }
+    if (extraLists.length) {
+      clientData[id] = {
+        ...base,
+        lists: [...(base.lists ?? []), ...extraLists],
+        listRows: [...(base.listRows ?? []), ...extraRows],
+      };
+    }
+  });
   return { clients, clientData, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP } };
 }
 
@@ -101,7 +140,35 @@ export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role
   const clientData = { ...cur.clientData };
   const incomingData = incoming?.clientData ?? {};
   ids.forEach(id => {
-    if (incomingData[id]) clientData[id] = incomingData[id];
+    const inc = incomingData[id];
+    if (!inc) return;
+    // Shared lists (spec 12): split injected windows out of the incoming data
+    // before storing this client's own slice (windows are never stored).
+    const windows = (inc.lists ?? []).filter(l => l.sharedFrom);
+    clientData[id] = {
+      ...inc,
+      ...stripInjectedLists(inc.lists ?? [], inc.listRows ?? []),
+    };
+    // Route each window's ROW edits back into the owning client's data — but
+    // only when the AUTHORITATIVE state confirms the owner really shares that
+    // list with this client. The list object itself (name, stages, sharedWith)
+    // is never writable through a window, and nothing else of the owner's data
+    // can be reached, so a forged payload gains nothing.
+    for (const w of windows) {
+      const ownerId = w.sharedFrom!.clientId;
+      const ownerData = clientData[ownerId];
+      if (!ownerData || ids.has(ownerId)) continue;
+      const authList = (cur.clientData[ownerId]?.lists ?? []).find(l => l.id === w.id);
+      if (!authList || !(authList.sharedWith ?? []).some(s => s.clientId === id)) continue;
+      const newRows = (inc.listRows ?? []).filter(r => r.listId === w.id);
+      clientData[ownerId] = {
+        ...ownerData,
+        listRows: [
+          ...(ownerData.listRows ?? []).filter(r => r.listId !== w.id),
+          ...newRows,
+        ],
+      };
+    }
   });
   return {
     clients: cur.clients,
