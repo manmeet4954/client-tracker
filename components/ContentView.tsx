@@ -259,7 +259,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
 
       {view === 'board' && (
         <DndContext sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveCardId(e.active.id as string)} onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 overflow-x-auto pb-4 items-start">
+          <div className="flex flex-col md:flex-row gap-3 md:gap-4 md:overflow-x-auto pb-4 items-stretch md:items-start">
             {CONTENT_STAGES.map(stage => (
               <StageColumn
                 key={stage.id}
@@ -287,7 +287,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
         pillars.length === 0 && cards.length === 0 ? (
           <PillarsEmptyState onAdd={addPillar} onLoadPack={isResumeGuru ? loadResumeGuruPack : undefined} />
         ) : (
-          <div className="flex gap-4 overflow-x-auto pb-4 items-start">
+          <div className="flex flex-col md:flex-row gap-3 md:gap-4 md:overflow-x-auto pb-4 items-stretch md:items-start">
             {pillars.map(pillar => (
               <PillarColumn
                 key={pillar.id}
@@ -323,7 +323,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
                 onStage={setStage}
               />
             )}
-            <div className="w-72 shrink-0">
+            <div className="w-full md:w-72 md:shrink-0">
               <AddPillarColumn onAdd={addPillar} />
             </div>
           </div>
@@ -479,7 +479,7 @@ function StageColumn({ stage, cards, pillars, multiPlatform, activeCardId, onAdd
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
-    <div className="w-64 shrink-0 flex flex-col max-h-[calc(100vh-260px)]">
+    <div className="w-full md:w-64 md:shrink-0 flex flex-col md:max-h-[calc(100vh-260px)]">
       <div className="flex items-center gap-2 px-3 py-2.5 rounded-t-xl border border-stone-200" style={{ backgroundColor: stage.bg }}>
         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
         <span className="font-medium text-sm text-stone-800 flex-1">{stage.label}</span>
@@ -549,7 +549,7 @@ function PillarColumn({ title, color, cards, month, multiPlatform, onAdd, onOpen
   );
 
   return (
-    <div className="w-72 shrink-0 bg-stone-50 border border-stone-200 rounded-xl flex flex-col max-h-[calc(100vh-260px)]">
+    <div className="w-full md:w-72 md:shrink-0 bg-stone-50 border border-stone-200 rounded-xl flex flex-col md:max-h-[calc(100vh-260px)]">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-stone-200">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <h3 className="text-sm font-semibold text-stone-800 truncate flex-1">{title}</h3>

@@ -92,7 +92,7 @@ export default function ListsView({ clientId }: { clientId: string }) {
 
           {/* Pipeline board */}
           {active && (
-            <div className="flex gap-4 overflow-x-auto pb-4 items-start">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 md:overflow-x-auto pb-4 items-stretch md:items-start">
               {active.stages.map((stage, i) => (
                 <StageColumn
                   key={stage.id}
@@ -163,7 +163,7 @@ function StageColumn({ stage, color, isFinal, rows, list, onOpen, onMove, onAdd 
   const folded = isFinal && !expanded;
 
   return (
-    <div className="w-64 shrink-0 bg-stone-50 border border-stone-200 rounded-xl flex flex-col max-h-[calc(100vh-280px)]">
+    <div className="w-full md:w-64 md:shrink-0 bg-stone-50 border border-stone-200 rounded-xl flex flex-col md:max-h-[calc(100vh-280px)]">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-stone-200">
         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <h3 className="text-sm font-semibold text-stone-800 truncate flex-1">{stage.name}</h3>
