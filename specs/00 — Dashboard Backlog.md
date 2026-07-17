@@ -2,7 +2,7 @@
 
 The master list of everything Manmeet is planning for the dashboard. Nothing lives in chat — it lives here. Each initiative gets a one-line status, Claude's honest opinion, whether it can be built now, and the open questions blocking it. When an initiative is locked, it graduates to its own spec file in this folder (`01 — ...`, `02 — ...`).
 
-Last updated: 2026-07-13.
+Last updated: 2026-07-17.
 
 ---
 
@@ -188,7 +188,7 @@ Manmeet's framing: decide the parameters that shape the analysis before building
 
 **What (from her full vision statement):** Onboarding becomes the **Brand Profile** — one structured parameter sheet per client that everything else reads. Her service's station 1: fetch client data, decide positioning. The parameter space is finite and interconnected: what they sell / offers, goal mix (sales / recognition / trust), audience type, personality-vibe (bold, trustworthy, friendly, loyal, caring...), platform choice, available CTA set (course / template / book-a-call / DM...), content rules (pillars, frequency, timing), brand book / story, raw customer data. Discovery questions stay; their answers land in FIELDS, not paragraphs.
 
-**Status:** Vision understood and confirmed as future **Spec 08**. Blocked on one working session: pinning each parameter's finite vocabulary (like pillars→jobs and goals were pinned).
+**Status:** **SPEC WRITTEN (2026-07-17): `08 — Brand Profile.md`.** 16 onboarding questions mapped to ~20 typed fields across six blocks (offer, audience, goals, vibe, content rules, history), every field naming which station reads it. Blocked only on the vocabulary session (her word lists) + her review of the question list.
 
 **Sequenced:** after the current build stack ships.
 
@@ -198,7 +198,7 @@ Manmeet's framing: decide the parameters that shape the analysis before building
 
 **What:** The feeling that things are built but disconnected. Documented open question in the vision + roadmap: two candidate homes — the **client dashboard** (live, clients use it) vs **KRNL OS** (the bigger brand OS in `studio/krnl-os`). One becomes the system of record; the other merges in or feeds it.
 
-**Status:** Undecided upstream architecture question. Blocks nothing small, but shapes everything big (esp. Analytics #3).
+**Status:** **RESOLVED as a spec (2026-07-17): `13 — The Connected Loop.md`** — the master map of the eight-station loop (Understand → Strategy → Make → Publish → Fetch → Measure → Analyze → Decide → back), the nine connection points (C1–C9) with what carries each and its status, the honest scoreboard (4 specs live, 4 built-undeployed, 3 specced-unbuilt, 2 unwritten), and a proposed closing order. The dashboard-vs-KRNL-OS question keeps the earlier partial answer (#6): dashboard = operating system, parameter/taste layer on top.
 
 **Opinion:** The vision doc already argues the analyzer should live in the existing dashboard, not a new app, because a separate tool recreates the disconnection. Claude's lean: make the **dashboard the spine**, fold KRNL OS context into it over time. But this is Manmeet's call and worth deciding before Analytics B is built, so it's built into the winner.
 
@@ -212,10 +212,10 @@ Manmeet's framing: decide the parameters that shape the analysis before building
 
 Her complete vision, stated 2026-07-13. Her service = three stations: Positioning (onboard → fetch data → decide positioning) → Operation (create, track = record/fetch) → Learning (analyze per brand + across brands). The parameters are station 1's finite decision space (see #4), interconnected (audience shapes platform, goal shapes CTA, personality shapes style). Once explicit, her judgment stops being re-derived per client ("that just eats my brain").
 
-**The three future specs:**
-- **Spec 08 — Brand Profile** (= #4): the structured parameter sheet + onboarding rework.
-- **Spec 09 — Strategy Draft:** filled profile → system drafts positioning, pillars WITH jobs, mix %, frequency, platform, CTA plan — every item citing its reasoning. A draft she edits, never a verdict. Judgment stays at the edges; the system prepares everything around the human "what are they really selling" read.
-- **Spec 10 — Playbook + Taste layer:** (a) cross-brand playbook: every client's analytics feeds patterns per industry/audience/goal combo, cited in future drafts; honest at small n ("seen twice, early signal"), genuinely powerful at 10–20 brands. (b) TASTE: her edits to drafts are captured as taste rules ("always cuts promo below 20%") — the system learns to draft the way SHE would. This is the KRNL OS differentiator and the irreplaceability layer, per her words.
+**The three future specs — ALL WRITTEN as of 2026-07-17:**
+- **Spec 08 — Brand Profile** (= #4): the structured parameter sheet + onboarding rework. WRITTEN.
+- **Spec 09 — Strategy Draft:** WRITTEN 2026-07-17. Two moments (day-one draft from the profile; monthly refresh draft from the digest), the citation rule (no item without a plain-words why), and the C8 mechanics: accept/edit/dismiss per item, accepted changes edit the real strategy objects change-dated, all landing in a per-client strategy changelog. 4 pending decisions.
+- **Spec 10 — Playbook + Taste layer:** WRITTEN 2026-07-17. Playbook: evidence-born entries (spec 06 threshold), context-matched citation, small-n honesty stored on the entry, no cross-account numbers, entries age. Taste: distilled from her accept/edit/dismiss stream, visible and editable rules, conflicts with evidence surface and never auto-resolve. Staged so 08/09 get built with the right hooks. 3 pending decisions.
 
 **Boundary (told to her):** nothing literally trains a model — it's an inspectable, citable evidence playbook the AI reads before drafting (open-book exam, same as the roadmap's RAG note). Numbers/trust/honesty rules inherit from analytics.
 
@@ -224,6 +224,87 @@ Her complete vision, stated 2026-07-13. Her service = three stations: Positionin
 **Partial answer to #5 ("one thing"):** dashboard = the operating system; the parameter + taste + playbook layer = KRNL OS, living on top of the same objects, not a separate app. Her words: "make this as a tool for KRNL OS... parameters are layered by the taste that I have."
 
 **Next step:** a working session to pin each parameter's finite vocabulary (vibe words, CTA set, audience axes) — the heart of Spec 08.
+
+---
+
+## 7. Momentum meter (ResumeGuru effort tracker)
+
+**What:** An effort meter on the ResumeGuru Journey tab. She logs daily work with one-tap
+chips (posting auto-counts from the Content board), the meter (0–100) moves forward on
+worked days and slips back a little on skipped ones, a 14-day strip shows the streak, and
+the real IG numbers (followers, engagement, reach, week over week) sit underneath from the
+`ig_*` tables. Full spec: `11 — Momentum Meter.md`.
+
+**Status:** SHIPPED. Requested, decisions locked, built, and deployed 2026-07-17.
+
+**Opinion:** Emotionally load-bearing. The IG numbers alone read as failure right now; the
+meter makes the effort visible while results catch up. Small build, no access-rule changes.
+
+**Buildable now:** Yes — built. Ships as an overlay (analytics v1 stays out of live).
+
+---
+
+## 8. Shared Lists (collaboration on pipelines)
+
+**What:** A list can be shared into another workspace: one list, same rows and stages,
+visible and workable from both sides. Built for running workshops with Merushri. Owner
+shares/unshares/edits the list itself; the shared side is a full partner on rows (add,
+move, edit). Full spec: `12 — Shared Lists.md`.
+
+**Status:** SHIPPED. Requested, locked (full partner), built, and deployed 2026-07-17.
+One-list model with server-side windows for client logins, 19-check security test on
+the access functions.
+
+**Opinion:** The right primitive — one truth, no twin-copy drift, and the access-rule
+guarantee is extended rather than weakened.
+
+---
+
+## 9. The Connected Loop (master map)
+
+**What:** The spec that makes the whole system one loop and names every
+connection point. `13 — The Connected Loop.md`. Resolves #5.
+
+**Status:** SPEC WRITTEN 2026-07-17. Not a build itself — it is the contract
+other builds follow, plus a proposed closing order (deploy 03–06 → fix the
+pipe → spec 14A → spec 08 → spec 07 → 14B/09). Pending: her confirm on the
+order and the analytics deploy "go".
+
+---
+
+## 10. Content automation (the publish seam)
+
+**What:** Her two use cases, specced as `14 — Content Automation.md`.
+A — posts she makes on Instagram auto-mark their card Posted and start
+tracking (matcher inside the existing nightly sync; confident match moves the
+card, uncertain match asks, unplanned posts land in a one-tap inbox).
+B — schedule and publish to Instagram from the dashboard (we hold the
+schedule, cron publishes at time; owner-armed per card, loud failure states,
+v1 = image/carousel/reel + caption).
+
+**Status:** SPEC WRITTEN 2026-07-17. A depends on spec 03 deployed + healthy
+pipe; B builds after A earns trust. 4 pending decisions in the spec.
+
+**Opinion:** A is the cheapest honest win in the whole backlog once 03
+deploys — it completes the loop's data with zero new rituals. B is the
+flashy one; ship it second.
+
+---
+
+## 11. Data quality & trust (the pending conversation, prepared)
+
+**What:** `15 — Data Quality & Trust.md`, written 2026-07-17 from her ask
+("think hard about the missing connection — how to improve the quality of the
+data for analyzing strategy"). Seven quality risks with a defense each: pipe
+holes, unlinked posts, polluted baselines, wrong tags, the qualitative gap,
+strategy drift, and confidence theater. Centerpiece proposal: the **Data
+Health card** — the analysis states its own trustworthiness, and verdict
+language is chained to data health (green may say "working", red says
+"collecting").
+
+**Status:** DISCUSSION AGENDA, not locked. Needs a 30-minute working session
+(agenda at the bottom of the spec). Builds are small and independent; none
+urgent before the analytics core deploys and runs for a few weeks.
 
 ---
 

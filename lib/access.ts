@@ -51,7 +51,7 @@ export function normalizeState(state: AppState): AppState {
   const rawData = state.clientData ?? {};
   const clientData: typeof rawData = {};
   for (const id of Object.keys(rawData)) {
-    const { orders, catalogueCategories, catalogueItems, pillars, pillarCards, leadAnswers, lists, listRows, ...rest } = rawData[id];
+    const { orders, catalogueCategories, catalogueItems, pillars, pillarCards, leadAnswers, lists, listRows, topics, ...rest } = rawData[id];
     clientData[id] = {
       ...rest,
       orders: orders ?? [],
@@ -61,6 +61,8 @@ export function normalizeState(state: AppState): AppState {
       pillarCards: pillarCards ?? [],
       leadAnswers: leadAnswers ?? [],
       ...stripInjectedLists(lists ?? [], listRows ?? []),
+      topics: topics ?? [],
+      // `goals` stays optional (undefined = not chosen yet) — no default.
       // NOTE: contentCards deliberately NOT defaulted here — the client-side
       // LOAD migration keys off it being undefined.
     };

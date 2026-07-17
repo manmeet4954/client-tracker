@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Target, Pencil, Check, ExternalLink, Wand2 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
-import { JourneyData, ContentCard, ContentPillar } from '@/types';
+import { JourneyData, ContentCard, ContentPillar, ClientGoal, CLIENT_GOALS } from '@/types';
 import { contentMonth } from '@/lib/utils';
 import Modal from './Modal';
 import MomentumMeter from './MomentumMeter';
@@ -43,9 +43,10 @@ function monthsBetween(start: string, end: string): string[] {
 }
 
 export default function JourneyView({ clientId }: { clientId: string }) {
-  const { dispatch } = useApp();
+  const { dispatch, role } = useApp();
   const { client, data } = useClient(clientId);
   const journey = data.journey ?? EMPTY_JOURNEY;
+  const goals = data.goals ?? [];
   const cards = data.contentCards ?? [];
   const pillars = data.pillars ?? [];
   const platforms = data.platforms ?? [];
@@ -58,6 +59,11 @@ export default function JourneyView({ clientId }: { clientId: string }) {
 
   function save(patch: Partial<JourneyData>) {
     dispatch({ type: 'UPDATE_JOURNEY', payload: { clientId, journey: { ...journey, ...patch } } });
+  }
+
+  function toggleGoal(g: ClientGoal) {
+    const next = goals.includes(g) ? goals.filter(x => x !== g) : [...goals, g];
+    dispatch({ type: 'SET_GOALS', payload: { clientId, goals: next } });
   }
 
   let posted = cards.filter(c => c.stage === 'posted');
@@ -113,7 +119,8 @@ export default function JourneyView({ clientId }: { clientId: string }) {
       </div>
 
       {/* ── Goal (slim, above the stage) ── */}
-      <GoalCard journey={journey} accent={accent} onSave={save} />
+      <GoalCard journey={journey} accent={accent} onSave={save}
+        goals={goals} canEditGoals={role === 'owner'} onToggleGoal={toggleGoal} />
 
       {/* ── Momentum meter (spec 11 — ResumeGuru first) ── */}
       {/resume/i.test(client?.name ?? '') && <MomentumMeter clientId={clientId} accent={accent} />}
@@ -337,7 +344,14 @@ function MonthBars({ months, segments, countFor, pillarFilter, journey, accent, 
 
 // ── Goal ─────────────────────────────────────────────────────────────────────
 
-function GoalCard({ journey, accent, onSave }: { journey: JourneyData; accent: string; onSave: (p: Partial<JourneyData>) => void }) {
+function GoalCard({ journey, accent, onSave, goals, canEditGoals, onToggleGoal }: {
+  journey: JourneyData;
+  accent: string;
+  onSave: (p: Partial<JourneyData>) => void;
+  goals: ClientGoal[];
+  canEditGoals: boolean;
+  onToggleGoal: (g: ClientGoal) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [metric, setMetric] = useState(journey.northStar);
   const [value, setValue] = useState(journey.targetValue?.toString() ?? '');
@@ -383,6 +397,37 @@ function GoalCard({ journey, accent, onSave }: { journey: JourneyData; accent: s
             <Pencil size={14} />
           </button>
         </div>
+
+        {/* What content should do for this account. Pick up to all three. */}
+        {(canEditGoals || goals.length > 0) && (
+          <div className="mt-4 pt-4 border-t border-stone-100">
+            <p className="text-xs font-medium text-stone-500 mb-2">
+              What should content do here?{canEditGoals ? ' Pick up to all three.' : ''}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {CLIENT_GOALS.filter(g => canEditGoals || goals.includes(g.id)).map(g => {
+                const selected = goals.includes(g.id);
+                if (!canEditGoals) {
+                  return (
+                    <span key={g.id} className="px-3 py-2 rounded-lg border border-stone-200 bg-stone-50">
+                      <span className="block text-sm font-medium text-stone-700">{g.label}</span>
+                      <span className="block text-[10px] mt-0.5 text-stone-400">{g.sub}</span>
+                    </span>
+                  );
+                }
+                return (
+                  <button key={g.id} type="button" onClick={() => onToggleGoal(g.id)}
+                    className={`px-3 py-2 rounded-lg border text-left transition-colors ${
+                      selected ? 'bg-[#1f1f1f] text-white border-[#1f1f1f]' : 'bg-white text-stone-700 border-stone-200 hover:border-stone-400'
+                    }`}>
+                    <span className="block text-sm font-medium">{g.label}</span>
+                    <span className={`block text-[10px] mt-0.5 ${selected ? 'text-stone-300' : 'text-stone-400'}`}>{g.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

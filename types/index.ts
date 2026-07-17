@@ -245,11 +245,24 @@ export interface AssetItem {
 // card is a ready-to-produce post: title/hook + full content, so the work can
 // be handed to someone who just copies it out.
 
+// A pillar's job decides which metrics it is judged on (Spec 04). Fixed small
+// vocabulary so pillars compare across brands; names stay fully custom.
+export type PillarJob = 'reach' | 'trust' | 'convert';
+
+export const PILLAR_JOBS: { id: PillarJob; label: string; sub: string }[] = [
+  { id: 'reach',   label: 'Reach',   sub: 'Bring new people in' },
+  { id: 'trust',   label: 'Trust',   sub: 'Make people trust the brand' },
+  { id: 'convert', label: 'Convert', sub: 'Get people to act: tap, DM, buy' },
+];
+
 export interface ContentPillar {
   id: string;
   name: string;
   color: string;      // hex accent for the column header
   targetPct?: number; // strategy mix target (e.g. ResumeGuru AI lane = 40) — Journey compares actual vs this
+  job?: PillarJob;       // what this pillar is judged on (reach / trust / convert)
+  purpose?: string;      // one plain line: what this pillar is for (client-facing later)
+  jobChangedAt?: string; // stamped whenever job is set or changed — analysis never mixes regimes
   createdAt: string;
 }
 
@@ -403,6 +416,30 @@ export const CONTENT_ROLES: { id: ContentRole; label: string }[] = [
 
 export const DEFAULT_PLATFORMS = ['Instagram', 'LinkedIn', 'YouTube'];
 
+// ── Topics (the seed layer, Spec 04) ─────────────────────────────────────────
+// A topic groups the cards that express the same idea in different formats.
+// Cards join a topic ONLY through the Repurpose action (or a deliberate group
+// action later) — never through a mandatory dropdown at card creation.
+
+export interface Topic {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+// ── Client goals (Spec 04) ───────────────────────────────────────────────────
+// What content should do for this account. Any 0-3 of the three; empty means
+// not chosen yet. Declared by Manmeet on the Journey tab. Kept as a string
+// list (not a locked enum shape) so a real fourth goal can be added later.
+
+export type ClientGoal = 'links' | 'conversations' | 'followers';
+
+export const CLIENT_GOALS: { id: ClientGoal; label: string; sub: string }[] = [
+  { id: 'links',         label: 'Get link taps',  sub: 'People tap the link in bio' },
+  { id: 'conversations', label: 'Get DMs',        sub: 'People message to ask or book' },
+  { id: 'followers',     label: 'Grow followers', sub: 'More people follow the account' },
+];
+
 export interface ContentCard {
   id: string;
   pillarId: string;          // '' = unsorted (no theme yet)
@@ -419,6 +456,8 @@ export interface ContentCard {
   notes: string;
   customValues: Record<string, string | string[]>;
   createdMonth: string;      // yyyy-MM bucket for month filtering
+  topicId?: string;          // set via Repurpose — sibling cards share one topic
+  experiment?: { hypothesis: string }; // flagged tests, kept out of pillar verdict math
   collabId?: string;
   collabWith?: CollabRef[];
   createdAt: string;
@@ -454,6 +493,8 @@ export interface ClientData {
   listRows: ListRow[];
   journey?: JourneyData;
   momentum?: MomentumData;
+  topics: Topic[];
+  goals?: ClientGoal[];    // 0-3 of links / conversations / followers; empty = not chosen yet
 }
 
 export interface Client {

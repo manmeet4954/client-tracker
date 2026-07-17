@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, Users, Share2, Trash2 } from 'lucide-react';
+import { Copy, Check, Users, Share2, Trash2, Repeat2, FlaskConical } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import {
   ContentPillar, ContentCard, ContentStage, CONTENT_STAGES,
-  DEFAULT_CONTENT_TYPES, CustomFieldDef,
+  DEFAULT_CONTENT_TYPES, CustomFieldDef, Topic,
 } from '@/types';
 import Modal from './Modal';
 
@@ -24,15 +24,17 @@ export function formatForCopy(card: ContentCard): string {
 // ── Card editor ──────────────────────────────────────────────────────────────
 // The one post editor, shared by the Content tab and My Day's content flow.
 
-export default function CardEditor({ card, pillars, customFields, platforms, sourceClientId, onClose, onSave, onDelete }: {
+export default function CardEditor({ card, pillars, topics, customFields, platforms, sourceClientId, onClose, onSave, onDelete, onRepurpose }: {
   card: ContentCard;
   pillars: ContentPillar[];
+  topics?: Topic[];
   customFields: CustomFieldDef[];
   platforms: string[];
   sourceClientId: string;
   onClose: () => void;
   onSave: (card: ContentCard) => void;
   onDelete?: () => void;
+  onRepurpose?: (card: ContentCard) => void;
 }) {
   const { state, role, dispatch } = useApp();
   const [draft, setDraft] = useState<ContentCard>({ ...card, link: card.link ?? '' });
@@ -51,8 +53,13 @@ export default function CardEditor({ card, pillars, customFields, platforms, sou
     .map(c => ({ id: c.id, name: c.name, pillars: state.clientData[c.id]?.pillars ?? [] }));
   const shareTarget = otherClients.find(c => c.id === shareClientId);
 
+  const topic = draft.topicId ? (topics ?? []).find(t => t.id === draft.topicId) : undefined;
+
   function trimmed(): ContentCard {
-    return { ...draft, title: draft.title.trim(), hook: draft.hook.trim(), link: draft.link?.trim(), postUrl: draft.postUrl.trim() };
+    return {
+      ...draft, title: draft.title.trim(), hook: draft.hook.trim(), link: draft.link?.trim(), postUrl: draft.postUrl.trim(),
+      experiment: draft.experiment ? { hypothesis: draft.experiment.hypothesis.trim() } : undefined,
+    };
   }
 
   function copyAll() {
@@ -96,6 +103,12 @@ export default function CardEditor({ card, pillars, customFields, platforms, sou
             </div>
           )}
         </div>
+
+        {topic && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 rounded-full px-2 py-0.5" title="This post shares its topic with its repurposed siblings">
+            <Repeat2 size={11} /> Topic: {topic.name}
+          </span>
+        )}
 
         <div>
           <label className="block text-xs font-medium text-stone-500 mb-1.5">Title / topic</label>
@@ -173,6 +186,27 @@ export default function CardEditor({ card, pillars, customFields, platforms, sou
             placeholder="Anything else..." rows={2} className="input-base w-full resize-none" />
         </div>
 
+        <div>
+          <label className="flex items-center gap-2 text-sm text-stone-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={!!draft.experiment}
+              onChange={e => set({ experiment: e.target.checked ? { hypothesis: draft.experiment?.hypothesis ?? '' } : undefined })}
+              className="accent-[#1f1f1f]"
+            />
+            <FlaskConical size={14} className="text-purple-600" />
+            This is an experiment
+          </label>
+          {draft.experiment && (
+            <input
+              value={draft.experiment.hypothesis}
+              onChange={e => set({ experiment: { hypothesis: e.target.value } })}
+              placeholder="What are we testing?"
+              className="input-base w-full mt-2"
+            />
+          )}
+        </div>
+
         {role === 'owner' && otherClients.length > 0 && (
           <div className="border-t border-stone-100 pt-4">
             <label className="flex items-center gap-1.5 text-xs font-medium text-stone-500 mb-2">
@@ -220,6 +254,12 @@ export default function CardEditor({ card, pillars, customFields, platforms, sou
             {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
             {copied ? 'Copied' : 'Copy for hand-off'}
           </button>
+          {onRepurpose && (
+            <button onClick={() => onRepurpose(trimmed())} className="btn-secondary flex items-center gap-1.5"
+              title="Make a sibling post from this one: same topic, new format and pillar">
+              <Repeat2 size={14} /> Repurpose
+            </button>
+          )}
           {onDelete && (
             <button onClick={() => { if (confirm('Delete this post?')) onDelete(); }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors">

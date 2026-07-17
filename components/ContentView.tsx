@@ -7,14 +7,15 @@ import {
 } from '@dnd-kit/core';
 import {
   Plus, Trash2, Pencil, Copy, Check, Columns3, Table2, LayoutGrid, Kanban,
-  MoreHorizontal, Sparkles, Link2, Users, ChevronLeft, ChevronRight,
-  ExternalLink, Settings2, GripVertical, Target,
+  MoreHorizontal, Sparkles, Link2, Users, Share2, ChevronLeft, ChevronRight,
+  ExternalLink, Settings2, GripVertical, Target, Repeat2, FlaskConical,
 } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, CLIENT_COLORS, formatMonthKey, formatMonthLabel, prevMonth, nextMonth, formatDate, contentMonth } from '@/lib/utils';
 import {
   ContentPillar, ContentCard, ContentStage, CONTENT_STAGES,
-  DEFAULT_PLATFORMS, DEFAULT_CONTENT_TYPES,
+  DEFAULT_CONTENT_TYPES, DEFAULT_PLATFORMS, CustomFieldDef,
+  Topic, PillarJob, PILLAR_JOBS,
 } from '@/types';
 import Modal from './Modal';
 import CardEditor, { formatForCopy } from './CardEditor';
@@ -71,7 +72,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
     return (localStorage.getItem(`content_view_${clientId}`) as ViewId) || 'board';
   });
   const [editingCard, setEditingCard] = useState<ContentCard | null>(null);
-  const [renamingPillar, setRenamingPillar] = useState<ContentPillar | null>(null);
+  const [pillarModal, setPillarModal] = useState<{ pillar: ContentPillar; isNew: boolean } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [platformFilter, setPlatformFilter] = useState('');
@@ -81,6 +82,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
 
   const pillars = data.pillars ?? [];
   const cards = data.contentCards ?? [];
+  const topics = data.topics ?? [];
   const platforms = data.platforms ?? [];
   const multiPlatform = platforms.length > 1;
   // Content types actually present on this client's cards, default order first.
@@ -141,6 +143,33 @@ export default function ContentView({ clientId }: { clientId: string }) {
     setEditingCard(null);
   }
 
+  // Repurpose: birth a sibling card that shares the topic. If the source has
+  // no topic yet, one is silently created from its title first. The sibling
+  // opens in the editor pre-filled; she picks the new format and pillar.
+  function repurposeCard(source: ContentCard) {
+    const now = new Date().toISOString();
+    let topicId = source.topicId;
+    if (!topicId) {
+      topicId = generateId();
+      dispatch({
+        type: 'ADD_TOPIC',
+        payload: { clientId, topic: { id: topicId, name: source.title.trim() || 'Untitled topic', createdAt: now } },
+      });
+    }
+    // Persist the source (with its topic and any open edits) before branching.
+    const exists = cards.some(c => c.id === source.id);
+    dispatch({
+      type: exists ? 'UPDATE_CONTENT_CARD' : 'ADD_CONTENT_CARD',
+      payload: { clientId, card: { ...source, topicId, updatedAt: now } },
+    });
+    setEditingCard({
+      id: generateId(), pillarId: '', title: source.title, hook: source.hook, content: source.content,
+      link: source.link ?? '', stage: 'idea', contentType: '', role: source.role, platform: source.platform,
+      topicId, scheduledDate: '', postUrl: '', notes: '', customValues: {},
+      createdMonth: month, createdAt: now, updatedAt: now,
+    });
+  }
+
   function setStage(cardId: string, stage: ContentStage) {
     dispatch({ type: 'MOVE_CONTENT_CARD', payload: { clientId, cardId, stage } });
   }
@@ -151,6 +180,23 @@ export default function ContentView({ clientId }: { clientId: string }) {
       type: 'ADD_PILLAR',
       payload: { clientId, pillar: { id: generateId(), name: name.trim(), color, createdAt: new Date().toISOString() } },
     });
+  }
+
+  function openNewPillar() {
+    setPillarModal({
+      pillar: {
+        id: generateId(),
+        name: '',
+        color: CLIENT_COLORS[pillars.length % CLIENT_COLORS.length],
+        createdAt: new Date().toISOString(),
+      },
+      isNew: true,
+    });
+  }
+
+  function savePillar(pillar: ContentPillar, isNew: boolean) {
+    dispatch({ type: isNew ? 'ADD_PILLAR' : 'UPDATE_PILLAR', payload: { clientId, pillar } });
+    setPillarModal(null);
   }
 
   // One-click ResumeGuru setup: the 4 strategy pillars (with mix targets the
@@ -265,6 +311,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
                 key={stage.id}
                 stage={stage}
                 pillars={pillars}
+                topics={topics}
                 multiPlatform={multiPlatform}
                 cards={boardCards.filter(c => c.stage === stage.id)}
                 activeCardId={activeCardId}
@@ -295,19 +342,30 @@ export default function ContentView({ clientId }: { clientId: string }) {
                 color={pillar.color}
                 cards={pillarCards.filter(c => c.pillarId === pillar.id)}
                 month={month}
+                topics={topics}
                 multiPlatform={multiPlatform}
                 onAdd={() => newCard({ pillarId: pillar.id })}
                 onOpen={setEditingCard}
                 onStage={setStage}
                 menu={
-                  <PillarMenu
-                    onRename={() => setRenamingPillar(pillar)}
-                    onDelete={() => {
-                      if (confirm('Delete this pillar? Its posts move to Unsorted.')) {
-                        dispatch({ type: 'DELETE_PILLAR', payload: { clientId, pillarId: pillar.id } });
-                      }
-                    }}
-                  />
+                  <>
+                    {role === 'owner' && !pillar.job && (
+                      <button
+                        onClick={() => setPillarModal({ pillar, isNew: false })}
+                        className="text-[10px] text-amber-600 hover:text-amber-700 whitespace-nowrap"
+                        title="Reach, Trust, or Convert. The job decides how this pillar is judged.">
+                        set its job
+                      </button>
+                    )}
+                    <PillarMenu
+                      onRename={() => setPillarModal({ pillar, isNew: false })}
+                      onDelete={() => {
+                        if (confirm('Delete this pillar? Its posts move to Unsorted.')) {
+                          dispatch({ type: 'DELETE_PILLAR', payload: { clientId, pillarId: pillar.id } });
+                        }
+                      }}
+                    />
+                  </>
                 }
               />
             ))}
@@ -317,6 +375,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
                 color="#a8a29e"
                 cards={pillarCards.filter(c => !c.pillarId || !pillars.some(p => p.id === c.pillarId))}
                 month={month}
+                topics={topics}
                 multiPlatform={multiPlatform}
                 onAdd={() => newCard({})}
                 onOpen={setEditingCard}
@@ -324,7 +383,7 @@ export default function ContentView({ clientId }: { clientId: string }) {
               />
             )}
             <div className="w-full md:w-72 md:shrink-0">
-              <AddPillarColumn onAdd={addPillar} />
+              <AddPillarColumn onAdd={openNewPillar} />
             </div>
           </div>
         )
@@ -338,20 +397,23 @@ export default function ContentView({ clientId }: { clientId: string }) {
         <CardEditor
           card={editingCard}
           pillars={pillars}
+          topics={topics}
           customFields={data.customFields ?? []}
           platforms={platforms}
           sourceClientId={clientId}
           onClose={() => setEditingCard(null)}
           onSave={saveCard}
           onDelete={cards.some(c => c.id === editingCard.id) ? () => deleteCard(editingCard.id) : undefined}
+          onRepurpose={cards.some(c => c.id === editingCard.id) ? repurposeCard : undefined}
         />
       )}
 
-      {renamingPillar && (
-        <RenamePillarModal
-          pillar={renamingPillar}
-          onClose={() => setRenamingPillar(null)}
-          onSave={p => { dispatch({ type: 'UPDATE_PILLAR', payload: { clientId, pillar: p } }); setRenamingPillar(null); }}
+      {pillarModal && (
+        <PillarModal
+          pillar={pillarModal.pillar}
+          isNew={pillarModal.isNew}
+          onClose={() => setPillarModal(null)}
+          onSave={p => savePillar(p, pillarModal.isNew)}
         />
       )}
 
@@ -394,9 +456,10 @@ function CollabBadge({ card }: { card: ContentCard }) {
   );
 }
 
-function PostCardBody({ card, pillars, multiPlatform, showStage, onStage }: {
+function PostCardBody({ card, pillars, topics, multiPlatform, showStage, onStage }: {
   card: ContentCard;
   pillars: ContentPillar[];
+  topics: Topic[];
   multiPlatform: boolean;
   showStage?: boolean;
   onStage?: (s: ContentStage) => void;
@@ -404,6 +467,7 @@ function PostCardBody({ card, pillars, multiPlatform, showStage, onStage }: {
   const [copied, setCopied] = useState(false);
   const meta = stageMeta(card.stage);
   const pillar = pillars.find(p => p.id === card.pillarId);
+  const topic = card.topicId ? topics.find(t => t.id === card.topicId) : undefined;
 
   function copy(e: React.MouseEvent) {
     e.stopPropagation();
@@ -432,6 +496,17 @@ function PostCardBody({ card, pillars, multiPlatform, showStage, onStage }: {
         )}
         {card.contentType && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-600">{card.contentType}</span>}
         {multiPlatform && card.platform && <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600">{card.platform}</span>}
+        {topic && (
+          <span className="inline-flex items-center gap-1 max-w-[130px] text-[10px] px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700" title={`Topic: ${topic.name}`}>
+            <Repeat2 size={10} className="shrink-0" />
+            <span className="truncate">{topic.name}</span>
+          </span>
+        )}
+        {card.experiment && (
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700" title={card.experiment.hypothesis ? `Testing: ${card.experiment.hypothesis}` : 'Experiment'}>
+            <FlaskConical size={10} className="shrink-0" /> Experiment
+          </span>
+        )}
         {card.scheduledDate && <span className="text-[10px] text-stone-400">{formatDate(card.scheduledDate)}</span>}
       </div>
       {card.link?.trim() && (
@@ -468,10 +543,11 @@ function PostCardBody({ card, pillars, multiPlatform, showStage, onStage }: {
 
 // ── Board view (stages) ──────────────────────────────────────────────────────
 
-function StageColumn({ stage, cards, pillars, multiPlatform, activeCardId, onAdd, onOpen }: {
+function StageColumn({ stage, cards, pillars, topics, multiPlatform, activeCardId, onAdd, onOpen }: {
   stage: { id: ContentStage; label: string; color: string; bg: string };
   cards: ContentCard[];
   pillars: ContentPillar[];
+  topics: Topic[];
   multiPlatform: boolean;
   activeCardId: string | null;
   onAdd: () => void;
@@ -490,7 +566,7 @@ function StageColumn({ stage, cards, pillars, multiPlatform, activeCardId, onAdd
         {cards.map(card => (
           <DraggableCard key={card.id} card={card} dim={activeCardId === card.id}
             onOpen={() => onOpen(card)}>
-            <PostCardBody card={card} pillars={pillars} multiPlatform={multiPlatform} />
+            <PostCardBody card={card} pillars={pillars} topics={topics} multiPlatform={multiPlatform} />
           </DraggableCard>
         ))}
         <button onClick={onAdd}
@@ -521,11 +597,12 @@ function DraggableCard({ card, dim, onOpen, children }: {
 
 // ── Pillars view (themes) ────────────────────────────────────────────────────
 
-function PillarColumn({ title, color, cards, month, multiPlatform, onAdd, onOpen, onStage, menu }: {
+function PillarColumn({ title, color, cards, month, topics, multiPlatform, onAdd, onOpen, onStage, menu }: {
   title: string;
   color: string;
   cards: ContentCard[];
   month: string;
+  topics: Topic[];
   multiPlatform: boolean;
   onAdd: () => void;
   onOpen: (c: ContentCard) => void;
@@ -544,7 +621,7 @@ function PillarColumn({ title, color, cards, month, multiPlatform, onAdd, onOpen
   const renderCard = (card: ContentCard) => (
     <div key={card.id} onClick={() => onOpen(card)}
       className="group bg-white border border-stone-200 rounded-lg p-2.5 cursor-pointer hover:shadow-sm hover:border-stone-300 transition-all">
-      <PostCardBody card={card} pillars={[]} multiPlatform={multiPlatform} showStage onStage={s => onStage(card.id, s)} />
+      <PostCardBody card={card} pillars={[]} topics={topics} multiPlatform={multiPlatform} showStage onStage={s => onStage(card.id, s)} />
     </div>
   );
 
@@ -670,44 +747,71 @@ function TableView({ cards, pillars, multiPlatform, onOpen }: {
 
 // ── Pillar add / rename / platforms ─────────────────────────────────────────
 
-function AddPillarColumn({ onAdd }: { onAdd: (name: string) => void }) {
-  const [adding, setAdding] = useState(false);
-  const [name, setName] = useState('');
-  if (!adding) {
-    return (
-      <button onClick={() => setAdding(true)}
-        className="w-full flex items-center justify-center gap-1.5 py-3 text-sm text-stone-400 hover:text-stone-700 hover:bg-stone-50 rounded-xl border border-dashed border-stone-300 transition-colors">
-        <Plus size={15} /> Add pillar
-      </button>
-    );
-  }
+function AddPillarColumn({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="bg-stone-50 border border-stone-200 rounded-xl p-2">
-      <input autoFocus value={name} onChange={e => setName(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' && name.trim()) { onAdd(name); setName(''); setAdding(false); }
-          if (e.key === 'Escape') { setName(''); setAdding(false); }
-        }}
-        onBlur={() => { if (name.trim()) onAdd(name); setName(''); setAdding(false); }}
-        placeholder="Pillar name" className="input-base w-full text-sm" />
-    </div>
+    <button onClick={onAdd}
+      className="w-full flex items-center justify-center gap-1.5 py-3 text-sm text-stone-400 hover:text-stone-700 hover:bg-stone-50 rounded-xl border border-dashed border-stone-300 transition-colors">
+      <Plus size={15} /> Add pillar
+    </button>
   );
 }
 
-function RenamePillarModal({ pillar, onClose, onSave }: {
+function PillarModal({ pillar, isNew, onClose, onSave }: {
   pillar: ContentPillar;
+  isNew: boolean;
   onClose: () => void;
   onSave: (p: ContentPillar) => void;
 }) {
   const [name, setName] = useState(pillar.name);
   const [color, setColor] = useState(pillar.color);
   const [target, setTarget] = useState(pillar.targetPct?.toString() ?? '');
+  const [job, setJob] = useState<PillarJob | undefined>(pillar.job);
+  const [purpose, setPurpose] = useState(pillar.purpose ?? '');
+
+  function save() {
+    if (!name.trim()) return;
+    onSave({
+      ...pillar,
+      name: name.trim(),
+      color,
+      targetPct: target ? Number(target) : undefined,
+      job,
+      purpose: purpose.trim() || undefined,
+      // Setting or changing the job stamps the date, so analysis never mixes
+      // the numbers from before and after a job change.
+      jobChangedAt: job !== pillar.job ? new Date().toISOString() : pillar.jobChangedAt,
+    });
+  }
+
   return (
-    <Modal open onClose={onClose} title="Edit Pillar" size="sm">
+    <Modal open onClose={onClose} title={isNew ? 'New Pillar' : 'Edit Pillar'} size="sm">
       <div className="p-6 space-y-4">
         <div>
           <label className="block text-xs font-medium text-stone-500 mb-1.5">Name</label>
-          <input autoFocus value={name} onChange={e => setName(e.target.value)} className="input-base w-full" />
+          <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Pillar name" className="input-base w-full" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">
+            Job <span className="text-stone-400 font-normal">what this pillar is here to do</span>
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {PILLAR_JOBS.map(j => (
+              <button key={j.id} type="button" onClick={() => setJob(job === j.id ? undefined : j.id)}
+                className={`px-2.5 py-2 rounded-lg border text-left transition-colors ${
+                  job === j.id ? 'bg-[#1f1f1f] text-white border-[#1f1f1f]' : 'bg-white text-stone-700 border-stone-200 hover:border-stone-400'
+                }`}>
+                <span className="block text-sm font-medium">{j.label}</span>
+                <span className={`block text-[10px] mt-0.5 leading-snug ${job === j.id ? 'text-stone-300' : 'text-stone-400'}`}>{j.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">
+            What is this pillar for? <span className="text-stone-400 font-normal">optional, one line</span>
+          </label>
+          <input value={purpose} onChange={e => setPurpose(e.target.value)}
+            placeholder="e.g. Show real client results so people trust us" className="input-base w-full" />
         </div>
         <div>
           <label className="block text-xs font-medium text-stone-500 mb-1.5">
@@ -727,7 +831,7 @@ function RenamePillarModal({ pillar, onClose, onSave }: {
         </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={() => name.trim() && onSave({ ...pillar, name: name.trim(), color, targetPct: target ? Number(target) : undefined })} disabled={!name.trim()} className="btn-primary">Save</button>
+          <button onClick={save} disabled={!name.trim()} className="btn-primary">{isNew ? 'Add pillar' : 'Save'}</button>
         </div>
       </div>
     </Modal>

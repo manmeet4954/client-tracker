@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BookMarked, Palette, Menu, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen, MessageCircle, ListTodo, Flag } from 'lucide-react';
+import { LayoutDashboard, BookMarked, Palette, Menu, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen, MessageCircle, ListTodo, Flag, BarChart3 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -14,6 +14,7 @@ const TABS = [
   { label: 'Dashboard', href: '', icon: LayoutDashboard },
   { label: 'Content', href: '/content', icon: Columns3 },
   { label: 'Journey', href: '/journey', icon: Flag },
+  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Lists', href: '/lists', icon: ListTodo },
   { label: 'Assets', href: '/assets', icon: FolderOpen },
   { label: 'References', href: '/references', icon: BookMarked },
@@ -76,13 +77,16 @@ export default function ClientLayout({
 
   // Restricted roles get a reduced tab set:
   //  - Sonia: References, Orders, Catalogue
-  //  - Shiva: Content, Assets, References, Brand, Previews
-  //  - Merushri: the full workspace (Dashboard, Content, Journey, Lists,
-  //    Assets, References, Brand, Previews)
+  //  - Shiva: Content, Analytics, Assets, References, Brand, Previews
+  //  - Merushri: the full workspace (Dashboard, Content, Journey, Analytics,
+  //    Lists, Assets, References, Brand, Previews)
+  // Analytics is client-facing by design (Spec 05): each client login only
+  // ever reaches its own client's tab, and the /api/analytics route re-checks
+  // that server side.
   const visibleTabs = role === 'sonia'
     ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
     : role === 'shiva'
-    ? tabs.filter(t => ['/content', '/assets', '/references', '/brand', '/previews'].includes(t.href))
+    ? tabs.filter(t => ['/content', '/analytics', '/assets', '/references', '/brand', '/previews'].includes(t.href))
     : tabs;
 
   return (

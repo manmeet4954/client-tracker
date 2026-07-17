@@ -8,7 +8,7 @@ import {
   PersonalTask, BrainNode, BrainEdge, MapNode, ColdCall, OnboardingItem, SoniaOrder,
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
-  ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData,
+  ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData, Topic, ClientGoal,
 } from '@/types';
 import { migrateToContentCards } from '@/lib/migrateContent';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
@@ -64,6 +64,7 @@ function defaultClientData(): ClientData {
     contentCards: [],
     lists: [],
     listRows: [],
+    topics: [],
   };
 }
 
@@ -172,7 +173,9 @@ export type Action =
   | { type: 'UPDATE_LIST_ROW'; payload: { clientId: string; row: ListRow } }
   | { type: 'DELETE_LIST_ROW'; payload: { clientId: string; rowId: string } }
   | { type: 'UPDATE_JOURNEY'; payload: { clientId: string; journey: JourneyData } }
-  | { type: 'UPDATE_MOMENTUM'; payload: { clientId: string; momentum: MomentumData } };
+  | { type: 'UPDATE_MOMENTUM'; payload: { clientId: string; momentum: MomentumData } }
+  | { type: 'ADD_TOPIC'; payload: { clientId: string; topic: Topic } }
+  | { type: 'SET_GOALS'; payload: { clientId: string; goals: ClientGoal[] } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -845,6 +848,14 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'UPDATE_MOMENTUM':
       return updateClient(action.payload.clientId, { momentum: action.payload.momentum });
+
+    case 'ADD_TOPIC':
+      return updateClient(action.payload.clientId, {
+        topics: [...(cd(action.payload.clientId).topics ?? []), action.payload.topic],
+      });
+
+    case 'SET_GOALS':
+      return updateClient(action.payload.clientId, { goals: action.payload.goals });
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };

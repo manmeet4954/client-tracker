@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/ig-sync", "schedule": "30 3 * * *" }
+    { "path": "/api/ig-sync", "schedule": "30 3 * * *" },
+    { "path": "/api/ig-tag", "schedule": "0 4 * * *" }
   ]
 }
