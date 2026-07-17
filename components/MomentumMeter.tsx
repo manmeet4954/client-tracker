@@ -98,25 +98,50 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
     dispatch({ type: 'UPDATE_MOMENTUM', payload: { clientId, momentum: next } });
   }
 
-  function toggleAction(id: string) {
+  function saveToday(patch: Partial<MomentumEntry>) {
     const cur = todayEntry ?? { date: today, actions: [] };
-    const actions = cur.actions.includes(id)
-      ? cur.actions.filter(a => a !== id)
-      : [...cur.actions, id];
     const rest = momentum.entries.filter(e => e.date !== today);
     save({
       startDate: momentum.startDate || today,
-      entries: [...rest, { ...cur, actions }],
+      entries: [...rest, { ...cur, ...patch }],
     });
   }
 
-  function saveNote(note: string) {
-    const cur = todayEntry ?? { date: today, actions: [] };
-    const rest = momentum.entries.filter(e => e.date !== today);
-    save({
-      startDate: momentum.startDate || today,
-      entries: [...rest, { ...cur, note: note || undefined }],
-    });
+  function toggleAction(id: string) {
+    const cur = todayEntry?.actions ?? [];
+    saveToday({ actions: cur.includes(id) ? cur.filter(a => a !== id) : [...cur, id] });
+  }
+
+  // The diary is the way she logs (her decision, 2026-07-17): she writes what
+  // she did, the AI reads it and ticks the chips, she can tap to correct.
+  const [draft, setDraft] = useState(todayEntry?.note ?? '');
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState('');
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  async function saveDiary() {
+    const text = draft.trim();
+    if (reading) return;
+    if (!text) { saveToday({ note: undefined }); return; }
+    setReading(true);
+    setReadNote('');
+    let actions: string[] = todayEntry?.actions ?? [];
+    try {
+      const res = await fetch('/api/momentum-read', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.actions)) {
+          actions = data.actions;
+          setReadNote('Read your entry and set the chips. Tap any chip to correct it.');
+        }
+      }
+    } catch { /* keep whatever chips were already set */ }
+    saveToday({ note: text, actions });
+    setReading(false);
   }
 
   const postedToday = posted.get(today) ?? 0;
@@ -160,10 +185,28 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
         )}
       </div>
 
-      {/* Today's log */}
+      {/* Today's diary — write it, the AI ticks the chips */}
       <div className="mt-4">
-        <p className="text-xs font-medium text-stone-500 mb-2">What did you do today?</p>
-        <div className="flex flex-wrap gap-1.5">
+        <p className="text-xs font-medium text-stone-500 mb-2">What did you do today? Write it like a diary.</p>
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveDiary(); }}
+          placeholder="Today I posted the reel, replied to comments, DMed two career pages and wrote three ideas..."
+          rows={3}
+          className="w-full text-sm px-3 py-2.5 border border-stone-200 rounded-lg focus:outline-none focus:border-stone-400 placeholder:text-stone-300 resize-y"
+        />
+        <div className="flex items-center gap-2 mt-1.5">
+          <button onClick={saveDiary} disabled={reading}
+            className="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: accent }}>
+            {reading ? 'Reading...' : 'Save today'}
+          </button>
+          {readNote && <span className="text-[11px] text-stone-400">{readNote}</span>}
+        </div>
+
+        {/* Chips: auto-ticked from the diary, tappable to correct */}
+        <div className="flex flex-wrap gap-1.5 mt-3">
           {postedToday > 0 && (
             <span className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border"
               style={{ borderColor: accent, color: accent, backgroundColor: `${accent}10` }}>
@@ -184,13 +227,6 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
             );
           })}
         </div>
-        <input
-          defaultValue={todayEntry?.note ?? ''}
-          key={today + (todayEntry?.note ?? '')}
-          onBlur={e => { if (e.target.value !== (todayEntry?.note ?? '')) saveNote(e.target.value.trim()); }}
-          placeholder="One line about today, if you want"
-          className="mt-2 w-full text-xs px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:border-stone-400 placeholder:text-stone-300"
-        />
       </div>
 
       {/* 14-day strip */}
@@ -199,12 +235,14 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
           {strip.map(day => {
             const gain = gainFor(entryFor(day), posted.get(day) ?? 0);
             const isToday = day === today;
-            const note = entryFor(day)?.note;
             const label = day.slice(5).replace('-', '/');
             return (
-              <div key={day}
-                title={`${label}${gain > 0 ? ` · worked (+${gain})` : isToday ? '' : ' · skipped'}${note ? ` · ${note}` : ''}`}
-                className={`h-6 flex-1 rounded-md ${isToday && gain === 0 ? 'border-2 border-dashed border-stone-300 bg-white' : ''}`}
+              <button key={day}
+                onClick={() => setSelectedDay(selectedDay === day ? null : day)}
+                title={`${label}${gain > 0 ? ` · worked (+${gain})` : isToday ? '' : ' · skipped'}`}
+                className={`h-6 flex-1 rounded-md transition-transform hover:scale-y-110 ${
+                  isToday && gain === 0 ? 'border-2 border-dashed border-stone-300 bg-white' : ''
+                } ${selectedDay === day ? 'ring-2 ring-offset-1 ring-stone-400' : ''}`}
                 style={gain > 0 ? { backgroundColor: accent, opacity: 0.35 + 0.65 * (gain / MOMENTUM_DAY_CAP) }
                   : !isToday ? { backgroundColor: '#e7e5e4' } : undefined}
               />
@@ -215,6 +253,28 @@ export default function MomentumMeter({ clientId, accent }: { clientId: string; 
           <span className="text-[10px] text-stone-400">2 weeks ago</span>
           <span className="text-[10px] text-stone-400">today</span>
         </div>
+
+        {/* Read back a day's diary */}
+        {selectedDay && (() => {
+          const e = entryFor(selectedDay);
+          const gain = gainFor(e, posted.get(selectedDay) ?? 0);
+          const labels = (e?.actions ?? [])
+            .map(id => MOMENTUM_ACTIONS.find(a => a.id === id)?.label)
+            .filter(Boolean);
+          const postedCount = posted.get(selectedDay) ?? 0;
+          if (postedCount > 0) labels.unshift(`Posted x${postedCount}`);
+          return (
+            <div className="mt-2 bg-stone-50 rounded-lg px-3 py-2.5">
+              <p className="text-[11px] font-medium text-stone-500">
+                {selectedDay}{gain > 0 ? ` · +${gain}` : selectedDay === today ? '' : ' · skipped'}
+                {labels.length > 0 ? ` · ${labels.join(', ')}` : ''}
+              </p>
+              <p className="text-xs text-stone-700 mt-1 whitespace-pre-wrap">
+                {e?.note || (gain > 0 ? 'No diary entry for this day.' : 'Nothing logged this day.')}
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       <ResultsRow accent={accent} />
@@ -250,20 +310,52 @@ function Delta({ now, prev }: { now: number | null | undefined; prev: number | n
   );
 }
 
+function daysAgo(ymd: string): number {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return Math.floor((Date.now() - new Date(y, m - 1, d).getTime()) / 86400000);
+}
+
 function ResultsRow({ accent }: { accent: string }) {
   const [ig, setIg] = useState<IgSummary | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
 
-  useEffect(() => {
-    let alive = true;
+  function loadMetrics() {
     fetch('/api/ig-metrics')
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (alive) setIg(d); })
-      .catch(() => { if (alive) setIg(null); });
-    return () => { alive = false; };
-  }, []);
+      .then(d => setIg(d))
+      .catch(() => setIg(null));
+  }
+
+  useEffect(() => { loadMetrics(); }, []);
+
+  // Runs the daily collector on demand and says, in plain words, what
+  // happened. This is her one-tap fix when the numbers go stale.
+  async function updateNow() {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncMsg('Talking to Instagram, this can take up to a minute...');
+    try {
+      const res = await fetch('/api/ig-sync');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) {
+        setSyncMsg('The update could not run. Try once more; if it keeps failing, tell Claude.');
+      } else if (Array.isArray(data.errors) && data.errors.length > 0) {
+        setSyncMsg(`Instagram refused: ${data.errors[0]}. Screenshot this line for Claude and it can be fixed.`);
+      } else {
+        setSyncMsg(`Done. ${data.snapshots ?? 0} posts refreshed for ${data.date ?? 'today'}.`);
+        loadMetrics();
+      }
+    } catch {
+      setSyncMsg('The update could not run. Check your internet and try again.');
+    }
+    setSyncing(false);
+  }
 
   // The meter never breaks because of the pipe: no data, no row.
   if (!ig?.ok) return null;
+
+  const stale = ig.lastSync ? daysAgo(ig.lastSync) : null;
 
   return (
     <div className="mt-4 pt-4 border-t border-stone-100">
@@ -291,7 +383,23 @@ function ResultsRow({ accent }: { accent: string }) {
           <Delta now={ig.reach7d} prev={ig.reachPrev7d} />
         </div>
       </div>
-      {ig.lastSync && <p className="text-[10px] text-stone-300 mt-1.5">Numbers refresh daily around 9 AM. Last update {ig.lastSync}.</p>}
+      {stale != null && stale >= 2 && (
+        <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+          <p className="text-xs text-amber-800">
+            These numbers last updated on {ig.lastSync}. The daily collection looks stuck.
+          </p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <button onClick={updateNow} disabled={syncing}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50">
+              {syncing ? 'Updating...' : 'Update now'}
+            </button>
+            {syncMsg && <span className="text-[11px] text-amber-800">{syncMsg}</span>}
+          </div>
+        </div>
+      )}
+      {ig.lastSync && (stale == null || stale < 2) && (
+        <p className="text-[10px] text-stone-300 mt-1.5">Numbers refresh daily around 9 AM. Last update {ig.lastSync}.</p>
+      )}
     </div>
   );
 }

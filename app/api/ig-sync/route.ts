@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
+import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 
-// Daily Instagram metrics snapshot. Triggered by Vercel cron (see vercel.json)
-// or manually with ?secret=CRON_SECRET. Read-only against Instagram; writes
-// posts + per-day metric snapshots to Supabase so history curves exist at all
+// Daily Instagram metrics snapshot. Triggered by Vercel cron (see vercel.json),
+// manually with ?secret=CRON_SECRET, or by a logged-in OWNER (the "Update now"
+// button on the Momentum card). Read-only against Instagram; writes posts +
+// per-day metric snapshots to Supabase so history curves exist at all
 // (the API only ever reports lifetime totals as of today).
 
 export const maxDuration = 60;
@@ -67,7 +70,11 @@ export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get('authorization');
   const qs = req.nextUrl.searchParams.get('secret');
-  if (!secret || (auth !== `Bearer ${secret}` && qs !== secret)) {
+  const secretOk = !!secret && (auth === `Bearer ${secret}` || qs === secret);
+  // The owner's session cookie is just as trusted as the cron secret; this is
+  // what lets the dashboard's "Update now" button work with zero setup.
+  const ownerOk = authConfigured() && verifyToken(cookies().get(SESSION_COOKIE)?.value) === 'owner';
+  if (!secretOk && !ownerOk) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
