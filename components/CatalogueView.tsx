@@ -1,24 +1,62 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ChevronLeft, Plus, Share2, Trash2, X, Upload, LayoutGrid } from 'lucide-react';
+import { Check, ChevronLeft, FileText, Plus, Share2, Trash2, X, Upload, LayoutGrid } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
 import { CatalogueCategory, CatalogueItem } from '@/types';
 
+// Downscale + recompress one catalogue photo so the PDF stays small enough to
+// send on WhatsApp even with many pages.
+async function imageToJpeg(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('fetch-failed');
+  const blob = await res.blob();
+  const objUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('decode-failed'));
+      el.src = objUrl;
+    });
+    const MAX = 1400;
+    const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas-failed');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    return { dataUrl: canvas.toDataURL('image/jpeg', 0.85), w, h };
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
+}
+
 export default function CatalogueView({ clientId }: { clientId: string }) {
   const { dispatch } = useApp();
-  const { data } = useClient(clientId);
+  const { client, data } = useClient(clientId);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategory | null>(null);
   const [lightboxItem, setLightboxItem] = useState<CatalogueItem | null>(null);
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [building, setBuilding] = useState(false);
+  const [buildProgress, setBuildProgress] = useState('');
+  const [pdfError, setPdfError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = data.catalogueCategories ?? [];
   const allItems = data.catalogueItems ?? [];
+  const selectedSet = new Set(selected);
 
   function addCategory() {
     if (!newCatName.trim()) return;
@@ -79,6 +117,94 @@ export default function CatalogueView({ clientId }: { clientId: string }) {
     window.open(`https://wa.me/?text=${encodeURIComponent(imageUrl)}`, '_blank');
   }
 
+  function toggleSelect(itemId: string) {
+    setSelected(prev =>
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelected([]);
+    setPdfError('');
+  }
+
+  async function makePdf() {
+    const items = selected
+      .map(id => allItems.find(i => i.id === id))
+      .filter((i): i is CatalogueItem => !!i);
+    if (items.length === 0 || building) return;
+    setBuilding(true);
+    setPdfError('');
+    try {
+      const { jsPDF } = await import('jspdf');
+      let doc: InstanceType<typeof jsPDF> | null = null;
+      for (let i = 0; i < items.length; i++) {
+        setBuildProgress(`${i + 1} of ${items.length}`);
+        const { dataUrl, w, h } = await imageToJpeg(items[i].imageUrl);
+        const orientation = w > h ? 'l' : 'p';
+        if (!doc) {
+          doc = new jsPDF({ unit: 'px', format: [w, h], orientation, hotfixes: ['px_scaling'] });
+        } else {
+          doc.addPage([w, h], orientation);
+        }
+        doc.addImage(dataUrl, 'JPEG', 0, 0, w, h);
+      }
+      if (!doc) return;
+      const filename = `${client?.name ?? 'Catalogue'} ${new Date().toISOString().slice(0, 10)}.pdf`;
+      const blob = doc.output('blob');
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        // Opens the phone's share sheet with the PDF attached; she picks WhatsApp.
+        await navigator.share({ files: [file] }).catch(() => {});
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      }
+      exitSelectMode();
+    } catch {
+      setPdfError('Could not build the PDF. Check your internet and try again.');
+    } finally {
+      setBuilding(false);
+      setBuildProgress('');
+    }
+  }
+
+  const selectionBar = selectMode && (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md">
+      {pdfError && (
+        <div className="mb-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 shadow-lg">
+          {pdfError}
+        </div>
+      )}
+      <div className="flex items-center gap-3 bg-[#1f1f1f] text-white rounded-2xl shadow-xl px-4 py-3">
+        <p className="text-sm flex-1">
+          {selected.length === 0
+            ? 'Tap photos to pick them'
+            : `${selected.length} ${selected.length === 1 ? 'photo' : 'photos'} picked`}
+        </p>
+        <button
+          onClick={makePdf}
+          disabled={selected.length === 0 || building}
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366] text-white text-sm rounded-xl font-semibold disabled:opacity-40 transition-opacity"
+        >
+          <FileText size={14} />
+          {building ? `Building ${buildProgress}...` : 'Make PDF'}
+        </button>
+        <button
+          onClick={exitSelectMode}
+          disabled={building}
+          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  );
+
   const categoryItems = activeCategory
     ? allItems.filter(i => i.categoryId === activeCategory.id)
     : [];
@@ -86,19 +212,32 @@ export default function CatalogueView({ clientId }: { clientId: string }) {
   // ── Category grid ──────────────────────────────────────────────────────────
   if (!activeCategory) {
     return (
-      <div className="p-4 md:p-8">
+      <div className={`p-4 md:p-8 ${selectMode ? 'pb-28' : ''}`}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-lg font-bold text-stone-900">Catalogue</h2>
-            <p className="text-sm text-stone-500 mt-0.5">Tap a category to view &amp; add photos</p>
+            <p className="text-sm text-stone-500 mt-0.5">
+              {selectMode ? 'Open a category and tap photos to pick them' : 'Tap a category to view & add photos'}
+            </p>
           </div>
-          <button
-            onClick={() => setAddingCategory(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-[#1f1f1f] text-white rounded-lg hover:bg-[#333] transition-colors"
-          >
-            <Plus size={14} />
-            Add Category
-          </button>
+          <div className="flex items-center gap-2">
+            {!selectMode && allItems.length > 0 && (
+              <button
+                onClick={() => setSelectMode(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm bg-white border border-stone-200 text-stone-700 rounded-lg hover:bg-stone-50 transition-colors"
+              >
+                <Check size={14} />
+                Select
+              </button>
+            )}
+            <button
+              onClick={() => setAddingCategory(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-[#1f1f1f] text-white rounded-lg hover:bg-[#333] transition-colors"
+            >
+              <Plus size={14} />
+              Add Category
+            </button>
+          </div>
         </div>
 
         {addingCategory && (
@@ -135,6 +274,7 @@ export default function CatalogueView({ clientId }: { clientId: string }) {
             {categories.map(cat => {
               const catItems = allItems.filter(i => i.categoryId === cat.id);
               const preview = catItems[0]?.imageUrl;
+              const pickedCount = selectMode ? catItems.filter(i => selectedSet.has(i.id)).length : 0;
               return (
                 <div
                   key={cat.id}
@@ -155,6 +295,7 @@ export default function CatalogueView({ clientId }: { clientId: string }) {
                     <p className="font-semibold text-stone-900 text-sm leading-snug">{cat.name}</p>
                     <p className="text-xs text-stone-400 mt-0.5">
                       {catItems.length} {catItems.length === 1 ? 'photo' : 'photos'}
+                      {pickedCount > 0 && <span className="text-[#25D366] font-semibold"> · {pickedCount} picked</span>}
                     </p>
                   </div>
                   <button
@@ -168,13 +309,14 @@ export default function CatalogueView({ clientId }: { clientId: string }) {
             })}
           </div>
         )}
+        {selectionBar}
       </div>
     );
   }
 
   // ── Category items view ────────────────────────────────────────────────────
   return (
-    <div className="p-4 md:p-8">
+    <div className={`p-4 md:p-8 ${selectMode ? 'pb-28' : ''}`}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <button
@@ -192,6 +334,15 @@ export default function CatalogueView({ clientId }: { clientId: string }) {
         </div>
         <div className="flex items-center gap-2">
           {uploading && <span className="text-xs text-stone-400 animate-pulse">Uploading...</span>}
+          {!selectMode && categoryItems.length > 0 && (
+            <button
+              onClick={() => setSelectMode(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-white border border-stone-200 text-stone-700 rounded-lg hover:bg-stone-50 transition-colors"
+            >
+              <Check size={14} />
+              Select
+            </button>
+          )}
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
@@ -230,34 +381,55 @@ export default function CatalogueView({ clientId }: { clientId: string }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {categoryItems.map(item => (
-            <div key={item.id} className="group relative rounded-2xl overflow-hidden bg-stone-100 shadow-sm">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.imageUrl}
-                alt="Product"
-                className="w-full aspect-square object-cover cursor-pointer"
-                onClick={() => setLightboxItem(item)}
-              />
-              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between p-2.5 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity">
-                <button
-                  onClick={() => shareImage(item.imageUrl)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] text-white text-xs rounded-lg font-semibold shadow-sm"
-                >
-                  <Share2 size={11} />
-                  WhatsApp
-                </button>
-                <button
-                  onClick={() => deleteItem(item.id)}
-                  className="p-1.5 bg-black/30 backdrop-blur-sm text-white rounded-lg hover:bg-red-500 transition-colors"
-                >
-                  <Trash2 size={13} />
-                </button>
+          {categoryItems.map(item => {
+            const isPicked = selectedSet.has(item.id);
+            return (
+              <div
+                key={item.id}
+                className={`group relative rounded-2xl overflow-hidden bg-stone-100 shadow-sm ${
+                  isPicked ? 'ring-2 ring-[#25D366] ring-offset-2' : ''
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.imageUrl}
+                  alt="Product"
+                  className="w-full aspect-square object-cover cursor-pointer"
+                  onClick={() => (selectMode ? toggleSelect(item.id) : setLightboxItem(item))}
+                />
+                {selectMode && (
+                  <div
+                    className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none shadow-sm ${
+                      isPicked ? 'bg-[#25D366] text-white' : 'bg-white/90 border-2 border-stone-300'
+                    }`}
+                  >
+                    {isPicked && <Check size={14} strokeWidth={3} />}
+                  </div>
+                )}
+                {!selectMode && (
+                  <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between p-2.5 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => shareImage(item.imageUrl)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] text-white text-xs rounded-lg font-semibold shadow-sm"
+                    >
+                      <Share2 size={11} />
+                      WhatsApp
+                    </button>
+                    <button
+                      onClick={() => deleteItem(item.id)}
+                      className="p-1.5 bg-black/30 backdrop-blur-sm text-white rounded-lg hover:bg-red-500 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+
+      {selectionBar}
 
       {/* Lightbox */}
       {lightboxItem && (

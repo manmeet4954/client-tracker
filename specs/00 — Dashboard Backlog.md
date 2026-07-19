@@ -320,10 +320,26 @@ Design change from spec 11, deliberate: **earned money never decreases** — a
 skipped day earns $0 and the pace mark shows the gap, instead of taking
 dollars back. Set the value to 0 to return to points mode; old log untouched.
 
-**Status:** BUILT and verified interactively (points mode, conversion, chip
-earning, extra value, pace math all exercised in the browser; one real bug
-found and fixed in verification: logging a day used to drop the monthly
-value). Awaiting her deploy go.
+**Status:** SHIPPED 2026-07-18 (deploy commit b1cd328, Vercel success).
+Verified interactively before deploy (points mode, conversion, chip earning,
+extra value, pace math all exercised in the browser; one real bug found and
+fixed in verification: logging a day used to drop the monthly value).
+
+---
+
+## 13. Catalogue PDF export (Sonia)
+
+**What:** `17 — Catalogue PDF Export.md`, requested and built 2026-07-19.
+Sonia picks photos from anywhere in the catalogue (selection survives moving
+between categories), taps Make PDF, and the phone's share sheet opens with
+the PDF attached — one photo per page (her locked layout choice), photos
+recompressed so the file stays WhatsApp-friendly. Nothing saved to AppState;
+no access-rule changes; one new dependency (jspdf, loaded only when used).
+
+**Status:** BUILT 2026-07-19, verified interactively (selection across
+categories, picked badges, toggle on/off, PDF build fetched the picked photos
+in order, desktop + 375px). Production build green. NOT deployed — awaiting
+her go.
 
 ---
 
