@@ -336,10 +336,32 @@ the PDF attached — one photo per page (her locked layout choice), photos
 recompressed so the file stays WhatsApp-friendly. Nothing saved to AppState;
 no access-rule changes; one new dependency (jspdf, loaded only when used).
 
-**Status:** BUILT 2026-07-19, verified interactively (selection across
-categories, picked badges, toggle on/off, PDF build fetched the picked photos
-in order, desktop + 375px). Production build green. NOT deployed — awaiting
-her go.
+**Status:** SHIPPED 2026-07-19 (deploy commit 1ad7fd1, Vercel success).
+Verified interactively before deploy (selection across categories, picked
+badges, toggle on/off, PDF build fetched the picked photos in order,
+desktop + 375px).
+
+---
+
+## 14. Observations panel + WhatsApp bridge
+
+**What:** `18 — Observations Panel.md`, requested 2026-07-20. Part A: a
+private owner-only notebook at `/observations` — she writes an observation,
+gives it a topic (free text, chips for existing topics), optionally tags a
+client; notes group by topic. The slice is stripped for every other role,
+same guarantee as personal tasks. Later this becomes the manual capture point
+the analytics qualitative layer needs (spec 15's gap). Part B: a "Dashboard"
+WhatsApp contact she texts observations to; a webhook receives them and AI
+files each into the right topic.
+
+**Status:** BOTH PARTS BUILT 2026-07-20, awaiting her deploy go. Part A
+verified interactively. Part B unblocked the same day (she got an eSIM) and
+grew into the full WhatsApp inbox on her ask: hashtags steer (`#task` → My
+Day, `#client #task` → client agenda, `#word` → observation topic, photo +
+`#client` → client assets), AI files only untagged text and only into
+owner-only Observations (rule 1 kept). 31 routing checks + endpoint security
+curl-tests green. After deploy: her ~45-min Meta paperwork
+(`docs/spec-18-setup.md`), then the live test script.
 
 ---
 

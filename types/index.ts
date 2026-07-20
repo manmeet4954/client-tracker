@@ -592,12 +592,28 @@ export interface ContainerMap {
   nodes: MapNode[];
 }
 
+// ── Observations (owner-only private notebook, Spec 18) ─────────────────────
+// Her private observation log. Topics are free text and exist only through
+// use — no topic management, no mandatory dropdown. The optional clientId is
+// a tag for later reading (the analytics qualitative layer), never required.
+// The slice is stripped for every non-owner role, same as personalTasks.
+
+export interface Observation {
+  id: string;
+  topic: string;       // free-text bucket, e.g. "Reels", "Client calls"
+  text: string;        // the observation itself
+  clientId?: string;   // optional client tag
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppState {
   clients: Client[];
   clientData: Record<string, ClientData>;
   personalTasks: PersonalTask[];
   brainDump: BrainDump;
   containerMap: ContainerMap;
+  observations: Observation[];
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────

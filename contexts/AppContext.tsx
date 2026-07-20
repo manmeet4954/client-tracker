@@ -9,6 +9,7 @@ import {
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
   ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData, Topic, ClientGoal,
+  Observation,
 } from '@/types';
 import { migrateToContentCards } from '@/lib/migrateContent';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
@@ -82,6 +83,7 @@ const SEED: AppState = {
   personalTasks: [],
   brainDump: { nodes: [], edges: [] },
   containerMap: { nodes: [] },
+  observations: [],
 };
 
 export type Action =
@@ -175,7 +177,10 @@ export type Action =
   | { type: 'UPDATE_JOURNEY'; payload: { clientId: string; journey: JourneyData } }
   | { type: 'UPDATE_MOMENTUM'; payload: { clientId: string; momentum: MomentumData } }
   | { type: 'ADD_TOPIC'; payload: { clientId: string; topic: Topic } }
-  | { type: 'SET_GOALS'; payload: { clientId: string; goals: ClientGoal[] } };
+  | { type: 'SET_GOALS'; payload: { clientId: string; goals: ClientGoal[] } }
+  | { type: 'ADD_OBSERVATION'; payload: { observation: Observation } }
+  | { type: 'UPDATE_OBSERVATION'; payload: { observation: Observation } }
+  | { type: 'DELETE_OBSERVATION'; payload: { observationId: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -206,6 +211,7 @@ function reducer(state: AppState, action: Action): AppState {
         personalTasks: payload.personalTasks ?? [],
         brainDump: payload.brainDump ?? { nodes: [], edges: [] },
         containerMap: payload.containerMap ?? { nodes: [] },
+        observations: payload.observations ?? [],
       };
     }
 
@@ -856,6 +862,23 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_GOALS':
       return updateClient(action.payload.clientId, { goals: action.payload.goals });
+
+    case 'ADD_OBSERVATION':
+      return { ...state, observations: [action.payload.observation, ...(state.observations ?? [])] };
+
+    case 'UPDATE_OBSERVATION':
+      return {
+        ...state,
+        observations: (state.observations ?? []).map(o =>
+          o.id === action.payload.observation.id ? action.payload.observation : o
+        ),
+      };
+
+    case 'DELETE_OBSERVATION':
+      return {
+        ...state,
+        observations: (state.observations ?? []).filter(o => o.id !== action.payload.observationId),
+      };
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };

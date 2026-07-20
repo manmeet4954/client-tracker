@@ -43,7 +43,7 @@ function stripInjectedLists(lists: TrackList[], listRows: ListRow[]): { lists: T
 
 /** An empty, valid AppState (used when there is no saved row yet). */
 export function emptyState(): AppState {
-  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP } };
+  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP }, observations: [] };
 }
 
 /** Normalize older saved states so every top-level field exists. */
@@ -81,6 +81,7 @@ export function normalizeState(state: AppState): AppState {
     })),
     brainDump: state.brainDump ?? { ...EMPTY_BRAIN },
     containerMap: state.containerMap ?? { ...EMPTY_MAP },
+    observations: state.observations ?? [],
   };
 }
 
@@ -126,7 +127,7 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
       };
     }
   });
-  return { clients, clientData, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP } };
+  return { clients, clientData, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP }, observations: [] };
 }
 
 /**
@@ -178,5 +179,6 @@ export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role
     personalTasks: cur.personalTasks,
     brainDump: cur.brainDump,
     containerMap: cur.containerMap,
+    observations: cur.observations,
   };
 }
