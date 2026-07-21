@@ -230,6 +230,30 @@ types; the dashboard answers in the thread: **"Done — added to My Day."** /
   stripped for non-owners, untouchable by their writes.
 - An empty thread shows a short how-to bubble with the grammar.
 
+**v3 — the AI-first brain (2026-07-21, same day, on her verdict).** Her real
+use exposed v2's flaw: it looks like a chat, so it must UNDERSTAND, but it
+keyword-matched — it filed "save this as observations under shivansh" under
+a topic literally called "Observations", filed her question "where?" as a
+note, and could not act on "the new post is posted". Upgrade, on her yes:
+
+- Every non-shortcut message goes to `app/api/chat-brain` (new, owner-only):
+  Claude Haiku reads it with her client list, her observation topics, the
+  boards' unposted cards, and the last 8 messages of the thread, and returns
+  ONE structured action: add_my_task / add_client_task / add_observation
+  (topic = the SUBJECT observed, e.g. "Shivansh") / file_photo /
+  **mark_posted** (moves a real content card to Posted) / reply (answers
+  questions from the thread, asks ONE clarifying question, or honestly says
+  what it cannot do).
+- The widget VALIDATES every id the brain returns against real data before
+  dispatching — the AI never touches state directly, and an invalid id
+  becomes an honest "Not done" instead of a wrong write.
+- Hashtag `#task` grammar and photo+`#client` stay deterministic shortcuts.
+- No key / API failure → the old rules take over (verified locally): the
+  chat degrades to v2 behavior but never breaks.
+- Boundary unchanged (rule 1): the brain writes tasks, agenda items,
+  observations, photos, and stage moves she dictates — never client-facing
+  content of its own.
+
 Files: `components/ChatWidget.tsx` (new), `app/layout.tsx` (mount),
 `app/api/inbox-topic/route.ts`, `types/index.ts` (ChatMessage + chatLog),
 `lib/access.ts`, `contexts/AppContext.tsx` (ADD_CHAT_MESSAGE).

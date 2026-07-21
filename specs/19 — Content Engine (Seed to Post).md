@@ -118,6 +118,39 @@ are not shrinking, the loop is broken and we fix the loop, not blame the seed.
 
 ---
 
+## The independence requirement (added 2026-07-21, from her question)
+
+Her requirement, stated after reading the draft: the engine must be independent.
+It must not depend on files on her computer, on the vault, or on any one chat's
+memory. It has to work from the dashboard alone, on any machine, and for anyone
+who uses the dashboard in the future.
+
+What this fixes in the design:
+
+1. **Knowledge lives in the dashboard's own database.** Every format, platform,
+   pillar, and person gets a knowledge page stored as dashboard data, edited on
+   a Knowledge screen in plain words. Adding a format = a new page born in the
+   app. The knowledge travels with the dashboard, not with her computer.
+2. **The open-book guarantee.** Nothing trains and nothing is remembered by the
+   AI. At generation time, code assembles the prompt from the stored pages,
+   every single time. It cannot forget, because it does not remember; it reads.
+3. **Provenance on every draft.** Each output shows a "knowledge used" list, so
+   she can see what was considered. A missing point is then always one of two
+   visible problems: the page lacks it (fix the page) or the engine ignored it
+   (fix the engine). Never a mystery.
+4. **Chat is never the store.** Anything said in a chat that matters gets
+   written into a page, a spec, or STATE before the session ends (the existing
+   memory rule). Her check on any claim: "where is that written?" must always
+   have an answer with a path.
+5. **Analytics feeds it later.** Once the setup day is done, pattern verdicts
+   from real data (spec 06/10 shapes) can become cited entries on the relevant
+   knowledge pages automatically, with her confirm.
+
+Consequence for the doors below: the DESTINATION is Door 2. Doors 1 and 3 are
+allowed only as temporary test benches, and anything they produce migrates into
+the dashboard knowledge store at build time. (Her confirm still pending; this
+records the direction her question pointed.)
+
 ## Where it lives (her decision, three doors)
 
 She is unsure whether this belongs in the dashboard. That is fine; the mechanism
@@ -186,7 +219,9 @@ Pass condition: she would post at least one of the two with only light edits.
 1. Confirm the format list and platform list. Anything missing (X threads?
    YouTube long-form script separate from reels?).
 2. Which brand tests first: her personal brand or ResumeGuru?
-3. Where the knowledge files live for Door 1 (proposal: `studio/content-engine/`).
+3. Where the knowledge files live for the Door 1 TEST BENCH only (proposal:
+   `studio/content-engine/`). The destination store is the dashboard database
+   per the independence requirement; test-bench files migrate in at build time.
 4. The chat bubble: what does it do, and where is that chat writing its state?
    One line from her is enough to make the sync section real.
 5. Door 1 / 2 / 3, after the test has run.
