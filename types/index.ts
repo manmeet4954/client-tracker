@@ -607,6 +607,21 @@ export interface Observation {
   updatedAt: string;
 }
 
+// ── Dashboard chat (owner-only floating chat, Spec 18 part C) ───────────────
+// The capture chat that floats on every page. Her messages and the
+// dashboard's one-line answers ("Done — ...", "Not done — ...") both live
+// here so the thread survives reloads. Capped at the last 100 messages —
+// the filed items themselves live in their real homes (tasks, agenda,
+// observations, assets), so old chat lines are safe to drop.
+
+export interface ChatMessage {
+  id: string;
+  who: 'me' | 'dash';
+  text: string;
+  ok?: boolean;      // dash replies: false marks a "Not done" answer
+  createdAt: string;
+}
+
 export interface AppState {
   clients: Client[];
   clientData: Record<string, ClientData>;
@@ -614,6 +629,7 @@ export interface AppState {
   brainDump: BrainDump;
   containerMap: ContainerMap;
   observations: Observation[];
+  chatLog: ChatMessage[];
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────

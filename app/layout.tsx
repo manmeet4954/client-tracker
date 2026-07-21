@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
+import ChatWidget from '@/components/ChatWidget';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AppProvider>{children}</AppProvider>
+        <AppProvider>
+          {children}
+          <ChatWidget />
+        </AppProvider>
       </body>
     </html>
   );

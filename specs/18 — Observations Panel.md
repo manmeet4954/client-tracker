@@ -201,10 +201,50 @@ The eSIM can live on any phone; only the number matters.
 
 ---
 
+## Part C — the Dashboard chat (floating, every page; final form 2026-07-21)
+
+After the WhatsApp registration dead-ended (see the parked note in
+`docs/spec-18-setup.md`), the capture surface moved INSIDE the dashboard.
+This section went through two versions in one night:
+
+- v1 (2026-07-20): a separate `/quick` page with a capture box. **REJECTED
+  by Manmeet** ("looks trash... overcomplicating my dashboard"). Her real
+  spec: it must LOOK like a chat, must NOT be another page, and must be
+  available on ALL pages. The page version was deleted; its logic survived.
+- v2 (2026-07-21, SHIPPED): a floating **chat widget** on every page.
+
+What it is: an owner-only chat bubble (bottom right, every screen; never on
+public share pages, invisible to every other login). Tap → a chat panel
+(WhatsApp-style full screen on phones, a corner window on desktop). She
+types; the dashboard answers in the thread: **"Done — added to My Day."** /
+**"Not done — whose photo is this?"** (amber bubble).
+
+- Same grammar, same brain (`lib/whatsappInbox.decide`): `#task` → My Day;
+  `#<client> #task` → client agenda + linked My Day task; `#<word>` →
+  observation under that topic; plain text → AI-picked topic via owner-only
+  `app/api/inbox-topic` (Haiku, "Inbox" fallback); photo + client tag →
+  client assets in a "Quick Add" set (the Assets tab's signed-upload path).
+- The thread persists: new owner-only top-level slice **`chatLog`** (capped
+  at 100 messages; the filed items live in their real homes, so old lines
+  drop safely). Recorded per rule 5; all four access functions updated —
+  stripped for non-owners, untouchable by their writes.
+- An empty thread shows a short how-to bubble with the grammar.
+
+Files: `components/ChatWidget.tsx` (new), `app/layout.tsx` (mount),
+`app/api/inbox-topic/route.ts`, `types/index.ts` (ChatMessage + chatLog),
+`lib/access.ts`, `contexts/AppContext.tsx` (ADD_CHAT_MESSAGE).
+
+Decision the same night: **Telegram was proposed and REJECTED** — she never
+uses it and calls it banned. WhatsApp remains the only external channel;
+part B stays parked, and the shared brain means lighting it up later costs
+nothing extra.
+
 ## Status
 
-- Part A: BUILT 2026-07-20. Deploys on her go per DEPLOY.md.
-- Part B: BUILT 2026-07-20 (same session, on her "let's build this properly
-  now" + eSIM in hand). Goes live in this order: (1) her deploy go — panel +
-  webhook ship together per DEPLOY.md; (2) her setup day from
-  `docs/spec-18-setup.md`; (3) the step 7 test script over real WhatsApp.
+- SHIPPED 2026-07-20 on her go, same day as the build: deploy commit 58f1f70
+  on client-tracker/main, Vercel success, all three DEPLOY.md gates passed
+  (green scratch build with dummy keys; drift = only the spec 18 files; her
+  explicit "go").
+- The panel is live and usable now. The WhatsApp side is deployed but INERT
+  until her setup day (`docs/spec-18-setup.md`), then the step 7 test script
+  over real WhatsApp.

@@ -354,7 +354,9 @@ the analytics qualitative layer needs (spec 15's gap). Part B: a "Dashboard"
 WhatsApp contact she texts observations to; a webhook receives them and AI
 files each into the right topic.
 
-**Status:** BOTH PARTS BUILT 2026-07-20, awaiting her deploy go. Part A
+**Status:** SHIPPED 2026-07-20 (deploy commit 58f1f70, Vercel success, all
+three gates passed). The panel is live and usable now; the WhatsApp side is
+inert until her Meta setup day (`docs/spec-18-setup.md`). Part A was
 verified interactively. Part B unblocked the same day (she got an eSIM) and
 grew into the full WhatsApp inbox on her ask: hashtags steer (`#task` → My
 Day, `#client #task` → client agenda, `#word` → observation topic, photo +
@@ -362,6 +364,31 @@ Day, `#client #task` → client agenda, `#word` → observation topic, photo +
 owner-only Observations (rule 1 kept). 31 routing checks + endpoint security
 curl-tests green. After deploy: her ~45-min Meta paperwork
 (`docs/spec-18-setup.md`), then the live test script.
+
+---
+
+## 15. Content Engine (seed to post)
+
+**What:** `19 — Content Engine (Seed to Post).md`, requested 2026-07-21. Her
+mechanism for the content funnel: she talks about a topic once in depth (the
+seed), selects format + platform + pillar, and gets a ready draft; every
+repurpose after the seed is the machine's job. Four knowledge layers (platform
+files, format files, pillar layer, taste layer), built examples-over-rules like
+the IG writing systems. Improvement loop: her edits are captured and distilled
+into taste rules she confirms. This is the Make station of the Connected Loop
+(spec 13) getting its engine; seeds map onto spec 04 Topics; the taste capture
+is the early on-ramp to spec 10 Half B.
+
+**Status:** DRAFT awaiting her validation. Location undecided by her design:
+Door 1 (no code, vault files + chat, testable today), Door 2 (in-dashboard,
+rides Topics + Repurpose), Door 3 (standalone tool). Claude recommends Door 1
+now, decide later. Deliberately code-free until the separate chat-bubble
+feature writes its state into the repo, so the two cannot collide.
+
+**Buildable now:** Door 1 needs no build at all. The test script is in the spec.
+
+**Open questions:** her 5 pending decisions at the bottom of the spec (format
+and platform lists, first brand, file location, chat-bubble sync, door choice).
 
 ---
 

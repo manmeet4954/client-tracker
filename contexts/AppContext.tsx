@@ -9,7 +9,7 @@ import {
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
   ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData, Topic, ClientGoal,
-  Observation,
+  Observation, ChatMessage,
 } from '@/types';
 import { migrateToContentCards } from '@/lib/migrateContent';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
@@ -84,6 +84,7 @@ const SEED: AppState = {
   brainDump: { nodes: [], edges: [] },
   containerMap: { nodes: [] },
   observations: [],
+  chatLog: [],
 };
 
 export type Action =
@@ -180,7 +181,8 @@ export type Action =
   | { type: 'SET_GOALS'; payload: { clientId: string; goals: ClientGoal[] } }
   | { type: 'ADD_OBSERVATION'; payload: { observation: Observation } }
   | { type: 'UPDATE_OBSERVATION'; payload: { observation: Observation } }
-  | { type: 'DELETE_OBSERVATION'; payload: { observationId: string } };
+  | { type: 'DELETE_OBSERVATION'; payload: { observationId: string } }
+  | { type: 'ADD_CHAT_MESSAGE'; payload: { message: ChatMessage } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -212,6 +214,7 @@ function reducer(state: AppState, action: Action): AppState {
         brainDump: payload.brainDump ?? { nodes: [], edges: [] },
         containerMap: payload.containerMap ?? { nodes: [] },
         observations: payload.observations ?? [],
+        chatLog: payload.chatLog ?? [],
       };
     }
 
@@ -878,6 +881,13 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         observations: (state.observations ?? []).filter(o => o.id !== action.payload.observationId),
+      };
+
+    case 'ADD_CHAT_MESSAGE':
+      // Capped: the filed items live in their real homes, old lines can go.
+      return {
+        ...state,
+        chatLog: [...(state.chatLog ?? []), action.payload.message].slice(-100),
       };
 
     case 'ADD_TASK':
