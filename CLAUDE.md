@@ -66,9 +66,12 @@ Stack: Next.js 14 (app router), React 18, Tailwind, Supabase (storage), Cloudina
 ## How the data works (read before touching state)
 
 - The entire app state is ONE JSON blob (`AppState`) stored in a single Supabase row. `app/api/state/route.ts` reads and writes it. There is no per-table schema for app data.
+- **Writes are PATH-SCOPED** (spec 21). A save sends `{ state, paths }`: the paths it touched, addressed in the tree (`lib/tree/scopes.ts`). The server merges only those and takes everything else from what is stored. An undeclared path is refused. This is what closed the old save race.
+- **The tree is the address system** (`lib/tree/`). Every folder declares what feeds it, what reads it, and the switch that governs it; a read or write against an undeclared path throws. `npm test` runs the validator plus spec 21's acceptance tests — no dependencies, no build step.
+- A migrated profile carries a `body` (path-addressed) ALONGSIDE its legacy slices. The legacy slices are still what the screens render; the GUI moves over in its own spec.
 - Roles: `owner`, `intern`, `sonia`, `shiva`, `merushri` (see `lib/access.ts`). `shiva` and `merushri` are client roles: they see only their own workspace with a reduced tab set.
 - Role filtering happens SERVER SIDE in `filterStateForRole` and `mergeRoleWrite`. Never trust the client payload. A restricted role's write may only touch its own clients' data.
-- Roles are matched to clients BY NAME (the `RESTRICTED_MATCHERS` regexes). Renaming a client can silently cut off or open up someone's access. Check the matchers whenever a client is renamed.
+- **Access binds by PROFILE ID**, through `state.bindings` (spec 21 §6). The old `RESTRICTED_MATCHERS` name regexes are gone — renaming a profile no longer changes anyone's access. The regexes survive only in `lib/tree/legacyBindings.ts`, used once to seed the bindings that already existed. Nothing else may import that file.
 - Auth is passcode based with a signed cookie (`lib/auth.ts`). With no passcodes configured the app runs in open mode as owner (local dev).
 - Media uploads go to Cloudinary through signed uploads (`app/api/upload/sign`).
 - Public share links: `app/api/share` plus `app/p/[shareId]`.
@@ -104,7 +107,7 @@ Anything bigger than a quick fix gets a spec FILE here first, before code.
 2. **Never weaken server-side role filtering to fix a UI problem.** The access rules in `lib/access.ts` are the product's guarantee.
 3. **UI copy in plain, simple language.** No designer jargon, no em dashes, short lines.
 4. **One feature at a time.** No refactors in passing, no unrequested extras.
-5. **App data lives in the one AppState blob.** Do not introduce a second storage pattern without a decision recorded in STATE.md. (The `ig_*` analytics tables are the one existing exception: pipeline data, not app state.) Any new top-level state slice must also be added to `emptyState`, `normalizeState`, `filterStateForRole`, and `mergeRoleWrite` in `lib/access.ts`, or it gets silently stripped.
+5. **App data lives in the one AppState blob.** Do not introduce a second storage pattern without a decision recorded in STATE.md. (The `ig_*` analytics tables are the one existing exception: pipeline data, not app state.) Any new top-level state slice must also be added to `emptyState`, `normalizeState`, `filterStateForRole`, and `mergeRoleWrite` in `lib/access.ts`, or it gets silently stripped — **and it must be given an address** in `lib/tree/features.ts` and `lib/tree/scopes.ts`, or it will not compile and the validator will fail the build (PLAN law 4).
 6. **Never push to production without Manmeet's explicit go.** The deploy is a manual graft push to the `client-tracker` repo. The exact, tested, step-by-step procedure is `dashboard/DEPLOY.md` — follow it, do not reconstruct it from memory. She says "go" first, every time.
 
 ---
@@ -112,7 +115,7 @@ Anything bigger than a quick fix gets a spec FILE here first, before code.
 ## Gotchas (each of these already cost real time)
 
 1. **Deploys do not come from this folder.** The Vercel deploy runs from a separate repo (`client-tracker`) because the vault subtree flow broke. The two copies CAN DRIFT: code has shipped to the deploy repo before landing here, and the other way around. The full deploy procedure, including the mandatory drift check, is `dashboard/DEPLOY.md`. Before editing, check which copy is ahead; after changing code here, deploy per DEPLOY.md so they reconcile.
-2. **The save race.** Saves POST the whole state blob, so two overlapping saves can clobber each other (last write wins on everything). A save-race fix exists in the previews flow. Be careful adding any new auto-save.
+2. **The save race — FIXED, but only for declared paths (spec 21).** Saves used to POST the whole blob, so two overlapping saves clobbered each other. Now a save declares the paths it touched and only those merge. Two rules follow: a new state slice must be given an address in `lib/tree/scopes.ts` (TypeScript stops the build otherwise), and a payload sent with no `paths` still falls back to the old whole-blob behavior — so never strip the `paths` field from a save to "simplify" it.
 3. **The contentCards migration.** `normalizeState` deliberately does NOT default `contentCards`. The client-side load migration keys off it being undefined. Defaulting it breaks the migration.
 4. **Share-to-save is Android only.** The PWA share target does not work on iOS.
 5. **This folder lives inside the vault repo.** The vault must stay on `main`, and iCloud sync can stall git. Follow the vault's usual commit flow; never force anything here.

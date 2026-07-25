@@ -177,13 +177,15 @@ eventually, but that is her call and it does not block testing.
 
 ## Sync and non-interference
 
-- **The chat bubble feature.** Being built in a separate chat; this session found
-  no spec, state note, or code for it anywhere in the repo. Per the memory rule
-  (the folder is the only memory, chat history is not), that chat needs to write
-  its spec or state here before the two can be truly synced. Until then, this
-  spec deliberately stays code-free (Door 1), so it cannot collide with anything.
-  Before any Door 2 build starts, both features get checked against each other in
-  STATE.md.
+- **The dashboard chat (RESOLVED 2026-07-21, evening).** The "chat bubble" is
+  spec 18 part C: the owner-only floating chat widget on every dashboard page,
+  shipped same day with its v3 AI brain (`app/api/chat-brain`). Its job is
+  capture and commands: file tasks, observations, and photos, mark posts
+  posted, answer questions. No collision with this spec: the chat FILES things
+  into the dashboard; this engine CREATES content from seeds. They are
+  complementary, and they can meet later: the chat widget is the natural mouth
+  for the engine (she types a seed or "make the LinkedIn version" into the same
+  bubble). That meeting is a future stage, not part of either build's v1.
 - **Spec 04 Topics.** A seed maps onto the existing Topic entity. If Door 2 is
   chosen, the engine extends Topics; it never creates a rival entity.
 - **Spec 10 Playbook & Taste.** This engine's edit-capture is an early on-ramp to
@@ -222,6 +224,6 @@ Pass condition: she would post at least one of the two with only light edits.
 3. Where the knowledge files live for the Door 1 TEST BENCH only (proposal:
    `studio/content-engine/`). The destination store is the dashboard database
    per the independence requirement; test-bench files migrate in at build time.
-4. The chat bubble: what does it do, and where is that chat writing its state?
-   One line from her is enough to make the sync section real.
+4. ANSWERED 2026-07-21: the chat bubble is the dashboard chat, spec 18 part C,
+   shipped with its v3 brain. No collision; see the sync section.
 5. Door 1 / 2 / 3, after the test has run.

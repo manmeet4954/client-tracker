@@ -1,3 +1,7 @@
+import type { ProfileBody } from '@/lib/tree/body';
+import type { SwitchConfig } from '@/lib/tree/contract';
+import type { Lifecycle } from '@/lib/tree/objects';
+
 export type ColumnId = 'raw' | 'in-progress' | 'done' | 'scheduled';
 export type ReferenceType = 'link' | 'image' | 'text';
 export type FieldType = 'single' | 'multi';
@@ -470,6 +474,10 @@ export interface ContentCard {
 }
 
 export interface ClientData {
+  /** Spec 21: this profile's path-addressed body. Absent until it is migrated;
+   *  the legacy slices below stay the rendering source until the GUI spec moves
+   *  over, so a migrated profile keeps looking exactly like it does today. */
+  body?: ProfileBody;
   cards: KanbanCard[];
   customFields: CustomFieldDef[];
   monthData: Record<string, MonthData>;
@@ -502,11 +510,40 @@ export interface ClientData {
   goals?: ClientGoal[];    // 0-3 of links / conversations / followers; empty = not chosen yet
 }
 
+// A Client IS a profile (spec 21 §6, PLAN §2). Her own workspaces live here on
+// the same terms as clients — she is client zero — with `ownerKind` marking the
+// difference, because two features (the effort and money meters) exist only in
+// her own profiles (PLAN §7).
+export type ProfileOwnerKind = 'client' | 'hers';
+
 export interface Client {
   id: string;
   name: string;
   color: string;
   createdAt: string;
+  /** Absent = not yet classified; treated as `client` (the safer reading). */
+  ownerKind?: ProfileOwnerKind;
+  /** S22. Absent = `active` for everything that exists today. */
+  lifecycle?: Lifecycle;
+  /** Her switch positions for this profile. Migration never sets these. */
+  switches?: SwitchConfig;
+  /** What migration suggested, kept separate so a suggestion is never mistaken
+   *  for her decision (PLAN §3.4: she is the only one who finalizes). */
+  suggestedSwitches?: SwitchConfig;
+}
+
+// ── Profile bindings (spec 21 §6) ────────────────────────────────────────────
+// Access binds by profile ID, never by name. Renaming a profile can no longer
+// silently open or cut off a login. A binding is a (person, profile) pair; one
+// person may hold several, and then they get a picker limited to THEIR profiles
+// (PLAN §11, control-room ruling on Q3).
+
+export interface ProfileBinding {
+  role: string;        // the login this binding belongs to
+  profileId: string;
+  /** S20: a delegated approver may act on review without being the client. */
+  kind?: 'client' | 'delegated-approver' | 'staff';
+  createdAt?: string;
 }
 
 // ── Personal ("My Day") tasks ───────────────────────────────────────────────
@@ -630,6 +667,8 @@ export interface AppState {
   containerMap: ContainerMap;
   observations: Observation[];
   chatLog: ChatMessage[];
+  /** Spec 21 §6: who may open which profile. Replaces the client-NAME regexes. */
+  bindings: ProfileBinding[];
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────

@@ -7,21 +7,35 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
 import { decide, parseMessage, type InboxDecision } from '@/lib/whatsappInbox';
 import { generateId, formatMonthKey } from '@/lib/utils';
-import { AgendaItem, AssetItem, AssetSet, ChatMessage, Observation, PersonalTask } from '@/types';
+import { AgendaItem, AssetItem, AssetSet, ChatMessage, ContentCard, ContentStage, Observation, PersonalTask } from '@/types';
 
-// The dashboard chat (spec 18 part C, v3 brain): a floating chat on EVERY
+// The dashboard chat (spec 18 part C, v4 brain): a floating chat on EVERY
 // page, owner only. AI-FIRST since 2026-07-21 (her verdict on v2: a chat
 // must understand, not keyword-match). Flow per message:
 //   1. Explicit #task grammar and photo+#client stay deterministic (fast,
 //      exact — hashtags are shortcuts, not requirements).
 //   2. Everything else goes to /api/chat-brain: Claude reads the message
 //      with her clients, topics, unposted cards, and the recent thread, and
-//      returns ONE action. The widget VALIDATES every id before acting.
+//      returns a LIST of actions (v4, her 07-22 feedback: do the whole list
+//      in one message, create real content cards, act instead of asking).
+//      The widget VALIDATES every id, executes each action, and posts one
+//      clean confirmation.
 //   3. No key / any failure → the old hashtag rules take over, so the chat
 //      degrades but never breaks.
 // The thread lives in the owner-only chatLog slice (capped at 100).
 
 const QUICK_SET_NAME = 'Quick Add';
+
+// One executed action's outcome. `line` is a short fragment for the ok case
+// (composed into a "Done" bubble) or a full "Not done - ..." sentence.
+type ActionResult = { ok: boolean; line: string };
+
+const STAGE_IDS: ContentStage[] = ['idea', 'writing', 'ready', 'scheduled', 'posted'];
+function normStage(s?: string): ContentStage {
+  const v = (s ?? '').toLowerCase();
+  if (v === 'making') return 'writing'; // her label for the 'writing' stage
+  return (STAGE_IDS as string[]).includes(v) ? (v as ContentStage) : 'idea';
+}
 
 /** Same signed-upload path the Assets tab uses. */
 async function directUpload(file: Blob, ext: string): Promise<string> {
@@ -39,12 +53,19 @@ async function directUpload(file: Blob, ext: string): Promise<string> {
   return publicUrl as string;
 }
 
-interface BrainAnswer {
-  action: 'add_my_task' | 'add_client_task' | 'add_observation' | 'file_photo' | 'mark_posted' | 'reply' | 'fallback';
+interface BrainAction {
+  type: 'add_card' | 'add_client_task' | 'add_my_task' | 'add_observation' | 'mark_posted' | 'file_photo';
   text?: string;
   clientId?: string;
   topic?: string;
   cardId?: string;
+  contentType?: string;
+  stage?: string;
+}
+
+interface BrainAnswer {
+  fallback?: boolean;
+  actions?: BrainAction[];
   reply?: string;
 }
 
@@ -82,20 +103,22 @@ function ChatWidgetInner() {
     dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { message } });
   }
 
-  // ── The individual actions (each validates before touching state) ────────
+  // ── The individual actions (each validates, then returns a result line) ──
 
-  function doMyTask(taskText: string, reply?: string) {
+  function doMyTask(taskText: string): ActionResult {
+    const clean = taskText.trim();
+    if (!clean) return { ok: false, line: 'Not done - I did not catch what the task was.' };
     const task: PersonalTask = {
-      id: generateId(), text: taskText, bucket: 'todo', taskType: 'personal',
+      id: generateId(), text: clean, bucket: 'todo', taskType: 'personal',
       clientIds: [], done: false, createdAt: new Date().toISOString(),
     };
     dispatch({ type: 'ADD_TASK', payload: { task } });
-    say('dash', reply || 'Done - added to My Day.');
+    return { ok: true, line: `"${clean}" added to My Day` };
   }
 
-  function doClientTask(clientId: string, taskText: string, reply?: string) {
+  function doClientTask(clientId: string, taskText: string): ActionResult {
     const client = state.clients.find(c => c.id === clientId);
-    if (!client) { say('dash', 'Not done - I could not tell which client that was for.', false); return; }
+    if (!client) return { ok: false, line: `Not done - I could not tell which client "${taskText}" is for.` };
     const month = formatMonthKey(new Date());
     const item: AgendaItem = { id: generateId(), text: taskText, dueDate: '', done: false };
     dispatch({ type: 'ADD_AGENDA', payload: { clientId: client.id, month, item } });
@@ -106,29 +129,47 @@ function ChatWidgetInner() {
       done: false, createdAt: new Date().toISOString(),
     };
     dispatch({ type: 'ADD_TASK', payload: { task } });
-    say('dash', reply || `Done - added to ${client.name}'s agenda.`);
+    return { ok: true, line: `"${taskText}" added to ${client.name}'s agenda` };
   }
 
-  function doObservation(topic: string, noteText: string, clientId: string | undefined, reply?: string) {
+  function doAddCard(clientId: string, title: string, contentType: string | undefined, stage: string | undefined): ActionResult {
+    const client = state.clients.find(c => c.id === clientId);
+    const name = (title || '').trim() || 'Untitled';
+    if (!client) return { ok: false, line: `Not done - I could not tell which client the "${name}" card is for.` };
+    const now = new Date().toISOString();
+    const platforms = state.clientData[client.id]?.platforms ?? [];
+    const type = (contentType || '').trim();
+    const card: ContentCard = {
+      id: generateId(), pillarId: '', title: name, hook: '', content: '', link: '',
+      stage: normStage(stage), contentType: type, role: '',
+      platform: platforms.length > 1 ? platforms[0] : undefined,
+      scheduledDate: '', postUrl: '', notes: '', customValues: {},
+      createdMonth: formatMonthKey(new Date()), createdAt: now, updatedAt: now,
+    };
+    dispatch({ type: 'ADD_CONTENT_CARD', payload: { clientId: client.id, card } });
+    const label = type ? `${type} "${name}"` : `"${name}"`;
+    return { ok: true, line: `${label} added to ${client.name}'s board` };
+  }
+
+  function doObservation(topic: string, noteText: string, clientId: string | undefined): ActionResult {
     const observation: Observation = {
       id: generateId(), topic: topic || 'Inbox', text: noteText,
       clientId: clientId && state.clients.some(c => c.id === clientId) ? clientId : undefined,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     dispatch({ type: 'ADD_OBSERVATION', payload: { observation } });
-    say('dash', reply || `Done - noted under ${observation.topic}.`);
+    return { ok: true, line: `noted under ${observation.topic}` };
   }
 
-  async function doPhoto(clientId: string, file: File, caption: string, reply?: string) {
+  async function doPhoto(clientId: string, file: File, caption: string): Promise<ActionResult> {
     const client = state.clients.find(c => c.id === clientId);
-    if (!client) { say('dash', 'Not done - whose photo is this? Tell me the client.', false); return; }
+    if (!client) return { ok: false, line: 'Not done - whose photo is this? Tell me the client.' };
     const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
     let url: string;
     try {
       url = await directUpload(file, ext);
     } catch {
-      say('dash', 'Not done - the photo could not be uploaded. Try again.', false);
-      return;
+      return { ok: false, line: 'Not done - the photo could not be uploaded. Try again.' };
     }
     const cd = state.clientData[client.id];
     let set: AssetSet | undefined = (cd?.assetSets ?? []).find(s => s.name === QUICK_SET_NAME);
@@ -142,22 +183,32 @@ function ChatWidgetInner() {
       uploadedBy: 'owner', createdAt: new Date().toISOString(),
     };
     dispatch({ type: 'ADD_ASSET_ITEM', payload: { clientId: client.id, item } });
-    say('dash', reply || `Done - photo saved to ${client.name}'s assets.`);
+    return { ok: true, line: `photo saved to ${client.name}'s assets` };
   }
 
-  function doMarkPosted(clientId: string, cardId: string, reply?: string) {
+  function doMarkPosted(clientId: string, cardId: string): ActionResult {
     const client = state.clients.find(c => c.id === clientId);
     const card = (state.clientData[clientId]?.contentCards ?? []).find(c => c.id === cardId);
     if (!client || !card) {
-      say('dash', 'Not done - I could not find that post on the board. Which card is it?', false);
-      return;
+      return { ok: false, line: 'Not done - I could not find that post on the board. Which card is it?' };
     }
+    const cardName = card.title || card.hook || 'that post';
     if (card.stage === 'posted') {
-      say('dash', `"${card.title || card.hook}" is already marked posted on ${client.name}'s board.`);
-      return;
+      return { ok: true, line: `"${cardName}" was already posted on ${client.name}'s board` };
     }
     dispatch({ type: 'MOVE_CONTENT_CARD', payload: { clientId, cardId, stage: 'posted' } });
-    say('dash', reply || `Done - marked "${card.title || card.hook}" as posted on ${client.name}'s board.`);
+    return { ok: true, line: `"${cardName}" marked posted on ${client.name}'s board` };
+  }
+
+  /** Turn a batch of executed actions into chat bubbles: one "Done" bubble
+   *  summarising what landed, plus an amber bubble for anything that didn't. */
+  function emit(results: ActionResult[]) {
+    const ok = results.filter(r => r.ok).map(r => r.line);
+    const bad = results.filter(r => !r.ok).map(r => r.line);
+    if (ok.length === 1) say('dash', `Done - ${ok[0]}.`);
+    else if (ok.length > 1) say('dash', `Done:\n${ok.map(l => `• ${l}`).join('\n')}`);
+    if (bad.length) say('dash', bad.join('\n'), false);
+    return { ok: ok.length, bad: bad.length };
   }
 
   /** The old deterministic behavior — used for explicit #task grammar,
@@ -165,10 +216,10 @@ function ChatWidgetInner() {
    *  unavailable. */
   async function legacyApply(d: InboxDecision, raw: string, sentPhoto: File | null) {
     if (d.kind === 'ask') { say('dash', `Not done - ${d.reply}`, false); return; }
-    if (d.kind === 'photo') { await doPhoto(d.client.id, sentPhoto!, d.caption); return; }
-    if (d.kind === 'my-task') { doMyTask(d.text); return; }
-    if (d.kind === 'client-task') { doClientTask(d.client.id, d.text); return; }
-    if (d.kind === 'observation') { doObservation(d.topic, d.text, d.clientId); return; }
+    if (d.kind === 'photo') { emit([await doPhoto(d.client.id, sentPhoto!, d.caption)]); return; }
+    if (d.kind === 'my-task') { emit([doMyTask(d.text)]); return; }
+    if (d.kind === 'client-task') { emit([doClientTask(d.client.id, d.text)]); return; }
+    if (d.kind === 'observation') { emit([doObservation(d.topic, d.text, d.clientId)]); return; }
     // needs-ai-topic → the small topic picker (also keyless-safe: "Inbox").
     const seen = new Set<string>();
     (state.observations ?? []).forEach(o => seen.add(o.topic));
@@ -178,9 +229,10 @@ function ChatWidgetInner() {
       body: JSON.stringify({ text: d.text, topics: Array.from(seen) }),
     }).then(r => (r.ok ? r.json() : null)).catch(() => null);
     const topic = res?.topic || 'Inbox';
-    doObservation(topic, d.text, undefined, topic === 'Inbox'
+    const r = doObservation(topic, d.text, undefined);
+    say('dash', topic === 'Inbox'
       ? 'Done - noted under Inbox. Tag it with a topic later.'
-      : `Done - noted under ${topic}.`);
+      : `Done - ${r.line}.`);
   }
 
   async function send() {
@@ -239,30 +291,47 @@ function ChatWidgetInner() {
         }),
       }).then(r => (r.ok ? r.json() : null)).catch(() => null);
 
-      if (!brain || brain.action === 'fallback') {
+      if (!brain || brain.fallback) {
         await legacyApply(d, raw, sentPhoto);
         return;
       }
 
-      switch (brain.action) {
-        case 'add_my_task':
-          doMyTask(brain.text || raw, brain.reply);
-          break;
-        case 'add_client_task':
-          doClientTask(brain.clientId ?? '', brain.text || raw, brain.reply);
-          break;
-        case 'add_observation':
-          doObservation(brain.topic || 'Inbox', brain.text || raw, brain.clientId, brain.reply);
-          break;
-        case 'file_photo':
-          if (sentPhoto) await doPhoto(brain.clientId ?? '', sentPhoto, raw, brain.reply);
-          else say('dash', brain.reply || 'There was no photo attached.', false);
-          break;
-        case 'mark_posted':
-          doMarkPosted(brain.clientId ?? '', brain.cardId ?? '', brain.reply);
-          break;
-        default:
-          say('dash', brain.reply || 'Tell me a bit more.');
+      // Execute every action the brain returned, in order.
+      const actions = Array.isArray(brain.actions) ? brain.actions : [];
+      let photoUsed = false;
+      const results: ActionResult[] = [];
+      for (const a of actions) {
+        switch (a.type) {
+          case 'add_card':
+            results.push(doAddCard(a.clientId ?? '', a.text || raw, a.contentType, a.stage));
+            break;
+          case 'add_client_task':
+            results.push(doClientTask(a.clientId ?? '', a.text || raw));
+            break;
+          case 'add_my_task':
+            results.push(doMyTask(a.text || raw));
+            break;
+          case 'add_observation':
+            results.push(doObservation(a.topic || 'Inbox', a.text || raw, a.clientId));
+            break;
+          case 'mark_posted':
+            results.push(doMarkPosted(a.clientId ?? '', a.cardId ?? ''));
+            break;
+          case 'file_photo':
+            if (sentPhoto && !photoUsed) { results.push(await doPhoto(a.clientId ?? '', sentPhoto, raw)); photoUsed = true; }
+            else if (!sentPhoto) results.push({ ok: false, line: 'Not done - there was no photo attached.' });
+            break;
+        }
+      }
+
+      const counts = results.length ? emit(results) : { ok: 0, bad: 0 };
+      const replyText = (brain.reply || '').trim();
+      // Speak the reply when it is a real question/answer: always if nothing
+      // was done, otherwise only when it is a follow-up question.
+      if (replyText && (results.length === 0 || replyText.endsWith('?'))) {
+        say('dash', replyText, counts.bad ? false : undefined);
+      } else if (results.length === 0 && !replyText) {
+        say('dash', 'Tell me a bit more.');
       }
     } catch {
       say('dash', 'Not done - something went wrong. Try again.', false);

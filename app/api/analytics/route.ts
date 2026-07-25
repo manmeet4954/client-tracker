@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { clientAllowedForRole, type Role } from '@/lib/access';
+import { allowedClientIds, type Role } from '@/lib/access';
 import { contentMonth } from '@/lib/utils';
 import type { AppState, ClientData, ClientGoal, ContentCard, ContentPillar } from '@/types';
 import type {
@@ -207,8 +207,8 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabase();
 
     // The AUTHORITATIVE state, read server-side with the service client. The
-    // clientId from the URL is only a selector: access is checked against the
-    // stored client's name via the same matchers lib/access.ts uses everywhere.
+    // clientId from the URL is only a selector: access is checked against this
+    // login's PROFILE BINDINGS (spec 21 §6) — never against the profile's name.
     const { data: stateRow, error: stateErr } = await supabase
       .from('app_state').select('data').eq('id', 'manmeet').single();
     if (stateErr || !stateRow?.data) {
@@ -217,7 +217,7 @@ export async function GET(req: NextRequest) {
     const state = stateRow.data as AppState;
     const client = (state.clients ?? []).find(c => c.id === clientId);
     if (!client) return NextResponse.json({ error: 'not-found' }, { status: 404 });
-    if (!clientAllowedForRole(role, client.name)) {
+    if (!allowedClientIds(state, role).includes(clientId)) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 

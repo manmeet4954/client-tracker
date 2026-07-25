@@ -399,3 +399,54 @@ and platform lists, first brand, file location, chat-bubble sync, door choice).
 3. Analytics A → B (#3) — the flagship, spec fully first.
 4. Onboarding (#4) and connected-system (#5) — decide scope before they can be sequenced.
 5. Parameters (#6) — undefined until Manmeet explains.
+
+---
+
+## [2026-07-25] PLAN RECONCILIATION — the master plan supersedes this backlog
+
+`dashboard/PLAN.md` was locked whole on 2026-07-25. It outranks this file and
+every spec below 21. Where the 20 stand under the plan:
+
+- **Live, staying, re-addressed by spec 21:** 01, 02, 11*, 12, 16*, 17, 18A,
+  18C. (*Momentum and Money meter survive only in her own profiles — plan §7.)
+- **Live but dark, needs her setup day (do NOT wait for the restructure —
+  recording is the engine's first duty):** 03–06. Plus the IG collection
+  stall (since 07-12) needs fixing now.
+- **Built, undeployed, her go pending:** chat brain v4.
+- **Absorbed into the plan (files stay as history, never build from them):**
+  08 → intake + detail folders; 09/10 → the engines' loop-back and feedback
+  memory; 13 → the plan itself; 15 → the four trust rules; 19 → plan §5.1;
+  20 → the tree (plan §3).
+- **Re-cut by Opus at the right path step:** 03–07 machinery → the Analysis
+  Engine spec family; 14 → the Creation app specs.
+- **Parked, unchanged:** 18B (WhatsApp).
+
+New specs start at 21 and follow the plan's build order (plan §8 step 6).
+Every new spec must declare its folder addresses and its switches, or it is
+rejected (plan §6).
+
+**Written 2026-07-25:** `21 — Data-Layer Restructure.md` — the address ledger.
+Gives every existing slice, table, route, and component its address in the
+plan's tree, with the folders it reads and writes and the switch it registers;
+declares the folder/switch declaration contract and its validator, the
+canonical objects the Sol amendments require, and the migration order. Nothing
+built. Five open questions raised to the control room (see STATE.md): the
+owner-level home for the chat thread and untagged observations, public preview
+links, profile bindings and delegated approvers, the parameter inventory, and
+S22 retention/deletion authority.
+
+**CLEARED 2026-07-25** — all five questions closed (PLAN §11): the chat and the
+untagged inbox are HELD/frozen, public preview links survive behind their switch,
+bindings are (person, profile) pairs, spec 21 ships the parameter contract and
+the intake spec ships the inventory, retention is forever with deletion only by
+her after an export.
+
+**BUILT 2026-07-25, NOT DEPLOYED** (branch `claude/spec-21-data-layer-6d04af`,
+three commits). In the spec's own order: the declaration contract, switch
+registry and validator (`lib/tree/`); then path-scoped writes at
+`app/api/state`, which closed the save race (gotcha 2); then the pilot profile
+(ResumeGuru, one of hers) migrated into a path-addressed body, with an
+owner-only dry-run door at `app/api/migrate-profile`. Access now binds by
+profile id and `RESTRICTED_MATCHERS` is deleted. All ten acceptance tests plus
+spec 12's re-run security checks pass — 70/70 via `npm test`. Deploy is hers per
+DEPLOY.md; the real-data migration run is still pending her.

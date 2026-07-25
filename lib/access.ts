@@ -1,4 +1,10 @@
-import { AppState, ClientData, ListRow, TrackList } from '@/types';
+import type { AppState, Client, ClientData, ListRow, ProfileBinding, TrackList } from '@/types';
+import type { ProfileBody } from '@/lib/tree/body';
+// Relative, extensioned imports: these modules also run under plain Node in the
+// acceptance tests (tests/run.ts), where the `@/` alias does not exist.
+import { LIFECYCLE_POLICY } from './tree/objects.ts';
+import { clientMayWrite, clientMayRead } from './tree/validate.ts';
+import { deriveLegacyBindings } from './tree/legacyBindings.ts';
 
 export type Role = 'owner' | 'intern' | 'sonia' | 'shiva' | 'merushri';
 
@@ -9,24 +15,35 @@ export const CLIENT_ROLES: Role[] = ['shiva', 'merushri'];
 const EMPTY_BRAIN = { nodes: [], edges: [] };
 const EMPTY_MAP = { nodes: [] };
 
-// Which clients each restricted role may access — matched by NAME so it's
-// robust to generated client ids.
-const RESTRICTED_MATCHERS: Record<Exclude<Role, 'owner'>, (name: string) => boolean> = {
-  intern: (n) => /divine/i.test(n) || /resume/i.test(n),
-  sonia: (n) => /sonia/i.test(n) || /crochet/i.test(n),
-  shiva: (n) => /shiva/i.test(n),
-  merushri: (n) => /career|bubble/i.test(n),
-};
+// ── Profile bindings (spec 21 §6) ────────────────────────────────────────────
+// Access binds by profile ID. The client-NAME regexes are gone: they lived in
+// this file and could silently open or cut off a login on a rename. A binding is
+// a (person, profile) pair; a person holding several gets a picker limited to
+// THEIR profiles (PLAN §11, ruling on Q3).
 
-export function clientAllowedForRole(role: Role, name: string): boolean {
-  if (role === 'owner') return true;
-  return RESTRICTED_MATCHERS[role](name);
+export function bindingsForRole(state: AppState, role: Role): ProfileBinding[] {
+  if (role === 'owner') return [];
+  return (state.bindings ?? []).filter(b => b.role === role);
+}
+
+/** Does this profile's lifecycle still let a client login in at all (S22)? */
+function lifecycleGrantsClientAccess(client: Client | undefined): boolean {
+  if (!client) return false;
+  return LIFECYCLE_POLICY[client.lifecycle ?? 'active'].client_access;
 }
 
 export function allowedClientIds(state: AppState, role: Role): string[] {
-  return (state.clients ?? [])
-    .filter(c => clientAllowedForRole(role, c.name))
-    .map(c => c.id);
+  if (role === 'owner') return (state.clients ?? []).map(c => c.id);
+  const byId = new Map((state.clients ?? []).map(c => [c.id, c]));
+  return bindingsForRole(state, role)
+    .filter(b => {
+      const client = byId.get(b.profileId);
+      if (!client) return false;
+      // Staff (the intern) work inside her side; client logins additionally
+      // depend on the profile's lifecycle.
+      return b.kind === 'staff' ? true : lifecycleGrantsClientAccess(client);
+    })
+    .map(b => b.profileId);
 }
 
 /** Shared lists (spec 12): `sharedFrom` marks an injected window onto another
@@ -43,7 +60,7 @@ function stripInjectedLists(lists: TrackList[], listRows: ListRow[]): { lists: T
 
 /** An empty, valid AppState (used when there is no saved row yet). */
 export function emptyState(): AppState {
-  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP }, observations: [], chatLog: [] };
+  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP }, observations: [], chatLog: [], bindings: [] };
 }
 
 /** Normalize older saved states so every top-level field exists. */
@@ -63,12 +80,14 @@ export function normalizeState(state: AppState): AppState {
       ...stripInjectedLists(lists ?? [], listRows ?? []),
       topics: topics ?? [],
       // `goals` stays optional (undefined = not chosen yet) — no default.
+      // `body` stays optional (undefined = this profile is not migrated yet).
       // NOTE: contentCards deliberately NOT defaulted here — the client-side
       // LOAD migration keys off it being undefined.
     };
   }
+  const clients = state.clients ?? [];
   return {
-    clients: state.clients ?? [],
+    clients,
     clientData,
     // Migrate older tasks to the typed model. Existing tasks become plain
     // personal tasks that keep their client tag for display (via clientIds);
@@ -83,13 +102,41 @@ export function normalizeState(state: AppState): AppState {
     containerMap: state.containerMap ?? { ...EMPTY_MAP },
     observations: state.observations ?? [],
     chatLog: state.chatLog ?? [],
+    // First normalize after the restructure: write down the access the name
+    // rules were already granting, then never consult a name again (§6).
+    bindings: state.bindings ?? deriveLegacyBindings(clients),
   };
+}
+
+// ── Body filtering (the tree's audience rules, enforced server side) ─────────
+// CLAUDE.md rule 2: filtering lives here and only gets stronger. A migrated
+// profile's body is path-addressed, so "what may this login see" is answered by
+// the declarations themselves rather than by a hand-kept tab list.
+
+function filterBodyForNonOwner(body: ProfileBody | undefined): ProfileBody | undefined {
+  if (!body) return undefined;
+  const paths: ProfileBody['paths'] = {};
+  for (const p of Object.keys(body.paths)) {
+    if (clientMayRead(p)) paths[p] = body.paths[p];
+  }
+  return { ...body, paths, sort_queue: [] }; // her sort queue is never client-facing
+}
+
+/** Only the four give-points may come back from any non-owner login (S19). */
+function mergeBodyFromNonOwner(current: ProfileBody | undefined, incoming: ProfileBody | undefined): ProfileBody | undefined {
+  if (!current) return current;           // nothing to merge into yet
+  if (!incoming) return current;
+  const paths = { ...current.paths };
+  for (const p of Object.keys(incoming.paths)) {
+    if (clientMayWrite(p)) paths[p] = incoming.paths[p];
+  }
+  return { ...current, paths };
 }
 
 /**
  * Shape the state a role is allowed to RECEIVE. Owners get everything;
- * restricted roles get only their clients + data, never personal tasks or
- * brain dump.
+ * restricted roles get only their bound profiles + data, never personal tasks,
+ * brain dump, observations or the chat thread.
  */
 export function filterStateForRole(state: AppState, role: Role): AppState {
   const norm = normalizeState(state);
@@ -98,7 +145,12 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
   const clients = norm.clients.filter(c => ids.has(c.id));
   const clientData: Record<string, ClientData> = {};
   ids.forEach(id => {
-    if (norm.clientData[id]) clientData[id] = norm.clientData[id];
+    const data = norm.clientData[id];
+    if (!data) return;
+    // EVERY non-owner login, staff included: the body is filtered by the
+    // declarations. Her per-profile notes live inside it now, and `audience:
+    // owner` has to mean the same thing for the intern as for a client.
+    clientData[id] = { ...data, body: filterBodyForNonOwner(data.body) };
   });
   // Shared lists (spec 12): inject a window onto any other client's list that
   // is shared with one of this role's clients. The window carries `sharedFrom`
@@ -128,14 +180,25 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
       };
     }
   });
-  return { clients, clientData, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP }, observations: [], chatLog: [] };
+  return {
+    clients,
+    clientData,
+    personalTasks: [],
+    brainDump: { ...EMPTY_BRAIN },
+    containerMap: { ...EMPTY_MAP },
+    observations: [],
+    chatLog: [],
+    // Their own bindings only — never anyone else's (PLAN §11, Q3).
+    bindings: bindingsForRole(norm, role),
+  };
 }
 
 /**
  * Merge a restricted role's submitted state back into the authoritative full
- * state. Changes are allowed ONLY to that role's clients' data; the client
- * list, other clients, personal tasks and brain dump always come from
- * `current`, so a forged payload can never reach anything else.
+ * state. Changes are allowed ONLY to that role's bound profiles' data; the
+ * profile list, bindings, other profiles, personal tasks, observations, the
+ * chat thread and the brain dump always come from `current`, so a forged
+ * payload can never reach anything else.
  */
 export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role): AppState {
   const cur = normalizeState(current);
@@ -152,6 +215,10 @@ export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role
     clientData[id] = {
       ...inc,
       ...stripInjectedLists(inc.lists ?? [], inc.listRows ?? []),
+      // The body is path-addressed: a non-owner login may return the four
+      // give-points and nothing else (S19). It never received the rest, so it
+      // has nothing else to send back.
+      body: mergeBodyFromNonOwner(cur.clientData[id]?.body, inc.body),
     };
     // Route each window's ROW edits back into the owning client's data — but
     // only when the AUTHORITATIVE state confirms the owner really shares that
@@ -182,5 +249,6 @@ export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role
     containerMap: cur.containerMap,
     observations: cur.observations,
     chatLog: cur.chatLog,
+    bindings: cur.bindings,
   };
 }

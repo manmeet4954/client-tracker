@@ -1,6 +1,219 @@
 # STATE - Client Dashboard
 
-Last updated: 2026-07-21. The Dashboard chat (spec 18 part C v2) is LIVE — a floating owner-only chat on every page (deploy 92f3763). Earlier: the Observations panel + WhatsApp inbox (spec 18, both parts) are LIVE (deploy commit 58f1f70 on client-tracker/main, Vercel success, all three DEPLOY.md gates passed; drift = only the spec 18 files). **The panel is usable now. The WhatsApp side is PARKED by her decision 2026-07-20: her eSIM cannot receive SMS, so Meta's number registration cannot complete.** Full parked state, IDs, and the resume path are at the top of `docs/spec-18-setup.md`. Nothing is half-live: webhook never configured, subscribe toggle off, no payment method, app unpublished. Catalogue PDF export (spec 17) is LIVE. The ANALYTICS CORE (specs 03-06) and the Money meter (spec 16) are LIVE. Momentum meter with diary (spec 11), Shared Lists (spec 12), and the mobile stacking fix are also LIVE.
+## 2026-07-25 — SPEC 21 IS BUILT (branch `claude/spec-21-data-layer-6d04af`, NOT deployed)
+
+The data-layer restructure is built, in the order the spec set: declarations and
+validator first, then path-scoped writes, then one pilot profile migrated. All
+of spec 21's acceptance tests pass — **70/70**, via `npm test` (plain Node, no
+dependencies, no build step). Typecheck clean, production build green.
+
+**Nothing is deployed and nothing about the live app has changed yet.** The
+deploy is hers per DEPLOY.md, and the real-data migration is one owner action
+away (below).
+
+### What is now true that was not true this morning
+
+1. **Every folder in the plan's tree has a machine-checkable declaration**
+   (`lib/tree/declarations.ts`): what feeds it, what reads it, the switch that
+   governs it, its allowed states, how it remembers, who may see it, and which
+   of the four client doors it belongs to. A read or write against an
+   undeclared path throws. Law 2's nesting is real — `platforms/instagram/
+   formats` resolves, and a format has no existence outside its platform.
+2. **Every switch exists in one registry** (`lib/tree/switches.ts`), including
+   the structural ones that can never move. The cascade resolves as the minimum
+   of a switch and its prerequisites, and her canonical trace is a test:
+   LinkedIn off removes its formats, its strategy questions, its channel and its
+   analysis column — on her side and the client's, in both directions.
+3. **The validator refuses the build** on an undeclared path, a feature with no
+   switch, or a client audience with no door (`lib/tree/validate.ts`). It caught
+   six real mistakes in the declarations while they were being written. The
+   orphan check is type-bound: a new state slice with no address will not compile.
+4. **The save race is closed.** `app/api/state` now takes `{ state, paths }` and
+   merges only the declared paths. Two tabs editing different parts of the
+   system both keep their work, where the second save used to erase the first.
+   This had to land before anything migrated: under last-write-wins, every
+   "append-only" guarantee in the amendments would have been a lie.
+5. **Access binds by profile ID.** `RESTRICTED_MATCHERS` — the client-NAME
+   regexes — are deleted from the access path. Renaming a profile can no longer
+   cut off or open up a login. The regexes survive in one file, used once to
+   write down the access that already existed, so nobody loses anything on the
+   day this ships.
+6. **ResumeGuru is migrated** into a path-addressed body: 59 entries across 44
+   addresses, with a report that names every value moved, every value marked
+   unverified, and every question that is hers to answer.
+
+### The pilot, and what it wants from her
+
+Pilot = **ResumeGuru** (one of hers — a client profile is never the experiment).
+The migration writes the body ALONGSIDE the legacy slices; nothing is deleted
+and every screen still renders exactly what it renders today. Switch positions
+are **suggested, never set** — she sets them after intake → curation → strategy.
+
+**Honest limit:** this machine has no access to the live database, so the pilot
+ran against a fixture shaped like ResumeGuru, not her actual row. The real run
+is one owner-only call away and is a DRY RUN by default:
+
+- `POST /api/migrate-profile { "profileId": "<resumeguru id>" }` → the report,
+  nothing written.
+- Same call with `"apply": true` → writes the body, through the path-scoped door.
+- A second run on an already-migrated profile is refused (no double entries).
+
+The 16 questions the migration could not answer, and deliberately did not guess:
+which offer is the hero · which part of the old audience field is what they said
+vs what she decided · which platforms should offer the formats nothing has used
+yet · a metric declaration for each of the 4 goals (analysis stays blocked per
+goal until each has one) · the 3 subjects that came over as capture input, not
+seeds (they need her narration before they can be locked) · which piece the old
+preview belongs to · who owns @resumeguru.ai, its timezone, and whether we post
+or they do · rights on every existing photo · which references came from the
+client. All of them sit in the profile's sort queue and in the report.
+
+### Frozen, exactly as PLAN §11 ordered
+
+The **chat thread and the untagged inbox are untouched** — `chatLog` and untagged
+observations are declared at `frozen/chat-log` and `frozen/observations-inbox`,
+not migrated, not moved, still working exactly as today. Their own spec comes
+after the restructure. Observations WITH a profile tag did migrate into that
+profile's `logs/observations`.
+
+Also frozen and named rather than left silent: the 2026-07-10 legacy card copies,
+the Studio canvas, custom fields, `journey.nextSteps`, `ContentCard.role`.
+
+### One real leak found and closed
+
+Writing the security tests surfaced it: her per-profile notes and seed bank live
+inside the body now, so the intern's login would have received them. Every
+non-owner login now gets a body filtered by the declarations. The 24 security
+checks were verified to FAIL when the guard is removed, then pass with it in.
+
+### Two decisions the build had to make (both inside the plan, both recorded)
+
+1. **A client who brings ideas gives them at intake, not into the seed bank.**
+   Spec 21 §8.5 listed a `creation.seed_input_client` switch writing into
+   `creation/topics`, calling it a "give-point 1 extension". S19 allows exactly
+   four client doors, and the validator refused it. The route now honors both:
+   the client's idea arrives through intake (give-point 1), and her curation
+   turns it into a seed. Same capability, no fifth door.
+2. **The shared-list collaborator is not "the client".** Spec 12's live feature
+   lets another workspace edit rows of a list she shared. Declaring the client
+   as a writer there would have punched a hole in S19, so the tree names a
+   distinct writer, `collaborator`: one object she explicitly shared, verified
+   server-side against the authoritative state, opening no door into any
+   profile's tree. Spec 12's behavior is unchanged and its checks still pass.
+
+### Next
+
+1. Her look at the report, then the real pilot run on ResumeGuru (`apply: true`).
+2. Then the remaining profiles, one at a time, per §9.4.
+3. Then the intake spec (the parameter inventory, after her vocabulary session),
+   the Content Engine family, the Analysis Engine family, the client-side regroup.
+4. Deploy is hers, per DEPLOY.md, whenever she wants it — this branch has not
+   been merged or pushed anywhere live.
+
+Still owed by her, independent of all of this: the analytics setup day, the IG
+collection stall (data lost daily — recording does NOT wait for the restructure),
+and the chat brain v4 deploy go.
+
+---
+
+Previous entry: 2026-07-25. **THE MASTER PLAN IS BEING WRITTEN: `dashboard/PLAN.md` (DRAFT).** Her 2026-07-25 direction: one complete build plan documenting the whole system — profiles, the Context/Work Log tree (spec 20's structure, rescued onto this branch), the two engines (Content + Analysis) as products-inside-the-product, client give-points, and the build pipeline (Fable plan → Sol flows → Opus specs → agents build → Sol review). Once locked, every session reads PLAN.md first; specs that disagree with it get rewritten. Confirmed by her: her own workspaces (ResumeGuru, KRNL) are client profiles, she is client zero. 2026-07-25 (final): **THE PLAN IS LOCKED WHOLE — `dashboard/PLAN.md` is now the authority every session reads first.** Locked in one day: the tree (four rounds), the four laws, strategy-as-switchboard + every-feature-is-a-switch + the cascade, the three apps, the GUI mandate (profile-first, look delegated to Claude), the Content Engine map (Sol's architecture + seed taxonomy, five refinements resolved, the intelligence bar), the dictionary (5.3), and the Analysis Engine (her correction: quantitative core, sandcastles.ai reference, compare/A-B as the purpose, soft signals out of the math). Closed on her words: "I can trust you with the whole plan." 2026-07-25 (Sol round 1): Sol pressure-tested the plan; ALL 25 findings accepted on her yes — folded in as PLAN.md section 10 (binding on every spec) plus inline edits: the seed/piece law (seeds never have stages; pieces do), matched comparisons with age windows, context packets, switch validation, profile lifecycle, the dictionary's new "Piece" entry. **SPEC 21 IS WRITTEN** (2026-07-25, fresh Opus chat per the plan's working structure §6) — `specs/21 — Data-Layer Restructure.md`, committed, nothing built; five open questions raised to the control room. Full entry in the section directly below. Also still owed by her, independent of specs: the analytics setup day + IG collection stall fix (data lost daily), and the chat v4 deploy go. Everything below this line predates the plan and stands until the plan supersedes it.
+
+## 2026-07-25 — SPEC 21 WRITTEN (the first spec under the locked plan)
+
+`dashboard/specs/21 — Data-Layer Restructure.md` is written and committed.
+NOTHING BUILT — it is a spec, and its build waits on the control room clearing
+it plus the five questions below.
+
+What it is: the ADDRESS LEDGER. Every slice of `AppState`/`ClientData`, every
+component, route, API endpoint, and `ig_*` table now has one address in the
+plan's tree (PLAN §3), with the folders it reads, the folders it writes, and
+the switch it registers in `toolset/`. Nothing is left silent: each item is
+`active`, `history`, `hidden`, `frozen` (retained read-only), or `leaves`
+(PLAN §7), and the spec's own orphan check re-runs as a build test.
+
+Also in the spec, because the amendments require them: the folder/switch
+DECLARATION CONTRACT plus a validator that fails the build on three things —
+an undeclared path (law 4), a feature with no switch (§6 rule 3), and a client
+write outside the four give-points (S19); the switch registry with
+prerequisites, dependents, audience, three off-states (S9) and cascade
+resolution validated at strategy lock (S8); and the canonical objects declared
+once each so no later spec invents a second version — seed, piece (one identity
+owned by `creation/`, S1/S2/S15), channel (S17), metric observation
+(S3/S6/S7/S23), curated parameter (S11), intake round (S10), review config
+(S20), rights record (S21), outside-tool handoff (S18), matched comparison
+(S5), context packet (S12), feedback item (S13), gate set (S14), profile
+lifecycle (S22).
+
+Two decisions recorded by the spec, both inside its authority:
+1. **No new storage pattern** (CLAUDE.md rule 5 holds). Body data stays in the
+   one AppState blob, reshaped into a versioned path-addressed per-profile
+   body; the `ig_*` tables stay the metric-observation store (rule 5's existing
+   exception, which is exactly what S3 asks for). Two triggers make per-profile
+   rows mandatory later: the blob passing ~5 MB, or more than one writer per
+   profile.
+2. **Path-scoped writes are in scope and land before any profile migrates.**
+   `app/api/state` moves from "replace the blob" to "apply a patch for the
+   paths it declares". Under today's last-write-wins save race (gotcha 2),
+   every append-only guarantee in S7/S11/S15 would be a lie.
+Also: access binds by profile id, and `RESTRICTED_MATCHERS` (the client-NAME
+regexes) is deleted — role filtering derives from switch audience + client_door
++ lifecycle instead. CLAUDE.md rule 2 stands; spec 12's 19-check security test
+is re-run as acceptance.
+
+Four law-4 folder additions born in the spec, for the control room to ratify
+into PLAN §3 (each declares its feeds and readers, each inside the frozen
+spine): `creation/funnel/replies/` (Divine's Lead Answers — the scripts the
+body holds), `logs/pipelines/` (Lists incl. sharing, Cold Calls, Orders),
+`logs/effort/` (Momentum + Money meter, her own profiles only per §7),
+`logs/observations/` (spec 18A, her per-profile notes).
+
+## OPEN QUESTIONS FOR THE CONTROL ROOM — ALL FIVE CLOSED 2026-07-25
+
+Q3/Q4 ruled by the control room, Q1/Q2/Q5 answered by her (full record: PLAN.md
+section 11). Headlines: the chat thread + untagged inbox are HELD/frozen (their
+own spec comes after the restructure); public preview links survive behind
+their switch, with the logged-in deep-link enhancement queued for the
+client-side regroup; retention is forever, deletion only by her with export
+first. **SPEC 21 IS CLEARED TO BUILD** — fresh build chat per PLAN section 6.
+The original questions, kept for the record:
+
+1. **Where do owner-level, cross-profile objects live?** PLAN §5.3: everything
+   belongs to exactly one profile, and the only thing between profiles is her
+   shelf (whose one cross-profile window is the today strip). But the floating
+   owner chat thread (`chatLog`, on every screen per §2) and untagged
+   Observations are cross-profile by design and have no address. Inventing an
+   owner-level store outside the frozen spine is a plan change — hers.
+2. **Do public, unauthenticated preview links survive?** Review is a give-point
+   inside the client's profile (§4) and S19 allows only four client doors;
+   today review runs on anonymous `/p/[shareId]` links. Is a public link an
+   allowed delivery route into the review door, or must review happen only
+   inside a client login? The `creation.review_public_link` switch has no
+   suggested default until this is answered.
+3. **How do people bind to a profile?** The plan says a client login opens its
+   own profile only, but never how many client users a profile may have — and
+   S20 requires "delegated approvers", implying more than one. Does a delegated
+   approver get their own login, and may one person hold logins to two
+   profiles? This shapes the bindings replacing the name regexes.
+4. **The parameter inventory.** Intake questions are generated FROM the detail
+   folders' parameters (§3.1), and the plan records her vocabulary session as
+   still owed. Confirm the split: spec 21 ships the parameter CONTRACT, the
+   intake spec ships the inventory after her session.
+5. **Retention and deletion authority (S22).** Profile lifecycle declares
+   retention and deletion authority per state; the values are hers, and
+   connector revocation sits next to her money/external-accounts gate. Spec 21
+   declares the fields with no defaults. What are the retention windows, and
+   who may delete a profile's data?
+
+Next after the control room clears spec 21: the intake spec, then the Content
+Engine spec family, then the Analysis Engine family, then the client-side
+regroup (PLAN §8 step 6). Independent of all of it and still owed by her: the
+analytics setup day, the IG collection stall (data lost daily — recording is
+the engine's first duty and does NOT wait for the restructure), and the chat
+brain v4 deploy go.
+
+---
+
+Previous update: 2026-07-21. The Dashboard chat (spec 18 part C v2) is LIVE — a floating owner-only chat on every page (deploy 92f3763). Earlier: the Observations panel + WhatsApp inbox (spec 18, both parts) are LIVE (deploy commit 58f1f70 on client-tracker/main, Vercel success, all three DEPLOY.md gates passed; drift = only the spec 18 files). **The panel is usable now. The WhatsApp side is PARKED by her decision 2026-07-20: her eSIM cannot receive SMS, so Meta's number registration cannot complete.** Full parked state, IDs, and the resume path are at the top of `docs/spec-18-setup.md`. Nothing is half-live: webhook never configured, subscribe toggle off, no payment method, app unpublished. Catalogue PDF export (spec 17) is LIVE. The ANALYTICS CORE (specs 03-06) and the Money meter (spec 16) are LIVE. Momentum meter with diary (spec 11), Shared Lists (spec 12), and the mobile stacking fix are also LIVE.
 
 ## SETUP DAY STILL OWED (analytics shows nothing until these are done)
 
@@ -44,7 +257,9 @@ This file is overwritten as truth changes. It holds where things stand and the s
 
 - **2026-07-21: the Dashboard chat (spec 18 part C v2) SHIPPED (deploy commit 92f3763 on client-tracker/main, Vercel success; gates: green scratch build, drift = only this feature + doc riders, her instruction "get that chat thing down, live and working").** Backstory: WhatsApp registration dead-ended at Meta's PIN step (parked, trail in `docs/spec-18-setup.md`); Telegram proposed and REJECTED (she never uses it, calls it banned); the v1 `/quick` capture PAGE was built then REJECTED by her ("looks trash", must be a chat, on all pages, not another page) — v1 deleted, logic salvaged. v2: floating owner-only chat widget on every page (`components/ChatWidget.tsx`, mounted in `app/layout.tsx`; full-screen chat on phones, corner window on desktop; hidden on public /p/ pages and from all non-owner roles). Same routing brain as the WhatsApp pipe; replies in-thread as "Done — ..." / "Not done — ..." bubbles. NEW STATE SLICE (rule 5 decision): `chatLog`, owner-only, capped 100 — the thread survives reloads; filed items live in their real homes. All four access functions updated. Verified interactively in the browser: task → My Day (badge + list confirmed), client task → Divine agenda + linked task, untagged note → Inbox fallback, thread persists across page navigation, desktop + 375px (full-screen chat). tsc + production build green.
 
-- **2026-07-21 (part 2): the chat brain v3 SHIPPED.** Her verdict on the live v2 chat: it saves words instead of understanding ("this is very dumb") — it filed "#observations ... under shivansh" under a literal "Observations" topic, filed her question "where?" as a note, and couldn't mark a post as posted. Her observation model, now honored: a topic = one SUBJECT (e.g. Shivansh) accumulating notes long-term. On her yes: AI-first brain — `app/api/chat-brain` (new, owner-only, Haiku) reads every non-shortcut message with clients + topics + unposted cards + the last 8 thread messages, returns one validated action incl. **mark_posted** (moves a real card to Posted) and **reply** (answers/clarifies/refuses honestly). Widget validates all ids; keyless/failure falls back to v2 rules (verified locally — the chat never breaks). Files: `app/api/chat-brain/route.ts` (new), `components/ChatWidget.tsx`. tsc + production build green. Her live retest owed: the three messages that failed her.
+- **2026-07-22: chat brain v4 BUILT, not yet deployed.** Her verdict on the live v3 chat (with screenshots): it interrogated her ~25 times to add 4 things, could not create content cards (so the Divine Studio carousel + yoga reel had nowhere to go), and turned the category word "client task" into a card TITLE. Root causes found in the code, not the model: (1) the brain returned ONE action per message, forcing a question-per-turn ping-pong; (2) there was NO create-content-card action at all; (3) the prompt invited clarifying questions with no push to act. Cost checked and ruled out as the blocker (Haiku ~0.4¢/msg, Sonnet ~0.75¢, difference a few $/month) and Gemini discussed (possible, cheaper-than-Haiku Flash, but a second vendor + key; deferred). Her call: fix the structure on Haiku first, judge the model after. Built v4, same Haiku model: the brain now returns a LIST of actions (does the whole message in one go), gained a new **add_card** action that creates a real content card on a client's board (title from her words, default Idea stage, optional contentType/stage — mirrors the spec 01 card shape), and the prompt now says DO-don't-ask with sensible defaults and an explicit "a category word is never a title" rule plus an add_card-vs-add_client_task split (content to make = card; errand/reminder = task). Widget executes every action, validates each id, and posts one clean confirmation ("Done:" bulleted for multi-item), keyless/failure still falls back to the v2 rules. Files: `app/api/chat-brain/route.ts`, `components/ChatWidget.tsx`. Production build green with dummy env; verified in-browser that the widget mounts and the confirmation composer renders (the AI multi-action path itself needs the live ANTHROPIC_API_KEY, so its real test is on deploy). Deploy = her go + DEPLOY.md gates. Her live retest owed: the four-item message and the three v3 failures.
+
+- **2026-07-21 (part 2): the chat brain v3 SHIPPED (deploy commit b8eb791 on client-tracker/main, Vercel success; gates passed).** Her verdict on the live v2 chat: it saves words instead of understanding ("this is very dumb") — it filed "#observations ... under shivansh" under a literal "Observations" topic, filed her question "where?" as a note, and couldn't mark a post as posted. Her observation model, now honored: a topic = one SUBJECT (e.g. Shivansh) accumulating notes long-term. On her yes: AI-first brain — `app/api/chat-brain` (new, owner-only, Haiku) reads every non-shortcut message with clients + topics + unposted cards + the last 8 thread messages, returns one validated action incl. **mark_posted** (moves a real card to Posted) and **reply** (answers/clarifies/refuses honestly). Widget validates all ids; keyless/failure falls back to v2 rules (verified locally — the chat never breaks). Files: `app/api/chat-brain/route.ts` (new), `components/ChatWidget.tsx`. tsc + production build green. Her live retest owed: the three messages that failed her.
 
 ## The single next step
 

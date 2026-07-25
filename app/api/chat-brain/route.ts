@@ -2,14 +2,17 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 
-// The Dashboard chat's brain (spec 18 part C v3). Every non-shortcut message
+// The Dashboard chat's brain (spec 18 part C v4). Every non-shortcut message
 // comes here: Claude reads it WITH context (her clients, her observation
-// topics, the board's unposted cards, the recent conversation) and returns
-// ONE structured decision the widget then executes. The AI never touches
-// state itself — the widget validates every id against real data first.
+// topics, the board's unposted cards, the recent conversation) and returns a
+// LIST of actions — one per thing she asked for — plus an optional reply.
+// The AI never touches state itself: the widget validates every id and
+// executes each action. Design law (v4, her 07-22 feedback): DO the whole
+// list in one message, don't interrogate; create real content cards; use
+// sensible defaults instead of asking.
 //
-// Owner-only. Without an ANTHROPIC_API_KEY the answer is {action:'fallback'}
-// and the widget uses the old hashtag rules, so the chat never breaks.
+// Owner-only. Without an ANTHROPIC_API_KEY the answer is {fallback:true} and
+// the widget uses the old hashtag rules, so the chat never breaks.
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -37,7 +40,7 @@ export async function POST(req: Request) {
   if (!body?.message && !body?.hasPhoto) return NextResponse.json({ error: 'empty' }, { status: 400 });
 
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) return NextResponse.json({ action: 'fallback' });
+  if (!apiKey) return NextResponse.json({ fallback: true });
 
   const clients = (body.clients ?? []).slice(0, 30);
   const topics = (body.topics ?? []).slice(0, 50);
@@ -50,15 +53,15 @@ export async function POST(req: Request) {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const prompt =
-`You are the brain of Manmeet's dashboard chat. She runs a personal-branding studio; the dashboard tracks her clients, content boards, tasks, and her private observation notebook. She types short natural messages; you decide the ONE thing to do and write the one-line reply she sees. Today is ${today}.
+`You are the brain of Manmeet's dashboard chat. She runs a personal-branding studio; the dashboard tracks her clients, their content boards, her tasks, and her private observation notebook. She types short natural messages, often several things at once. Read the WHOLE message and turn EVERY thing she asks for into an action. Do the work. Do not interview her. Today is ${today}.
 
 HER CLIENTS (the only valid clientId values):
 ${clients.map(c => `- ${c.id}: ${c.name}`).join('\n') || '(none)'}
 
-HER OBSERVATION TOPICS so far (buckets in her notebook; prefer reusing one; new short topics are allowed — a topic is the SUBJECT observed: a person, client, or theme):
+HER OBSERVATION TOPICS so far (buckets in her notebook; a topic is a SUBJECT — a person, a client, or a theme; reuse one when it fits, new short ones are fine):
 ${topics.join(', ') || '(none yet)'}
 
-UNPOSTED CONTENT CARDS on the boards (the only valid cardId values for mark_posted):
+UNPOSTED CONTENT CARDS already on the boards (the only valid cardId values for mark_posted):
 ${cards.map(k => `- ${k.cardId} [client ${k.clientId}, stage ${k.stage}]: ${k.title}`).join('\n') || '(none)'}
 
 RECENT CONVERSATION (oldest first):
@@ -67,19 +70,25 @@ ${recent.map(r => `${r.who}: ${r.text}`).join('\n') || '(none)'}
 HER NEW MESSAGE${body.hasPhoto ? ' (a photo is attached)' : ''}:
 ${body.message || '(no text, photo only)'}
 
-Pick exactly one action:
-- add_my_task: a to-do for herself. text = the task, cleaned.
-- add_client_task: a to-do/instruction for one client's agenda. clientId + text.
-- add_observation: something she noticed and wants recorded long-term. topic = the SUBJECT (person like "Shivansh", a client name, or a theme like "Reels" — never words like "observation"/"note"). text = the observation itself, command words stripped ("save this as..." dropped), her meaning kept in plain words.
-- file_photo: only when a photo is attached and you can tell which client it belongs to. clientId.
-- mark_posted: she says some content went live / is posted. Pick the matching card from the list above (match by title words and client). clientId + cardId.
-- reply: everything else — answering her question (use the recent conversation), asking ONE short clarifying question when you cannot safely act (wrong/missing client, no matching card, ambiguous), or honestly saying what you cannot do yet.
+Return two things:
+- "actions": an array with ONE entry per thing she asked for. Empty only if there is truly nothing to do.
+- "reply": used ONLY to ask a question or answer one. Leave it "" when the actions speak for themselves.
 
-Rules:
-- Never invent a clientId or cardId that is not in the lists. When unsure, use reply and ask.
-- reply text is ALWAYS required: one or two short plain lines, no jargon. For actions, phrase it like "Done - noted under Shivansh." / "Marked 'title' as posted on X's board." For questions/clarifications just answer or ask.
-- Questions like "where?" refer to the conversation above - answer from it.
-- You can only do the actions listed. If she asks for anything else (edit, delete, schedule, analyze), say plainly that you cannot do that from the chat yet and where she can do it.`;
+Action types (the "type" field of each action):
+- add_card — a piece of CONTENT to make or publish: a post, carousel, reel, story, video, anything that belongs on a client's content board. This is the right choice whenever she wants something created, designed, written, shot, or published for a client. Fields: clientId, text = the card's TITLE in her own words, contentType (Carousel / Reel / Static / Story / Video — only if she names one), stage (idea / writing / ready / scheduled / posted — default "idea"; use "posted" only if she says it is already live).
+- add_client_task — an errand or reminder tied to a client that is NOT itself a piece of content: a shoot, a review, a call, a follow-up. Fields: clientId, text.
+- add_my_task — a to-do for herself, no client. Fields: text.
+- add_observation — something she noticed and wants remembered long-term. Fields: topic = the SUBJECT (e.g. "Shivansh", a client name, a theme — never "note"/"observation"), text = the observation with command words stripped.
+- mark_posted — she says an existing post went live. Match it to a card from the list above. Fields: clientId, cardId.
+- file_photo — only when a photo is attached and you can tell whose it is. Fields: clientId.
+
+Rules that matter most:
+1. DO, don't ask. Fill in sensible defaults instead of asking. A new card starts at "idea" and its title is whatever she called the post. NEVER ask which stage. NEVER ask for a title when she has already described the post. Put a question in "reply" (with the rest of the actions still filled in) ONLY when you genuinely cannot act — she names a client that is not in the list, or a request cannot be placed.
+2. Never turn a category word into a title. If she says "it's a client task", "make it content", "it's a post", she is telling you the TYPE, not naming the thing — use her description of the actual content, never the words "task" / "content" / "post" / "client task" as a title or note.
+3. One message is often many actions. "Add the Shourya carousel and a yoga reel to Divine, remind me to shoot for Sonia, mark ResumeGuru's post live" is FOUR actions — return all four (two add_card, one add_client_task, one mark_posted).
+4. Every clientId and cardId MUST come from the lists above. If she means a client that is not there, ask in "reply" instead of guessing.
+5. Answer plain questions (like "where did that go?") from the recent conversation, with actions empty.
+6. "reply", when used, is one or two short plain lines, no jargon.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -91,24 +100,36 @@ Rules:
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 400,
+        max_tokens: 900,
         output_config: {
           format: {
             type: 'json_schema',
             schema: {
               type: 'object',
               properties: {
-                action: {
-                  type: 'string',
-                  enum: ['add_my_task', 'add_client_task', 'add_observation', 'file_photo', 'mark_posted', 'reply'],
+                actions: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      type: {
+                        type: 'string',
+                        enum: ['add_card', 'add_client_task', 'add_my_task', 'add_observation', 'mark_posted', 'file_photo'],
+                      },
+                      text: { type: 'string' },
+                      clientId: { type: 'string' },
+                      topic: { type: 'string' },
+                      cardId: { type: 'string' },
+                      contentType: { type: 'string' },
+                      stage: { type: 'string' },
+                    },
+                    required: ['type'],
+                    additionalProperties: false,
+                  },
                 },
-                text: { type: 'string' },
-                clientId: { type: 'string' },
-                topic: { type: 'string' },
-                cardId: { type: 'string' },
                 reply: { type: 'string' },
               },
-              required: ['action', 'reply'],
+              required: ['actions', 'reply'],
               additionalProperties: false,
             },
           },
@@ -116,14 +137,14 @@ Rules:
         messages: [{ role: 'user', content: prompt }],
       }),
     });
-    if (!res.ok) return NextResponse.json({ action: 'fallback' });
+    if (!res.ok) return NextResponse.json({ fallback: true });
     const data = await res.json();
-    if (data.stop_reason === 'refusal') return NextResponse.json({ action: 'fallback' });
+    if (data.stop_reason === 'refusal') return NextResponse.json({ fallback: true });
     const block = (data.content ?? []).find((b: { type: string }) => b.type === 'text');
-    if (!block?.text) return NextResponse.json({ action: 'fallback' });
+    if (!block?.text) return NextResponse.json({ fallback: true });
     const parsed = JSON.parse(block.text);
     return NextResponse.json(parsed);
   } catch {
-    return NextResponse.json({ action: 'fallback' });
+    return NextResponse.json({ fallback: true });
   }
 }

@@ -12,6 +12,7 @@ import {
   Observation, ChatMessage,
 } from '@/types';
 import { migrateToContentCards } from '@/lib/migrateContent';
+import { changedScopes } from '@/lib/tree/scopes';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
 import type { Role } from '@/lib/access';
 import PasscodeGate from '@/components/PasscodeGate';
@@ -85,6 +86,7 @@ const SEED: AppState = {
   containerMap: { nodes: [] },
   observations: [],
   chatLog: [],
+  bindings: [],
 };
 
 export type Action =
@@ -1047,6 +1049,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedMonth, setSelectedMonth] = React.useState(() => formatMonthKey(new Date()));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedRef = useRef(false);
+  // The state as the server last had it. Every save declares only the paths
+  // that differ from this, so a slow save can no longer erase what someone else
+  // wrote meanwhile (spec 21 §3.4).
+  const syncedRef = useRef<AppState | null>(null);
   const dirtyRef = useRef(false);   // true while there are unsaved local changes
   const skipSaveRef = useRef(false); // skip the save that a fresh LOAD would trigger
   const flushRef = useRef(false);    // when set, the next save runs immediately (no debounce)
@@ -1078,7 +1084,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setRole(r as Role);
       // Don't echo freshly-loaded data back to the server — that would clobber
       // out-of-band writes (e.g. a link just saved from the share sheet).
-      if (s) { skipSaveRef.current = true; dispatch({ type: 'LOAD', payload: s as AppState }); }
+      if (s) {
+        skipSaveRef.current = true;
+        syncedRef.current = s as AppState;
+        dispatch({ type: 'LOAD', payload: s as AppState });
+      }
       loadedRef.current = true;
       setStatus('authed');
     } catch {
@@ -1108,7 +1118,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state }),
+        // Declare the paths this save actually touched. The server merges only
+        // those, so two people (or two tabs) working on different parts of the
+        // system both keep their work.
+        body: JSON.stringify({ state, paths: changedScopes(syncedRef.current, state) }),
       })
         .then(res => {
           if (res.status === 401) {
@@ -1119,6 +1132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
           if (!res.ok) return false; // server error (e.g. Supabase write failed)
           dirtyRef.current = false;
+          syncedRef.current = state;
           return true;
         })
         .catch(() => false); // offline — next change will retry
