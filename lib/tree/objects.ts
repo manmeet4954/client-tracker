@@ -2,7 +2,8 @@
 // Later specs REFERENCE these; none may define a second version (PLAN §3.11:
 // no feature may introduce a second copy of a content piece).
 
-import type { PathState } from './contract.ts';
+import type { ClientDoor, PathState } from './contract.ts';
+import { CLIENT_GIVE_DOORS, CLIENT_SEE_DOORS } from './contract.ts';
 
 // ── Provenance and history (S11, S15) ────────────────────────────────────────
 
@@ -68,9 +69,19 @@ export interface Seed {
   possible_pillars?: string[];
   possible_angles?: string[];
   status: SeedStatus;
+  // ── Spec 23 §6.4: the only three additions, each with its reason. No later
+  // spec may add a fourth without the same justification.
+  /** The "clearly marked" law, and the bank's origin filter. */
+  origin?: SeedOrigin;
+  /** Per-field marking of what the engine wrote vs what she wrote (§6.1). */
+  field_sources?: Record<string, 'engine' | 'her'>;
+  /** Check 6's dedupe result, kept so the same idea does not fork silently. */
+  duplicate_of?: string;
   /** Seeds NEVER have a stage (S1). Present only to make that explicit. */
   readonly stage?: never;
 }
+
+export type SeedOrigin = 'hers' | 'engine:content' | 'engine:analysis';
 
 // ── 7.2 Piece (S1, S2, S15, S17) ─────────────────────────────────────────────
 
@@ -101,8 +112,38 @@ export interface BirthSnapshot {
   costume: ResolvedCostume;
   pillar_job?: string;
   goal_mapping?: string[];
-  gate_version?: number;
-  strategy_version?: number;
+  gate_version?: number | null;
+  strategy_version?: number | null;
+  // ── Spec 24 §5.5: two of the four additions, each with its reason. No later
+  // spec may add a fifth without the same justification.
+  /**
+   * §3.5 item 4. A piece that deliberately broke its own format rule must say so
+   * in the record analysis reads, or the rule looks like it was never there.
+   */
+  rule_overrides?: { rule_id: string; field: string; reason: string; by: string; at: string }[];
+  /**
+   * §14.3. A migrated piece already sitting at `build` with no birth gets its
+   * snapshot when she completes its costume, which is NOT its birth. Analysis
+   * must be able to tell the difference, or the honesty rule breaks at the source.
+   */
+  taken_late?: { reason: string };
+}
+
+/**
+ * Spec 24 §5.5. Materials belong to the piece, because the piece is the one
+ * identity (S2) — anywhere else would be a second copy of the association.
+ * A REFERENCE, never a copy of the file (PLAN §3.11).
+ */
+export interface MaterialRef {
+  kind: 'asset' | 'reference' | 'proof';
+  id: string;
+  path: string;
+  attached_at: string;
+  by: string;
+  /** What `rightsCleared` said against this piece's RESOLVED platform, then. */
+  rights_state: 'cleared' | 'blocked';
+  /** The specific missing right, in words, when it did not clear (§9.1). */
+  rights_note?: string;
 }
 
 export interface Piece {
@@ -113,7 +154,7 @@ export interface Piece {
   hook?: string;
   stage: PieceStage;
   costume: Partial<ResolvedCostume>;
-  birth?: BirthSnapshot;
+  birth?: BirthSnapshot | null;
   /** Distribution references a channel; it never re-states the account (S17). */
   channel_id?: string;
   scheduled_date?: string;
@@ -121,6 +162,65 @@ export interface Piece {
   created_month?: string;
   /** Free-standing notes that belong to the piece itself. */
   notes?: string;
+  // ── Spec 24 §5.5, the other two additions.
+  /** Attached by reference. Detaching touches nothing at the source (§8.2). */
+  materials?: MaterialRef[];
+  /**
+   * S4 births separate pieces from one exploration. Without a batch id, "these
+   * three came from one selection" is unrecoverable, and S5's held and changed
+   * variables could then only be inferred — which the migration already refused
+   * to do, correctly.
+   */
+  batch_id?: string;
+  /**
+   * Spec 25 §3.4. The ONE pointer everything else reads: review, the client
+   * preview projection, scheduling and the birth snapshot all follow it, so no
+   * copy of a draft is made anywhere (PLAN §3.11, the one-truth rule).
+   */
+  current_draft_version_id?: string;
+}
+
+// ── 7.2b The internal brief (spec 24 §6.5) ───────────────────────────────────
+//
+// Declared HERE, once, for the whole engine family, so no later spec invents a
+// second one. Spec 25 reads these eight fields through its `resolveBrief`.
+
+export interface InternalBrief {
+  id: string;
+  piece_id: string;
+  brief_version: number;
+  /** The single thing this piece says. */
+  one_point: string;
+  /** What makes it worth watching — the friction the audience feels. */
+  tension: string;
+  /** The turn: what they see differently by the end. */
+  realization: string;
+  /** What they leave with even if they never buy. */
+  takeaway: string;
+  /** Where the product honestly fits, or null at product intensity `none`. */
+  product_role: string | null;
+  tone: string;
+  /** How it lands, ending on the resolved CTA. */
+  ending: string;
+  /** What must not be in this piece. */
+  leave_out: string[];
+  /** Must equal the resolved CTA (check 2). */
+  cta_id: string;
+  /** proof-library ids; each must resolve (check 3). */
+  proof_used: string[];
+  /** Seed field names this brief drew on (check 5). */
+  derived_from: string[];
+  format_rule: { rule_id: string | null; version: number; overridden_fields: string[] };
+  origin: 'engine' | 'hers';
+  /** Per-field marking, spec 23 §6.4's pattern: her edit clears the marker. */
+  field_sources?: Record<string, 'engine' | 'her'>;
+  /** HERS, verbatim, when she wrote one (the seam spec 25 §2.3 names). */
+  hook?: string;
+  run_id?: string;
+  packet_id?: string;
+  context_version?: number;
+  written_at: string;
+  by: string;
 }
 
 // ── 7.3 Channel (S17) ────────────────────────────────────────────────────────
@@ -136,6 +236,20 @@ export interface Channel {
   timezone: string | null;
   posting_permission: 'we-post' | 'client-posts' | 'unknown';
   note?: string;
+  // ── Spec 26 §5.1: the only two additions, each with its reason.
+  /**
+   * The earliest publication date this channel collects from. It was a
+   * hard-coded `TRACK_SINCE` in ig-sync; per channel it is what makes an honest
+   * "collecting since" line possible instead of a fake zero. Defaults to the
+   * connection date; hers to finalize.
+   */
+  track_since?: string | null;
+  /**
+   * Reading a client-owned account's numbers is a permission distinct from
+   * posting to it (S17 lists posting only). Collection refuses on `not-granted`;
+   * `unknown` collects and raises a sort-queue item for her.
+   */
+  metrics_permission?: 'granted' | 'not-granted' | 'unknown';
 }
 
 // ── 7.4 Curated parameter (S11) ──────────────────────────────────────────────
@@ -169,14 +283,44 @@ export interface MetricObservation {
   retry_state?: 'none' | 'retrying' | 'backfilled';
   last_successful_sync?: string;
   deleted_on_platform?: boolean;
+  // ── Spec 26 §5.3: four additions and one rule. The rule is that the store is
+  // append-only for real — a correction is a new row and the old row stays.
+  /** `lifetime` is what the pipe actually fetched; `window` is materialized (§7). */
+  kind_of_row?: 'lifetime' | 'window';
+  /** The calendar date in the CHANNEL's timezone. `fetched_at` is UTC. */
+  local_date?: string;
+  /** Migrated history has only a snapshot date, so it may never claim hourly age. */
+  fetch_time_precision?: 'exact' | 'day';
+  /** The sync run that produced it. This is what turns "no data" into a reason. */
+  source_run_id?: string | null;
+  /** Set on `window` rows only (§5.7). */
+  window_state?: WindowState;
+  /** The coverage gap that made a window unavailable. Never a zero. */
+  unavailable_reason?: string;
+  /** The platform this row came from. Present once the store went platform-neutral. */
+  platform?: string;
 }
+
+/** §5.7. A window is a fact about a moment; it materializes once. */
+export type WindowState = 'materialized' | 'too-early' | 'unavailable';
 
 /** A stretch with no data is a COVERAGE GAP, never a slump (S7). */
 export interface CoverageGap {
   channel_id: string;
   from: string;
   to: string;
-  reason: 'sync-stalled' | 'not-connected' | 'platform-error' | 'unknown';
+  /**
+   * Spec 26 §5.6 adds the last two. A stall and a deliberate stop must never
+   * render the same: one is a hole, the other is a boundary.
+   */
+  reason:
+    | 'sync-stalled' | 'not-connected' | 'platform-error' | 'unknown'
+    | 'switched-off' | 'not-yet-tracked';
+  /**
+   * A run with `completed: false` covers only the posts it observed. Naming them
+   * is what stops a partial run being reported as a whole day (§5.6).
+   */
+  missed_platform_post_ids?: string[];
 }
 
 /** Observed platform metrics and attributed business outcomes stay separate (S23). */
@@ -188,6 +332,10 @@ export interface AttributedOutcome {
   attribution_method: string | null;
   /** With no declared source and method, it displays as unknown. Never inferred. */
   status: 'declared' | 'unknown';
+  // ── Spec 26 §5.10: the address, the period and the optional channel.
+  period_start?: string;
+  period_end?: string;
+  channel_id?: string | null;
 }
 
 // ── 7.6 Intake round (S10) ───────────────────────────────────────────────────
@@ -237,14 +385,30 @@ export interface RightsRecord {
   restriction: 'none' | 'internal-only' | 'blocked';
 }
 
-/** A gate blocks publication when a required right is absent (S21). */
-export function rightsCleared(r: RightsRecord | undefined, platform: string): boolean {
+/**
+ * A gate blocks publication when a required right is absent (S21).
+ *
+ * Spec 25 §7.2, the one correction to the shipped helper, made IN PLACE rather
+ * than as a parallel object (spec 22 §11's pattern): the undated form checked
+ * expiry against *now*, so a piece scheduled for three weeks out, using a photo
+ * whose consent expires in two, passed today and was wrong on the day it posted.
+ * `rightsCleared` now delegates to the dated form with now, so every existing
+ * caller keeps working unchanged, and the gate calls the dated form with the
+ * piece's scheduled date.
+ */
+export function rightsClearedAt(
+  r: RightsRecord | undefined, platform: string, at: string,
+): boolean {
   if (!r) return false;
   if (r.restriction === 'blocked') return false;
   if (r.consent !== 'given') return false;
   if (r.permitted_platforms.length && !r.permitted_platforms.includes(platform)) return false;
-  if (r.expiry && new Date(r.expiry).getTime() < Date.now()) return false;
+  if (r.expiry && new Date(r.expiry).getTime() < new Date(at).getTime()) return false;
   return true;
+}
+
+export function rightsCleared(r: RightsRecord | undefined, platform: string): boolean {
+  return rightsClearedAt(r, platform, new Date().toISOString());
 }
 
 // ── 7.9 Outside-tool handoff (S18) ───────────────────────────────────────────
@@ -300,6 +464,13 @@ export interface ContextPacket {
 
 export type FeedbackScope = 'piece' | 'seed' | 'profile-rule' | 'candidate-strategy-change';
 
+/**
+ * Spec 25 §8.2. PLAN §5.1 names four routes; a fifth class exists because most
+ * feedback is not durable at all, and pretending otherwise is how a system fills
+ * up with noise.
+ */
+export type FeedbackClass = 'piece-only' | 'voice' | 'seed' | 'format' | 'performance';
+
 export interface FeedbackItem {
   id: string;
   scope: FeedbackScope;
@@ -310,6 +481,15 @@ export interface FeedbackItem {
   proposed_diff?: { path: string; before: unknown; after: unknown };
   decision?: { by: string; at: string; verdict: 'accepted' | 'rejected'; note?: string };
   routed_to?: string;
+  // ── Spec 25 §8, the three additions, each with its reason.
+  /** §8.1: which of the three capture moments this came from. There is no fourth. */
+  moment?: 'her-review' | 'client-review' | 'after-posting';
+  /** §8.3: the engine PROPOSES a class. Nothing routes on a proposed class alone. */
+  proposed_class?: FeedbackClass;
+  /** Set only by her confirmation. Every routing path asserts this. */
+  confirmed_class?: FeedbackClass;
+  /** §8.4 "edit and accept": her edited version, with the original proposal kept. */
+  applied_diff?: { path: string; before: unknown; after: unknown };
 }
 
 // ── 7.13 Gate set (S14) ──────────────────────────────────────────────────────
@@ -334,6 +514,29 @@ export const OPERATIONAL_GATES: Gate[] = [
   { id: 'format', name: 'Format', kind: 'operational', question: 'Does the piece behave properly on its platform?' },
 ];
 
+// ── 7.14 Taste rule (spec 25 §9.2, spec 10 re-cut) ───────────────────────────
+//
+// Declared HERE, once, because the owner zone has no profile body to hold it and
+// no later spec may define a second one. A rule is TEXT the engine reads openly,
+// never a weight: it is visible, hers, editable and deletable, and nothing about
+// it trains.
+
+export interface TasteRule {
+  id: string;
+  /** One plain line, in her language. */
+  rule: string;
+  strength: 'law' | 'lean';
+  state: 'proposed' | 'active' | 'retired';
+  /** The deltas and decisions that made it. NEVER leaves the owner surface. */
+  evidence_refs: string[];
+  /** Set only by the de-identification guard in §9.3. No guard, no crossing. */
+  de_identified: boolean;
+  proposed_at: string;
+  accepted_at?: string;
+  last_confirmed?: string;
+  retired_at?: string;
+}
+
 // ── Profile lifecycle (S22, spec 21 §6) ──────────────────────────────────────
 
 export type Lifecycle = 'setup' | 'active' | 'paused' | 'closing' | 'archived';
@@ -341,6 +544,14 @@ export type Lifecycle = 'setup' | 'active' | 'paused' | 'closing' | 'archived';
 export interface LifecyclePolicy {
   state: Lifecycle;
   switch_behavior: string;
+  /**
+   * Spec 22 §11.1: client access is SCOPED, not boolean. `setup` is exactly the
+   * phase intake exists for, and the dashboard questionnaire is give-point 1 —
+   * as spec 21 shipped it, the only phase where intake happens was the phase
+   * where the client could not reach it.
+   */
+  client_doors: ClientDoor[];
+  /** Derived from `client_doors`, so nothing that read the old field breaks. */
   client_access: boolean;
   connector_revocation: boolean;
   export_package: boolean;
@@ -350,30 +561,236 @@ export interface LifecyclePolicy {
   deletion_authority: 'owner-only-with-export';
 }
 
+const policy = (p: Omit<LifecyclePolicy, 'client_access'>): LifecyclePolicy =>
+  ({ ...p, client_access: p.client_doors.length > 0 });
+
 export const LIFECYCLE_POLICY: Record<Lifecycle, LifecyclePolicy> = {
-  setup: {
+  setup: policy({
     state: 'setup', switch_behavior: 'positions unset; creation cannot open until strategy locks',
-    client_access: false, connector_revocation: false, export_package: false,
+    // Intake, and nothing else. Not assets, not review, not perception, not a
+    // single see-point (spec 22 §11.1, acceptance test 12).
+    client_doors: ['give:intake'],
+    connector_revocation: false, export_package: false,
     retention: 'forever', deletion_authority: 'owner-only-with-export',
-  },
-  active: {
+  }),
+  active: policy({
     state: 'active', switch_behavior: 'her positions apply',
-    client_access: true, connector_revocation: false, export_package: false,
+    client_doors: [...CLIENT_GIVE_DOORS, ...CLIENT_SEE_DOORS],
+    connector_revocation: false, export_package: false,
     retention: 'forever', deletion_authority: 'owner-only-with-export',
-  },
-  paused: {
+  }),
+  paused: policy({
     state: 'paused', switch_behavior: 'client-audience switches drop to history; hers stay',
-    client_access: false, connector_revocation: false, export_package: false,
+    client_doors: [], connector_revocation: false, export_package: false,
     retention: 'forever', deletion_authority: 'owner-only-with-export',
-  },
-  closing: {
+  }),
+  closing: policy({
     state: 'closing', switch_behavior: 'everything client-facing drops to history',
-    client_access: false, connector_revocation: true, export_package: true,
+    client_doors: [], connector_revocation: true, export_package: true,
     retention: 'forever', deletion_authority: 'owner-only-with-export',
-  },
-  archived: {
+  }),
+  archived: policy({
     state: 'archived', switch_behavior: 'everything at history; nothing writes',
-    client_access: false, connector_revocation: true, export_package: true,
+    client_doors: [], connector_revocation: true, export_package: true,
     retention: 'forever', deletion_authority: 'owner-only-with-export',
-  },
+  }),
 };
+
+/** The doors a client login may use on a profile in this lifecycle state. */
+export function doorsOpenAt(lifecycle: Lifecycle | undefined): ClientDoor[] {
+  return LIFECYCLE_POLICY[lifecycle ?? 'active'].client_doors;
+}
+
+// ── spec 26 — the tracking store's objects (§5.2, §5.4, §5.5, §5.8, §5.9) ─────
+//
+// Declared here, once, for the whole Analysis Engine family, so no later spec
+// invents a second version (the rule this file opens with).
+
+/**
+ * §5.4. `kind` is the field that prevents the most common silent lie: what may
+ * legally be summed, differenced, or neither.
+ */
+export type MetricKind =
+  /** A lifetime running total. Never sum across days; a per-day figure is a DIFFERENCE. */
+  | 'cumulative'
+  /** A count for one day. Summing is correct; differencing is not. */
+  | 'interval'
+  /** A stock as of that moment. Never sum; growth is a difference. */
+  | 'level';
+
+/** One row of a platform's metric catalogue. Lives in CODE, not in a profile. */
+export interface MetricDefinition {
+  metric_id: string;
+  platform: string;
+  /** The field the platform's own API calls it. */
+  api_field: string;
+  kind: MetricKind;
+  unit: 'count' | 'people' | 'ratio';
+  /** Formats this metric exists for. Empty means every format on the platform. */
+  available_for: string[];
+  introduced_at: string | null;
+  superseded_by: string | null;
+  /**
+   * A metric is not its name. Two observations of the same id with different
+   * versions are NOT comparable, and the store marks them so (§5.4).
+   */
+  definition_version: number;
+  note?: string;
+}
+
+/** §5.5. Without this, a missing day and a failed day look identical. */
+export interface SyncRun {
+  run_id: string;
+  channel_id: string;
+  platform: string;
+  started_at: string;
+  ended_at?: string | null;
+  trigger: 'cron' | 'owner' | 'retry' | 'backfill';
+  connection_status: SyncConnectionStatus;
+  posts_seen: number;
+  posts_observed: number;
+  completed: boolean;
+  attempt: number;
+  error_summary?: string[];
+  /** Set when a run ran out of time; the next tick resumes from it (§6.6). */
+  resume_cursor?: string | null;
+  /** Which posts a partial run never reached. Named, never implied. */
+  missed_platform_post_ids?: string[];
+}
+
+/**
+ * Every way a run can end. `switched-off` and `not-yet-tracked` are decisions,
+ * not faults, and §6.7 requires them to read differently from a stall.
+ */
+export type SyncConnectionStatus =
+  | 'ok' | 'error' | 'platform-error' | 'not-connected'
+  | 'switched-off' | 'not-yet-tracked' | 'permission-refused' | 'unknown';
+
+/** §5.8. The piece ↔ platform-post join, spec 03's mechanism generalized. */
+export interface PostLink {
+  piece_id: string;
+  /** A profile not yet migrated keeps `legacy-card` against the old card id. */
+  id_kind: 'piece' | 'legacy-card';
+  profile_id: string;
+  channel_id: string;
+  platform_post_id: string;
+  post_ref: string;
+  matched_at: string;
+  /**
+   * `time-window-suggested` NEVER attaches on its own: guessing which post a
+   * piece is would poison every downstream number with no visible trace (§8).
+   */
+  match_method: 'url-ref' | 'owner-confirmed' | 'time-window-suggested';
+  confirmed_by?: string | null;
+}
+
+/** §5.2. One row per post the pipe has ever seen, on any platform. */
+export interface PlatformPost {
+  platform_post_id: string;
+  channel_id: string;
+  platform: string;
+  published_at: string;
+  permalink: string | null;
+  /** The join key (§8), produced by the connector's `extractPostRef`. */
+  post_ref: string | null;
+  media_kind: string | null;
+  /** The platform's own word for the container. A HINT, never the truth (S15). */
+  format_hint: string | null;
+  caption: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  deleted_on_platform: boolean;
+}
+
+// ── spec 27 — the reading layer's two objects (§20.1, §20.2) ─────────────────
+//
+// Declared here, once, for the same reason spec 26's are: no later spec may
+// invent a second version. Everything else spec 27 touches — `MatchedComparison`,
+// `MetricObservation`, `CoverageGap`, `AttributedOutcome`, `Piece`,
+// `BirthSnapshot`, `FeedbackItem`, `ContextPacket` — is used exactly as its
+// owning spec defines it, with no field added.
+
+export type VerdictCycle = '30-day' | 'quarter';
+
+/**
+ * §20.1. Append-only, never edited: a re-run appends a new one and the old one
+ * stays, because a verdict is a fact about what we believed on a date.
+ *
+ * `input` is stored WHOLE. The model never sees a database — it sees this
+ * object and nothing else (§12.2).
+ */
+export interface Verdict {
+  id: string;
+  profile_id: string;
+  cycle: VerdictCycle;
+  period_start: string;
+  period_end: string;
+  /** The computed input (§11.2), stored whole. Typed by lib/analysis/verdict.ts. */
+  input: Record<string, unknown>;
+  /** Absent when `analysis.verdict_words` is off, or when the guards rejected twice. */
+  words?: {
+    headline: string;
+    coverage_note: string;
+    patterns: { pattern_ref: string; words: string }[];
+    call: { pattern_ref: string; right_call: 'yes' | 'no' | 'cannot say yet'; words: string };
+    cannot_say_note: string;
+    one_suggestion: string;
+  };
+  guards: { rejected: number; reasons: string[] };
+  run_id: string;
+  model: string | null;
+  effort: string;
+  packet_version: number;
+  context_version: number;
+  state: 'computed' | 'worded' | 'words-withheld';
+  created_at: string;
+}
+
+export type DigestKind = 'monthly' | 'weekly-pulse' | 'client-publication';
+
+/**
+ * §20.2. `published` is false until she approves, and only `client-publication`
+ * entries are ever served to a client (§14). The resolver enforces it server
+ * side, not the UI.
+ */
+export interface Digest {
+  id: string;
+  profile_id: string;
+  kind: DigestKind;
+  period_start: string;
+  period_end: string;
+  /** Each section carries its own computed values. */
+  sections: { id: string; heading: string; lines: string[] }[];
+  coverage: { days_expected: number; days_covered: number; gaps: CoverageGap[] };
+  verdict_ref?: string;
+  published: boolean;
+  approved_by?: string;
+  approved_at?: string;
+  supersedes?: string;
+  run_id: string;
+  created_at: string;
+}
+
+/** §9 (S16). The measuring stick, declared with its subject. */
+export interface MeasurementDeclaration {
+  /** `goal:<id>` or `pillar-job:<pillar id>`. */
+  subject: string;
+  metric_ids: string[];
+  direction: 'up-is-better' | 'down-is-better';
+  calculation: 'count' | 'rate' | 'difference';
+  /** Required when `calculation: rate`; must itself be a catalogue metric. */
+  denominator?: string | null;
+  window: ObservationWindow;
+  /** A value with a period, or the explicit token. Blank is never allowed. */
+  target: { value: number; period: string } | 'direction-only';
+  /** Computed from the catalogue, STORED, so a later platform change is visibly a change. */
+  platform_availability: Record<string, 'available' | 'unavailable'>;
+  /** `none` means analysis stays OFF for that subject. It is a decision, not a blank. */
+  not_measurable_fallback:
+    | 'not-measurable-on-this-platform'
+    | `proxy:${string}`
+    | 'manual-checkin'
+    | 'none';
+  declared_at?: string;
+  declared_by?: string;
+}

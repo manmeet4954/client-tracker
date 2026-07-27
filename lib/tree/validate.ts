@@ -15,11 +15,70 @@ import { CLIENT_GIVE_DOORS, CLIENT_SEE_DOORS } from './contract.ts';
 import { DECLARATIONS, findDeclaration, isDeclared } from './declarations.ts';
 import { FEATURES, declaredSlices } from './features.ts';
 import { SWITCHES, findSwitch, switchExists } from './switches.ts';
+import { PARAMETERS, findVocabularyList } from '../intake/parameters.ts';
+import { derivationViolations } from '../strategy/derivation.ts';
 
 export interface Violation {
-  check: 'no-address' | 'no-switch' | 'no-fifth-door' | 'registry' | 'orphan';
+  check: 'no-address' | 'no-switch' | 'no-fifth-door' | 'registry' | 'orphan' | 'intake'
+    | 'narrowing';
   where: string;
   reason: string;
+}
+
+// ── spec 26 §4.1 — the narrowing rule ────────────────────────────────────────
+//
+// "A child path may declare an audience MORE restrictive than its parent, never
+// less. Law 3 inherits connections downward; it must not force visibility
+// downward." Without it the S16 measurement declarations would leak into the
+// client's strategy summary, which is workshop material (CLAUDE.md rule 1).
+//
+// Two halves, both checked:
+//  1. A PARAMETER (law 2's third level — the compartment inside the box) may
+//     never be broader than the entry it lives in. A compartment more visible
+//     than its box is exactly the leak this rule exists to stop.
+//  2. Any child that widens its parent at all must declare its OWN client door.
+//     That is what `references/from-client` (give:assets) and `logs/tasks`
+//     (see:obligations) do — deliberate doors on hers-by-default folders, not
+//     inherited visibility.
+//
+// Narrowing is always legal, which is the sentence the spec asks the validator
+// to carry, and it is why `goals/*/measurement` can be owner-only inside an
+// `audience: both` parent.
+
+const AUDIENCE_BREADTH: Record<Audience, number> = { owner: 0, client: 1, both: 2 };
+
+/** The nearest declared ancestor of a declared path, or null at the root. */
+function parentDeclaration(path: string): PathDeclaration | null {
+  const parts = path.split('/');
+  for (let i = parts.length - 1; i > 0; i--) {
+    const dec = findDeclaration(parts.slice(0, i).join('/'));
+    if (dec && dec.path !== path) return dec;
+  }
+  return null;
+}
+
+export function narrowingViolations(): Violation[] {
+  const out: Violation[] = [];
+  for (const d of DECLARATIONS) {
+    const parent = parentDeclaration(d.path);
+    if (!parent) continue;
+    const wider = AUDIENCE_BREADTH[d.audience] > AUDIENCE_BREADTH[parent.audience];
+    if (!wider) continue;
+    if (d.kind === 'parameter') {
+      out.push({
+        check: 'narrowing', where: d.path,
+        reason: `a parameter may not be more visible than its entry: "${d.audience}" inside "${parent.path}" (${parent.audience}) — §4.1`,
+      });
+      continue;
+    }
+    if (!d.client_door) {
+      out.push({
+        check: 'narrowing', where: d.path,
+        reason: `widens "${parent.path}" (${parent.audience} → ${d.audience}) without declaring its own client door — visibility is never inherited downward (§4.1)`,
+      });
+    }
+  }
+  return out;
 }
 
 /** Readers that are people or systems rather than paths. */
@@ -66,6 +125,21 @@ export function clientMayRead(path: string): boolean {
   return dec.audience !== 'owner' && !!dec.client_door;
 }
 
+/**
+ * The same two questions, asked of a profile in a given lifecycle state
+ * (spec 22 §11.1). A profile at `setup` opens `give:intake` and nothing else —
+ * not assets, not review, not perception, not a single see-point.
+ */
+export function clientMayWriteAt(path: string, doors: ClientDoor[]): boolean {
+  const dec = findDeclaration(path);
+  return clientMayWrite(path) && !!dec?.client_door && doors.includes(dec.client_door);
+}
+
+export function clientMayReadAt(path: string, doors: ClientDoor[]): boolean {
+  const dec = findDeclaration(path);
+  return clientMayRead(path) && !!dec?.client_door && doors.includes(dec.client_door);
+}
+
 /** Every path a client may ever write, with the door it comes through. */
 export function clientWritablePaths(): { path: string; door: ClientDoor }[] {
   return DECLARATIONS
@@ -82,6 +156,7 @@ export function clientWritablePaths(): { path: string; door: ClientDoor }[] {
 const APP_STATE_SLICES: Record<keyof AppState, true> = {
   clients: true, clientData: true, personalTasks: true, brainDump: true,
   containerMap: true, observations: true, chatLog: true, bindings: true,
+  tasteRules: true,
 };
 
 const CLIENT_DATA_SLICES: Record<keyof ClientData, true> = {
@@ -120,6 +195,73 @@ function orphanViolations(): Violation[] {
     if (seen.has(s)) out.push({ check: 'orphan', where: s, reason: 'claimed by two features' });
     seen.add(s);
   }
+  return out;
+}
+
+// ── Intake: "intake is HOW, never WHAT" made checkable (spec 22 §2) ──────────
+//
+// Three build-refusing checks, straight out of the rule:
+//   1. No question without a parameter, and every parameter lives in a declared
+//      detail folder. If a question exists, a parameter exists.
+//   2. Intake never asks a strategy question. No parameter may address
+//      context/content-strategy — that folder is DERIVED, not collected.
+//   3. Exactly ONE parameter curates into work-log/creation/topics: the
+//      client-ideas lane (§7.5). A second one would be a fifth door.
+
+const DETAIL_ROOTS = ['context/personal-details/', 'context/business-details/'];
+
+export function intakeViolations(): Violation[] {
+  const out: Violation[] = [];
+  let clientIdeaLanes = 0;
+
+  for (const p of PARAMETERS) {
+    if (!isDeclared(p.path)) {
+      out.push({ check: 'no-address', where: `parameter ${p.id}`, reason: `path "${p.path}" is not declared (law 4)` });
+      continue;
+    }
+    if (p.path.startsWith('context/content-strategy')) {
+      out.push({
+        check: 'intake', where: `parameter ${p.id}`,
+        reason: 'intake never asks a strategy question: content-strategy is derived, not collected (§2 rule 2)',
+      });
+    }
+    if (p.curates_to) {
+      if (p.curates_to !== 'work-log/creation/topics') {
+        out.push({
+          check: 'intake', where: `parameter ${p.id}`,
+          reason: `curates into "${p.curates_to}", and the only non-detail target allowed is work-log/creation/topics (§7.5)`,
+        });
+      } else {
+        clientIdeaLanes++;
+      }
+      if (p.path !== 'context/intake/answers') {
+        out.push({
+          check: 'intake', where: `parameter ${p.id}`,
+          reason: 'the client-ideas lane lands at context/intake/answers, the same door as every other answer',
+        });
+      }
+    } else if (!DETAIL_ROOTS.some(r => p.path.startsWith(r))) {
+      out.push({
+        check: 'intake', where: `parameter ${p.id}`,
+        reason: 'a parameter lives under personal-details or business-details (§4.1)',
+      });
+    }
+    if (p.options && !findVocabularyList(p.options)) {
+      out.push({ check: 'intake', where: `parameter ${p.id}`, reason: `unknown vocabulary list "${p.options}"` });
+    }
+  }
+
+  if (clientIdeaLanes !== 1) {
+    out.push({
+      check: 'intake', where: 'the client-ideas lane',
+      reason: `exactly one parameter may curate into the seed bank, and ${clientIdeaLanes} do (§7.5, S19)`,
+    });
+  }
+
+  for (const d of derivationViolations()) {
+    out.push({ check: 'intake', where: d.where, reason: d.reason });
+  }
+
   return out;
 }
 
@@ -212,6 +354,8 @@ export function validateRegistries(): Violation[] {
   for (const f of FEATURES) out.push(...featureViolations(f));
 
   out.push(...orphanViolations());
+  out.push(...intakeViolations());
+  out.push(...narrowingViolations());   // spec 26 §4.1
   return out;
 }
 

@@ -9,12 +9,14 @@ import {
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
   ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData, Topic, ClientGoal,
-  Observation, ChatMessage,
+  Observation, ChatMessage, ProfileOwnerKind,
 } from '@/types';
 import { migrateToContentCards } from '@/lib/migrateContent';
 import { changedScopes } from '@/lib/tree/scopes';
+import type { ProfileBody } from '@/lib/tree/body';
+import type { Lifecycle } from '@/lib/tree/objects';
 import { generateId, CLIENT_COLORS, formatMonthKey } from '@/lib/utils';
-import type { Role } from '@/lib/access';
+import type { ClientWindow, Role } from '@/lib/access';
 import PasscodeGate from '@/components/PasscodeGate';
 
 type AuthStatus = 'loading' | 'needsAuth' | 'authed';
@@ -87,11 +89,15 @@ const SEED: AppState = {
   observations: [],
   chatLog: [],
   bindings: [],
+  tasteRules: [],
 };
 
 export type Action =
   | { type: 'LOAD'; payload: AppState }
-  | { type: 'ADD_CLIENT'; payload: { name: string } }
+  // Spec 28 §4.5 — add-profile is the shell's ONE write. Name and brand colour
+  // are the whole form; the profile is born at lifecycle `setup`, with the
+  // owner_kind she chose, no switch positions and no strategy version.
+  | { type: 'ADD_CLIENT'; payload: { name: string; color?: string; ownerKind?: ProfileOwnerKind; lifecycle?: Lifecycle } }
   | { type: 'REMOVE_CLIENT'; payload: string }
   | { type: 'RENAME_CLIENT'; payload: { id: string; name: string } }
   | { type: 'ADD_CARD'; payload: { clientId: string; card: KanbanCard } }
@@ -184,7 +190,14 @@ export type Action =
   | { type: 'ADD_OBSERVATION'; payload: { observation: Observation } }
   | { type: 'UPDATE_OBSERVATION'; payload: { observation: Observation } }
   | { type: 'DELETE_OBSERVATION'; payload: { observationId: string } }
-  | { type: 'ADD_CHAT_MESSAGE'; payload: { message: ChatMessage } };
+  | { type: 'ADD_CHAT_MESSAGE'; payload: { message: ChatMessage } }
+  // Spec 22: the intake, curation and strategy surfaces write into the
+  // profile's path-addressed body. They build the new body with the tree's own
+  // functions (which refuse an undeclared path, a writer a path never declared,
+  // and any write at history), and hand the whole object back here. The save
+  // door still scopes by path — changedScopes diffs body paths one by one.
+  | { type: 'SET_BODY'; payload: { clientId: string; body: ProfileBody } }
+  | { type: 'SET_LIFECYCLE'; payload: { clientId: string; lifecycle: Lifecycle } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -226,8 +239,12 @@ function reducer(state: AppState, action: Action): AppState {
       const client: Client = {
         id,
         name: action.payload.name,
-        color: CLIENT_COLORS[colorIndex],
+        color: action.payload.color ?? CLIENT_COLORS[colorIndex],
         createdAt: new Date().toISOString(),
+        ...(action.payload.ownerKind ? { ownerKind: action.payload.ownerKind } : {}),
+        ...(action.payload.lifecycle
+          ? { lifecycle: action.payload.lifecycle, lifecycleAt: new Date().toISOString() }
+          : {}),
       };
       return {
         ...state,
@@ -892,6 +909,20 @@ function reducer(state: AppState, action: Action): AppState {
         chatLog: [...(state.chatLog ?? []), action.payload.message].slice(-100),
       };
 
+    case 'SET_BODY':
+      return updateClient(action.payload.clientId, { body: action.payload.body });
+
+    case 'SET_LIFECYCLE':
+      return {
+        ...state,
+        clients: state.clients.map(c =>
+          c.id === action.payload.clientId
+            // The date the state was set, so the shelf can say "Paused since
+            // 3 June" instead of just "Paused" (spec 28 §4.6).
+            ? { ...c, lifecycle: action.payload.lifecycle, lifecycleAt: new Date().toISOString() }
+            : c),
+      };
+
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };
 
@@ -1030,6 +1061,14 @@ interface CtxValue {
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
   role: Role;
+  /**
+   * Spec 28 §15.2: the ordered windows each of this login's profiles grants,
+   * computed SERVER SIDE from doors + switches + lifecycle and sent with the
+   * payload. A client login's body carries no switch positions (the toolset is
+   * `audience: owner`), so their navigation is rendered from the server's answer
+   * rather than from a guess made here. Empty for the owner, who has apps.
+   */
+  windows: Record<string, ClientWindow[]>;
   logout: () => void;
   /** Persist the latest state to the server immediately and resolve once it
    *  lands (true) or fails (false). Call right after a dispatch whose result
@@ -1045,6 +1084,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, SEED);
   const [status, setStatus] = React.useState<AuthStatus>('loading');
   const [role, setRole] = React.useState<Role>('owner');
+  const [windows, setWindows] = React.useState<Record<string, ClientWindow[]>>({});
   const [authError, setAuthError] = React.useState('');
   const [selectedMonth, setSelectedMonth] = React.useState(() => formatMonthKey(new Date()));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1080,8 +1120,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch('/api/state', { cache: 'no-store' });
       if (res.status === 401) { setStatus('needsAuth'); return; }
       if (!res.ok) { setStatus('needsAuth'); return; }
-      const { role: r, state: s } = await res.json();
+      const { role: r, state: s, windows: w } = await res.json();
       setRole(r as Role);
+      setWindows((w ?? {}) as Record<string, ClientWindow[]>);
       // Don't echo freshly-loaded data back to the server — that would clobber
       // out-of-band writes (e.g. a link just saved from the share sheet).
       if (s) {
@@ -1199,7 +1240,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   if (status === 'needsAuth') return <PasscodeGate onSubmit={login} error={authError} />;
 
   return (
-    <AppContext.Provider value={{ state, dispatch, selectedMonth, setSelectedMonth, role, logout, saveNow }}>
+    <AppContext.Provider value={{ state, dispatch, selectedMonth, setSelectedMonth, role, windows, logout, saveNow }}>
       {children}
     </AppContext.Provider>
   );

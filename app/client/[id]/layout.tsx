@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BookMarked, Palette, Menu, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen, MessageCircle, ListTodo, Flag, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, BookMarked, Palette, Menu, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen, MessageCircle, ListTodo, Flag, BarChart3, BookOpen, Compass, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
 import Sidebar from '@/components/Sidebar';
 import { useClient, useApp } from '@/contexts/AppContext';
+import { isCutOver, staysOnLegacy } from '@/lib/shell/profile';
+import { legacyDestination } from '@/lib/shell/routes';
 
 const TABS = [
   { label: 'Dashboard', href: '', icon: LayoutDashboard },
@@ -39,11 +41,29 @@ export default function ClientLayout({
   params: { id: string };
 }) {
   const { client, data } = useClient(params.id);
-  const { role } = useApp();
+  const { role, state } = useApp();
   const pathname = usePathname();
   const router = useRouter();
   const base = `/client/${params.id}`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // ── Spec 28 §11.2 and §16.5 — the per-profile cutover, in ONE place ────────
+  //
+  // Every legacy address keeps rendering, unchanged, until THAT profile cuts
+  // over: a migrated body AND a locked strategy (§16.3). After that it
+  // permanently redirects to its new address. Nothing is deleted, nothing is
+  // copied, and no data is written by the cutover — it is a routing change over
+  // data that already moved.
+  //
+  // §19's interim ruling holds here too: a staff binding and Sonia's binding
+  // keep these screens for that profile until she answers.
+  const bindingKind = (state.bindings ?? [])
+    .find(b => b.role === role && b.profileId === params.id)?.kind;
+  const movesOn = !staysOnLegacy(role, bindingKind) && isCutOver(data);
+  const newAddress = movesOn ? legacyDestination(pathname, params.id) : null;
+  useEffect(() => {
+    if (newAddress) router.replace(newAddress);
+  }, [newAddress, router]);
 
   // Shiva's login doesn't get the Dashboard tab, so her landing page is the
   // Content board. Merushri has the full workspace including Dashboard.
@@ -62,9 +82,20 @@ export default function ClientLayout({
       </div>
     );
   }
+  if (newAddress) return null;   // this profile has cut over; the redirect is running
 
   // Client-specific extra tabs
   const tabs: Tab[] = [...TABS];
+
+  // Spec 22: intake, curation and strategy are HERS. The client never sees the
+  // workshop, and staff logins do not run a profile's strategy.
+  if (role === 'owner') {
+    tabs.push({ label: 'Intake', href: '/intake', icon: ClipboardList });
+    tabs.push({ label: 'Curation', href: '/curation', icon: BookOpen });
+    tabs.push({ label: 'Strategy', href: '/strategy', icon: Compass });
+    // Spec 23: the Engine Room. Hers, always — the workshop rule is absolute.
+    tabs.push({ label: 'Engine', href: '/engine', icon: Sparkles });
+  }
   if (/divine/i.test(client.name)) {
     tabs.push({ label: 'Cold Calls', href: '/coldcalls', icon: PhoneCall });
     tabs.push({ label: 'Answers', href: '/answers', icon: MessageCircle });

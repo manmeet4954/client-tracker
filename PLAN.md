@@ -170,7 +170,9 @@ written down before, and it is the actual deliverable of this section.
 │   │   ├── market/                 ← industry, USP, competitors
 │   │   ├── numbers/                ← team size, revenue
 │   │   ├── pains/                  ← struggles, pain points
-│   │   └── audience-raw/           ← audience as described, uncurated
+│   │   ├── audience-raw/           ← audience as described, uncurated
+│   │   └── materials/              ← what they already have: brand book, logos,
+│   │                                 photo bank, existing accounts (spec 22)
 │   └── content-strategy/           ← DERIVED; the brand book; locked first
 │       ├── positioning/
 │       ├── platforms/              ← each platform its own folder:
@@ -192,8 +194,14 @@ written down before, and it is the actual deliverable of this section.
 │
 └── work-log/                       ← the living, daily side
     ├── creation/                   ← the Content Engine's home
-    │   ├── topics/                 ← the seed pool
+    │   ├── topics/                 ← the seed pool (entry type: SEED only, S24)
+    │   │   ├── captures/           ← raw talked-out material, verbatim forever (spec 23)
+    │   │   └── proposals/          ← engine-proposed seeds, untouchable until picked up (spec 23)
     │   ├── making/                 ← drafts and versions
+    │   │   ├── briefs/             ← the internal brief before any copy (spec 24)
+    │   │   ├── handoffs/           ← S18 outside-tool round-trip records (spec 24)
+    │   │   └── gate-runs/          ← immutable seven-gate verdicts per draft (spec 25)
+    │   ├── costume-recommendations/ ← analysis-born suggestions, evidence required (spec 25)
     │   ├── review/                 ← client approval + perception capture
     │   ├── scheduling/
     │   ├── channels/               ← each channel an entry, tied to a platform
@@ -211,9 +219,16 @@ written down before, and it is the actual deliverable of this section.
     │   ├── changes/                ← alterations to the standing agreement
     │   ├── pipelines/              ← Lists, Cold Calls, Orders (ratified from spec 21)
     │   ├── effort/                 ← Momentum + Money meter, her profiles only (ratified)
-    │   └── observations/           ← her per-profile private notes (ratified)
+    │   ├── observations/           ← her per-profile private notes (ratified)
+    │   ├── engine-runs/            ← every engine call logged: model, packet, cost (spec 23)
+    │   └── feedback/               ← scoped, routed feedback with her decisions (spec 23)
     └── analysis/                   ← the Analysis Engine's home
         ├── study-own-data/
+        │   ├── observations/       ← append-only metric observations (spec 26)
+        │   ├── sync-health/        ← runs, gaps, connection status — absence with reasons (spec 26)
+        │   └── links/              ← the piece ↔ platform-post join (spec 26)
+        ├── attributed-outcomes/    ← business outcomes behind the S23 wall (spec 26)
+        ├── verdicts/               ← the 30-day and quarter calls, citable by id (spec 27)
         ├── goal-tracking/
         ├── client-perception/
         └── market-research/
@@ -1028,6 +1043,16 @@ there is no separate register.
   the plan IS the permission. Her gates remain exactly three: the deploy
   go (every time), changes to this plan, and anything touching money or
   external accounts. Everything else proceeds and is reported done.
+- **BATCH MODE (her order, 2026-07-26 — supersedes the one-by-one loop):**
+  all remaining specs (22–28) are written FIRST, none brought to her
+  individually; the control room verifies each against the laws as it
+  lands (her per-spec approval is removed, verification is not). Then the
+  builds run in order, undeployed; then ONE deploy on her go; then one
+  COLLECTIVE phase where she tests, approves, and answers everything that
+  accumulated (including spec 21's 13 migration confirmations and the
+  intake vocabulary pass). The control room runs the spec-writing itself
+  in fresh sessions — she opens no chats. Spec 21's real ResumeGuru
+  apply is parked to the collective phase unless she says "agree" sooner.
 
 ---
 
@@ -1338,3 +1363,192 @@ are deleted.
 **BUILD CLEARED 2026-07-25:** with all five questions closed, spec 21 may
 build. Frozen paths (the chat thread, the untagged inbox) stay out of
 scope exactly as the spec already marks them.
+
+---
+
+## 12. Batch-mode spec integration record (control room)
+
+- 2026-07-27 — **Spec 23 (Content Engine I — Seed Bank & Engine Room) filed
+  and verified.** Laws honored; eight law-4 folders ratified across specs 23
+  and 26 (see the tree). Notable: the verbatim guard makes "raw thought kept
+  forever" mechanical; only-locked-seeds-mother-pieces is a data-layer guard;
+  the client-idea route runs through intake (no fifth door); spec 21's
+  `creation.seed_input_client` switch corrected to a working-mode flag. ONE
+  question parked for her collective phase: a monthly ceiling on engine model
+  spend (~$15–25/month at expected use; options: none / soft / hard).
+  Everything else builds while that waits.
+- 2026-07-27 — **Spec 22 (Intake & Context) filed and verified.** The full
+  41-parameter inventory drafted (spec 08's 16 questions all survive; 24 new
+  from the tree), shipped `vocabulary: draft` — no round reaches a client
+  before her vocabulary pass at the collective phase. Intake-is-HOW enforced
+  by the validator (no question without a parameter, no strategy questions,
+  exactly one client-ideas lane). The derivation surface, gate-set v1, the
+  switchboard step, and the one-act strategy lock specced; creation refused
+  server-side until strategy locks (migrated profiles exempt until they
+  lock). One law-4 folder ratified: `business-details/materials/`. Three
+  named corrections to spec 21's shipped code (setup-lifecycle intake
+  access, the answers amendment guard, declaration edits) — land at build.
+  Zero open questions; four candidates answered from the plan.
+- 2026-07-27 — **Spec 26 (Analysis Engine I — The Tracking Store) filed and
+  verified.** The ig_* tables generalize to platform-neutral, append-only
+  stores with sync-health machinery; backfill can never reconstruct missing
+  days (the one most important sentence); the S16 measuring-stick gate blocks
+  analysis per goal, never collection; the S23 wall is store-level. Zero open
+  questions — four candidates all answered from the plan. Three values go to
+  her sort queue as suggestions (thresholds, track-since, channel timezone).
+  Cron moves to twice daily for honest first-24h windows.
+- 2026-07-27 — **Spec 27 (Analysis Engine II — Bifurcation, Compare &
+  Verdicts) filed and verified.** The eight reading surfaces on one
+  computation layer; four honest states everywhere (value / too-early /
+  no-coverage / not-measurable); five store-level refusals; the number
+  guard makes "AI can never invent a metric" mechanical; the client sees
+  only her-approved publications, never live queries; the loop back
+  routes with evidence required at the write door. One law-4 folder
+  ratified: `analysis/verdicts/`. One correction to spec 23 accepted:
+  the proposals path's switch moves to `creation.engine` so cost-free
+  analysis proposals survive with the model call off. Specs 03–07's
+  machinery absorbed with named supersessions. Zero open questions; six
+  candidates answered from the plan; six suggested values (bands, quarter
+  length, pulse time, thresholds, track-since, timezones) queued for her
+  collective phase as ONE list.
+- 2026-07-27 — **Spec 24 (Content Engine II — Costume, Briefs & Format
+  Rules) filed and verified.** The costume surface with the variant grid
+  (multi-select explores, each confirmed row births one piece with an
+  unrewritable birth snapshot); the internal brief as a schema-capped
+  model call (a brief can never smuggle in a draft); format rules merge
+  field-by-field, override beats universal; the S18 handoff contract
+  ships manual-first with Canva as the parked API case; matched
+  comparisons are born at resolve (the only honest moment); a second
+  real leak found and closed (pieces at idea/build would have reached
+  client logins — entry-level stage gate added). Two law-4 folders
+  ratified: `making/briefs/`, `making/handoffs/`. Zero open questions;
+  seven candidates answered from the plan. Notable wall, stated plainly:
+  the costume surface opens on a profile only after its strategy locks —
+  ResumeGuru needs her strategy pass first (the collective phase).
+- 2026-07-27 — **Spec 25 (Content Engine III — Drafting, Gates & Feedback)
+  filed and verified.** Drafting as a schema-typed call (a carousel cannot
+  BE an essay — her slide law is structural); her hook survives verbatim
+  or the draft is rejected; the seven gates run as machine-checks-first
+  then a SEPARATE reviewer call (a model never grades its own output; a
+  pass with no evidence span is rejected); gate versions forward-only;
+  rights block scheduling (not review), checked against the SCHEDULED
+  date, with a forward-only legacy-grace debt; feedback routes as
+  proposed diffs only, her acceptance creates the dated strategy version;
+  the taste layer (spec 10 re-cut) lives in the owner zone at
+  `owner/taste-rules/` with a mechanical de-identification guard — her
+  instructions may cross profiles, a client's data never. Three law-4
+  folders ratified: `making/gate-runs/`, `creation/
+  costume-recommendations/`, and `owner/taste-rules/` (owner zone, not in
+  a profile). ONE open question for her collective phase: does she ever
+  want cross-profile performance evidence (spec 10's playbook half) —
+  three shapes offered; nothing depends on the answer. The revise loop
+  caps at two attempts ("that usually means the brief is wrong, not the
+  copy").
+- 2026-07-27 — **Spec 28 (The Profile Interface) filed and verified — THE
+  SPEC SET (21–28) IS COMPLETE.** The shell: shelf (cards show status
+  never content; today strip = My Day's surviving half; weekly pulse
+  composed per-profile), one-world profile interiors (three apps, owner
+  corner, the on-screen cascade trace generated from cascadeOf — never
+  hand-written), the render resolver as the single visibility authority,
+  client windows as exactly the doors, the /p/ deep-link built per her
+  Q2 answer, the complete route map with every live route's fate, and a
+  per-profile cutover DERIVED from body_version + strategy_version (no
+  flag, rollback = the legacy routes that stay deployed). ZERO law-4
+  additions — four candidates refused with reasons (a shell that stores
+  can disagree with the tree). ONE genuine open question, correctly
+  raised: what do STAFF logins (the intern) and Sonia see — the plan's
+  audience vocabulary has only owner/client, and Orders cannot render
+  for a client under the four-door law. Interim: those logins keep the
+  legacy screens per profile; nothing breaks, nothing waits. Hers, at
+  the collective phase.
+- 2026-07-27 — **BUILD 22 verified and merged (96/96 tests, tsc clean,
+  production build green).** Intake machinery, curation, derivation, gate
+  set, switchboard, one-act lock, the three spec-21 corrections, round-0
+  mapping. Four spec ambiguities resolved by the builder inside the plan,
+  all ACCEPTED by the control room: (a) all 52 named parameters built
+  (the spec's "41" arithmetic was wrong; dropping named rows would be the
+  worse error — trimming is her vocabulary pass anyway); (b) 18 params
+  with no strategy reader carry reader: none-by-design (they feed the
+  engine's context bundle); (c) generation proceeds and MARKS drafts,
+  SENDING refuses; (d) all parameters asked_of: client. Builds continue
+  in order.
+- 2026-07-27 — **BUILD 23 verified and merged (132/132 tests reproduced by
+  the control room; builder's typecheck + production build green).** The
+  Engine Room, seed bank, captures, the full model layer (packet
+  assembler with never-trimmed Block A, six checks, run log with cost on
+  every run), proposals with untouchable-until-picked-up at the write
+  door, canMotherPieces. Three builder resolutions ACCEPTED: owns:[] for
+  the working-mode flag (owns holds paths, not parameters); the
+  strategy-lock deadlock avoided by asserting seed-extraction's
+  prerequisite at the extraction door rather than during the first lock;
+  the migration exemption on the lock guard (migrated pieces arriving
+  whole are the migration, not a bypass). No ceiling behavior built —
+  her open question untouched. Builds continue: 24 next.
+- 2026-07-27 — **BUILD 24 verified and merged (207/207 tests + typecheck
+  reproduced by the control room; builder's production build green).**
+  Costume surface + variant grid, S15 birth snapshots, the brief with
+  schema-capped fields, format rules with field-by-field override merge,
+  materials + rights at attachment, the S18 manual handoff, the matched-
+  comparison offer, and the §13.2 stage gate. A THIRD real leak found and
+  closed: platform format-rule overrides were client-readable — now
+  owner-only. Five builder resolutions ACCEPTED (notably: machine-
+  readable never-clauses as {when, says} objects while prose strings
+  forbid nothing; the late birth snapshot as the one allowed amendment;
+  the universal library ships only the four plan-drafted rules and says
+  "no rule yet" honestly). Builds continue: 25 next.
+- 2026-07-27 — **BUILD 25 verified and merged (260/260 tests + typecheck
+  reproduced by the control room; builder's production build green).**
+  Drafts as kept objects with edit deltas, the seven gates (machine
+  checks first, separate reviewer call, evidence spans required,
+  forward-only versions), the rights gate with the dated check and
+  legacy-grace, feedback as proposed diffs only, and the taste layer in
+  the owner zone behind the full leak guard. Six builder resolutions
+  ACCEPTED (notably: the tasteRules owner-zone slice wired through all
+  four access functions; migration's unknown-rights placeholder counts
+  as absence under grace, while a recorded refusal always blocks; the
+  Content Engine family is now data-and-model complete — its screens
+  mount in spec 28). Nothing built for the playbook or ceilings (hers).
+  Build 26 running in parallel; 27 next after both.
+- 2026-07-27 — **BUILD 26 verified and merged (parallel with 25; combined
+  suite 291/291 + typecheck reproduced by the control room).** The
+  platform-neutral tracking store: seven SQL tables (append-only enforced
+  by trigger), the connector contract with the live ig-sync logic MOVED
+  not rewritten, the twice-daily generalized sync with sync-run records
+  and honest gap reasons, window materialization, the S16 declaration
+  validation, the S23 wall, and the idempotent ig_* history migration
+  (dry-run default). Three builder resolutions ACCEPTED — most important:
+  an unwalked switchboard would have KILLED the live pipe on ship;
+  decideCollection keeps collecting (and says why) until she sets
+  positions, per spec 21 §9.6's migrated-profile rule. The parallel
+  build merged with one trivial conflict (test registry union). Hers,
+  unchanged: the SQL run + setup day; the stall still loses a day per
+  day. Build 27 next.
+- 2026-07-27 — **BUILD 27 verified and merged (335/335 tests + typecheck
+  reproduced by the control room; builder's production build green).**
+  The full analysis reading layer: one read-only computation layer, the
+  eight surfaces (coverage always first), Compare calling
+  resolveComparison unmodified, both verdict cycles with the four word
+  guards (a fabricated number cannot reach a rendered sentence), the
+  digest family, the routed loop-back, and the client-publication gate.
+  Six builder resolutions ACCEPTED — notably the exact pipe-only write
+  narrowing (strict only where fed_by is entirely pipes, so the spec-21
+  migration keeps working) and comparison metadata traveling AROUND the
+  canonical object rather than inside it. The three suggested values
+  render as a visible waiting-on-her block. ONE build remains: 28.
+- 2026-07-27 — **BUILD 28 verified and merged — THE BATCH IS BUILT.
+  396/396 tests + typecheck reproduced by the control room** (two
+  apparent failures traced to iCloud-evicted working copies of two
+  frozen files on the control machine — git objects intact, restored,
+  suite green; the chat and sidebar were never actually touched).
+  The shell: /shelf with cards/strip/pulse, the profile interior with
+  the three apps and the corner, renderState as the one visibility
+  authority, the client shell with mini-shelf, the five-branch deep
+  link, the route map with derived per-profile cutover, and §19's
+  staff/Sonia interim built explicitly. Seven builder resolutions
+  ACCEPTED (notably: the deeplink prerequisite corrected to
+  creation.review per her Q2 answer; server-side switch stripping added
+  removes-only; fixed client-audience switches exempted from the one
+  lock check that would have refused every no-client profile). §16.6
+  (route removals) deliberately NOT executed — legacy screens run until
+  the last profile cuts over. ALL SEVEN BUILDS COMPLETE: 22, 23, 24,
+  25, 26, 27, 28. Next: her deploy go, then the collective phase.

@@ -450,3 +450,15 @@ owner-only dry-run door at `app/api/migrate-profile`. Access now binds by
 profile id and `RESTRICTED_MATCHERS` is deleted. All ten acceptance tests plus
 spec 12's re-run security checks pass — 70/70 via `npm test`. Deploy is hers per
 DEPLOY.md; the real-data migration run is still pending her.
+
+**BUILT 2026-07-27, NOT DEPLOYED:** `22 — Intake & Context.md`. The parameter
+inventory (every parameter carrying its own question, all shipping
+`vocabulary: draft` until her pass), versioned intake rounds with a computed
+status, the curation pass with required provenance, the derivation surface, the
+v1 gate set, the switchboard and the one-act lock, plus spec 21's three named
+corrections (lifecycle client access scoped by door, `amendEntry` shut at
+`context/intake/answers`, the declaration edits). Creation is refused server
+side until a profile locks. One law-4 folder ratified:
+`context/business-details/materials/`. All 20 acceptance tests green with spec
+21's 70 — 96/96 via `npm test`. Deploy is hers per DEPLOY.md; her vocabulary
+pass is still owed before any round reaches a client.

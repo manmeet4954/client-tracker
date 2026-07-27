@@ -1,6 +1,10 @@
 {
   "crons": [
-    { "path": "/api/ig-sync", "schedule": "30 3 * * *" },
-    { "path": "/api/ig-tag", "schedule": "0 4 * * *" }
+    { "path": "/api/metrics-sync", "schedule": "30 3 * * *" },
+    { "path": "/api/metrics-sync", "schedule": "30 15 * * *" },
+    { "path": "/api/ig-tag", "schedule": "0 4 * * *" },
+    { "path": "/api/analysis/digest?kind=monthly", "schedule": "0 1 1 * *" },
+    { "path": "/api/analysis/verdict", "schedule": "30 1 1 * *" },
+    { "path": "/api/analysis/digest?kind=weekly-pulse", "schedule": "30 2 * * 1" }
   ]
 }

@@ -1,6 +1,857 @@
 # STATE - Client Dashboard
 
-## 2026-07-25 — SPEC 21 IS BUILT (branch `claude/spec-21-data-layer-6d04af`, NOT deployed)
+## 2026-07-27 — SPEC 28 (THE PROFILE INTERFACE) IS BUILT, NOT DEPLOYED
+
+The last spec in the 22–28 batch. Built in §16.2's order: the frame unreachable,
+then the resolver, then the shelf replacing `/clients`, then the profile interior,
+then the client shell, then the deep link, then the route map. **All of §17's
+tests 1 to 13 are implemented and green as 61 checks, plus the payload halves of
+14 and 16; specs 21 to 27's 335 are still green — 396/396 via `npm test`.** Tests
+15 and 17 (the rendered halves) are named as skips and were verified by hand in
+the browser at 375 px and at desktop. Typecheck clean, production build green with
+dummy env. Nothing is deployed; the deploy is hers per DEPLOY.md.
+
+### What is now true that was not true this morning
+
+1. **The dashboard is profile-first.** Her login lands on a shelf of cards; she
+   enters one profile and sees the three apps of that profile and nothing else.
+   The one-site-with-toggles interface is gone from the interior: inside
+   `/profile/<id>/*` no rendered element links to another profile, and the only
+   route out is `/shelf`. `components/Sidebar.tsx` is retired from the interior
+   and still in the repo, unimported, until the legacy routes go (§16.6).
+2. **One place decides what exists.** `renderState(profile, switch, role)` in
+   `lib/tree/render.ts` composes the cascade, the lifecycle, the audience and the
+   door and takes the most restrictive answer. No screen reads a switch position
+   itself, and the test that proves it scans the source.
+3. **"Not rendered" is a server-side fact now, not a CSS state.** A switch she has
+   SET to hidden takes its paths out of the role-filtered payload; at history the
+   entries travel read-only and every write against them is refused. It only ever
+   removes, and it only acts on a profile whose switchboard she has walked — a
+   migrated profile with no positions keeps rendering what it renders today
+   (spec 21 §9.6).
+4. **Nothing from inside a profile reaches the shelf.** A card carries name,
+   colour, lifecycle chip, counts composed at read time, and one attention line
+   from a fixed vocabulary. Adding a field to a piece does not change it.
+5. **Cutover is derived, per profile, and reversible.** A profile renders in the
+   new shell when its body is migrated AND its strategy has locked. Everything
+   else opens the legacy workspace, untouched, and the legacy tree stays deployed
+   the whole time — the rollback path is one URL.
+6. **A shared preview link lands a bound client inside their review window.**
+   Five branches, server side, and none of them tells a stranger whether a
+   binding exists.
+7. **The chat is exactly where it was.** Mounted once in the root layout, above
+   every route, on the shelf and in every profile, in both layouts. Neither frozen
+   file was touched.
+
+### What was resolved inside the plan (for the control room)
+
+- **`renderState`'s first argument.** The spec writes `renderState(profileId, …)`;
+  a pure module cannot fetch a profile by id, so the id arrives already resolved
+  through `renderProfile(state, id, role)` — the one place a RenderProfile is
+  built. Same three arguments, same answer, no hidden state.
+- **The deep link's prerequisite.** §13.2's table makes
+  `creation.review_deeplink` require `creation.review_public_link`, while §10 says
+  a bound client STILL deep-links when the public link is revoked. Both cannot be
+  true, because `requires` means never-more-active-than. §10 is her Q2 answer, so
+  the prerequisite is `creation.review` (the door it delivers into) plus a login.
+  §13.3's check is intact.
+- **`client_access.mini_shelf` and the door validator.** A FIXED client-audience
+  switch would have refused every lock on a profile with no client login, for a
+  switch nobody can move. Fixed switches are skipped in that one loop; the cascade
+  still keeps the mini-shelf no more active than `client_access.login`.
+- **Ticking a strip row is an amendment.** `logs/tasks` is append-only, so a tick
+  appends `{done: true}` and the original record stays intact (S11).
+- **The Channels panel is not the old connections screen in a frame.** That screen
+  lists every account beside a picker of every profile name, and nothing inside a
+  profile may name another. The panel shows this profile's channels and this
+  profile's accounts, and connects a token straight to it.
+- **Logs → Notes reads the profile's own `logs/observations`,** not the owner-level
+  inbox, for the same reason. §9's named consequence stands.
+- **The client's Content window renders the pieces the server already narrows**
+  (spec 24 §13.2) and does not add the draft body: `clientPreviewOf` is shipped but
+  nothing calls it in the filter, and wiring it in would be re-implementing spec
+  25's projection, which §15.4 forbids. The creative still reaches them through the
+  preview link, which is what §10 is for.
+- **`/connections` keeps rendering.** §11.3 marks it moved with a redirect, and
+  §16.5 removes that redirect at the last cutover — but with no profile cut over
+  yet it is the only place a token can be entered. It is recorded in the route map
+  as moved, redirecting at the last cutover, and it still works today.
+- **The route map is code.** `lib/shell/routes.ts` holds every route's fate, the
+  legacy layout reads it for the per-profile redirect, and the orphan check runs
+  over the app directory.
+
+### Files
+
+New: `lib/tree/render.ts` · `lib/shell/profile.ts` · `nav.ts` · `routes.ts` ·
+`shelf.ts` · `trace.ts` · `deeplink.ts` · `components/shell/Frame.tsx` ·
+`Shelf.tsx` · `MiniShelf.tsx` · `ClientWindows.tsx` · `Channels.tsx` ·
+`CascadeTrace.tsx` · `app/shelf/page.tsx` · `app/profile/[id]/layout.tsx` ·
+`page.tsx` · `intake/page.tsx` · `creation/page.tsx` · `creation/[tab]/page.tsx` ·
+`analysis/page.tsx` · `analysis/[tab]/page.tsx` · `strategy/page.tsx` ·
+`strategy/[panel]/page.tsx` · `tests/shell.test.ts`.
+
+Changed: `lib/tree/switches.ts` (four switches, the door map, `doorsForSwitch`,
+§13.3's check) · `lib/tree/features.ts` (nine shell features) · `lib/access.ts`
+(`windowsForBinding`, `windowsForRole`, the switch-state pass) ·
+`contexts/AppContext.tsx` (the windows payload, `lifecycleAt`, add-profile) ·
+`types/index.ts` (`lifecycleAt`) · `app/api/state/route.ts` (windows on GET) ·
+`app/page.tsx` · `app/clients/page.tsx` (redirect) · `app/client/[id]/layout.tsx`
+(the cutover redirect) · `app/p/[shareId]/page.tsx` (the five branches) ·
+`components/SwitchboardView.tsx` (the trace before it commits) ·
+`components/analysis/AnalysisApp.tsx` (an optional route-driven tab) ·
+`tests/run.ts`.
+
+Untouched, as the spec requires: `components/ChatWidget.tsx` ·
+`app/api/chat-brain/route.ts` · every legacy `/client/[id]/*` screen ·
+`components/Sidebar.tsx` · `components/ClientsView.tsx` · `/me`, `/brain`, `/map`,
+`/observations`, `/connections`.
+
+### What is still hers
+
+No profile has cut over yet, because none has a locked strategy: the shelf ships
+and every card opens the legacy workspace, which §16.3 names as a valid shipped
+state. ResumeGuru is the first profile to walk intake → curation → strategy →
+switches, and that is her collective phase. §16.6's leaves list has NOT run — `/me`,
+`/brain` and `/map` still render, and nothing is exported or removed until she says
+so. §19's question is untouched: the intern and Sonia keep the legacy workspace on
+every profile.
+
+---
+
+## 2026-07-27 — SPEC 27 (ANALYSIS ENGINE II) IS BUILT, NOT DEPLOYED
+
+Built in spec 27 §22.3's order on a build branch: the reading layer and the pure
+computation first with nothing rendering, then bifurcation, scorecard, funnel and
+goals over that one layer, then compare, then the verdict cycle computed with the
+model switched off, then the wording call and its four guards, then the digest in
+three cadences, then the loop back, and the client publication last. **All twelve
+of §23's fixture tests are implemented and green as 44 checks, and specs 21 to
+26's 291 are still green — 335/335 via `npm test`** (plain Node, no dependencies,
+no build step). Tests 13 and 14 are live-data checks and are named as skips.
+Typecheck clean, production build green with dummy env. Nothing is deployed; the
+deploy is hers per DEPLOY.md.
+
+### What is now true that was not true this morning
+
+1. **A gap can no longer read as a slump, on any of the eight surfaces.** Now,
+   Slices, Scorecard, Funnel, Compare, Goals, Verdicts and the Digest all render
+   coverage before performance, and the July stall shows up in every one of them
+   as "the pipe stopped from 12 July", never as a decline. Acceptance test 1
+   binds all eight at once, which is the test this whole spec exists to pass.
+2. **The engine cannot write an observation.** `lib/analysis/read.ts` is the only
+   reader of spec 26's tables and exports no writer at all. The write door was
+   narrowed to match: a path fed ONLY by pipes now accepts only the pipes it
+   names, so `engine:analysis` writing into `study-own-data` is refused by the
+   declaration itself. Nothing else about the door changed.
+3. **"AI can never invent a metric" is mechanical now.** Every numeral in every
+   worded string must appear in the computed verdict input, in any of its honest
+   formattings. A fabricated number is rejected and retried once; a second one
+   withholds the words and renders the code-computed verdict with a plain line.
+   The causation guard and the sufficiency guard reject the same way.
+4. **A pillar is judged only on what its own declaration names.** The Convert
+   pillar reads EARNING on link taps while its reach sits well below the account
+   baseline, and reach never appears in its verdict. A pillar with no declaration
+   reads `blocked` and says so; collection carries on underneath either way.
+5. **The client sees nothing until she approves it.** A newly computed digest is
+   invisible to a client login. Approval is the only thing in the system that
+   sets `published: true`, and the resolver serves a non-owner only published
+   client-publications on analysis paths. Removing that gate makes the check fail.
+6. **Every suggestion cites its evidence, at the door.** A revisit proposal or a
+   proposed strategy change arriving without a cited verdict is refused, not
+   warned, both through the helpers and through a whole-body save.
+7. **With no API key nothing breaks and nothing is invented.** Every number, band,
+   refusal and comparison verdict computes; the verdict renders in words written
+   by code, and the surface says plainly that the written summary is missing.
+
+### The three suggested values, still hers
+
+Recorded as suggestions and never applied as her position: the band cut-offs
+(±15% lift), the quarter verdict's length (90 days), and the weekly pulse's slot
+(Monday 08:00 IST). They ship on the surface as a "three values still waiting on
+your call" block and go to her sort queue with spec 26's three.
+
+### What was resolved inside the plan (for the control room)
+
+- **The pipe-only write rule.** Test 3 needs `engine:analysis` refused at
+  `study-own-data`, but `putEntry`'s writer check let any writer through wherever
+  a `pipe:` or `path:` writer was declared. Tightening it globally would have
+  broken the spec-21 migration, which writes `context/intake/questions` as
+  `owner`. So the narrowing is exact: only declarations whose `fed_by` is
+  ENTIRELY pipes become strict. Nothing else moved.
+- **Comparison metadata.** §20.3 forbids adding a field to `MatchedComparison`.
+  `planned`, the declared changed variable and a resolution's parentage travel as
+  ENTRY metadata around the canonical object, never inside it.
+- **Resolutions append.** A comparison resolved at 7d and again at 30d writes two
+  entries, the second naming what it resolves. The path is append-only for real.
+- **The verdict run kind.** `EngineRun.kind` gained `analysis_verdict` and
+  `analysis_digest` rather than an analysis run masquerading as an extraction.
+  Same shape, same path, one writer difference: no second run-log format exists.
+- **Coverage outranks the call.** `computeCall` checks coverage first, so a
+  leading pattern standing on a partial record is never a call.
+- **The cascade reaches the computation.** A piece on a switched-off platform
+  computes nothing new (slices, patterns, scorecard, packet), while it stays fully
+  readable in the joined record. That is what "history stays readable, nothing new
+  computes" means in practice.
+- **Two conflict markers in this file** left over from the 25/26 parallel merge
+  were removed. Both sides' text was kept.
+
+### Files
+
+New: `lib/analysis/read.ts` · `compute.ts` · `bifurcate.ts` · `scorecard.ts` ·
+`funnel.ts` · `goals.ts` · `compare.ts` · `verdict.ts` · `words.ts` ·
+`digest.ts` · `app/api/analysis/route.ts` · `app/api/analysis/store.ts` ·
+`app/api/analysis/verdict/route.ts` · `app/api/analysis/digest/route.ts` ·
+`components/analysis/Shared.tsx` · `Tabs.tsx` · `AnalysisApp.tsx` ·
+`tests/analysis.test.ts` · `tests/analysisFixtures.ts`.
+
+Changed: `lib/tree/objects.ts` (Verdict, Digest) · `declarations.ts` (the
+verdicts path; owner as a writer of digests; the Analysis Engine as a writer of
+feedback) · `switches.ts` (eight switches, two lock checks) · `features.ts` ·
+`body.ts` (the pipe-only write rule) · `lib/access.ts` (the publication gate) ·
+`lib/engine/runs.ts` (two run kinds, an injectable writer) ·
+`app/api/state/route.ts` · `app/client/[id]/analytics/page.tsx` · `vercel.json` ·
+`tests/run.ts`.
+
+Untouched, as the spec requires: `resolveComparison`, `detectCoverageGaps` and
+the thresholds in `lib/tree/metrics.ts`; every connector; `components/ChatWidget.tsx`;
+`app/api/chat-brain/route.ts`.
+
+### What is still hers
+
+The SQL from spec 26 still has to be run and the collection stall still has to be
+fixed; until then these surfaces render honestly and show a hole that widens by a
+day a day. The S16 declarations on ResumeGuru's pillars and goals are what turn
+the scorecard and goal tracking on, per subject. And the three suggested values
+above are decisions, not defaults.
+
+---
+
+## 2026-07-27 — SPEC 25 (DRAFTING, GATES & FEEDBACK) IS BUILT, NOT DEPLOYED
+
+Built in spec 25 §13.4's order on a build branch: the three new addresses and
+the six switches first with no data touched, then the draft as a kept object
+with the hand-written path (the shippable stopping point), then the machine gate
+checks, then the gate run record and the two stage guards, then the rights gate
+and its dated helper, then the drafting call, then the SEPARATE gate call, then
+the feedback memory, and the taste layer last. **All 18 acceptance tests in §14
+are implemented and green as 53 checks, and specs 21 to 24's 207 are still green
+— 260/260 via `npm test`** (plain Node, no dependencies, no build step).
+Typecheck clean, production build green with dummy keys. Nothing is deployed;
+the deploy is hers per DEPLOY.md.
+
+### What is now true that was not true this morning
+
+1. **A carousel cannot BE an essay.** `DRAFT_SCHEMA` is a discriminated union on
+   format family: a carousel is an array of slides with a capped heading and at
+   most three lines each, and there is no field anywhere in the schema that a
+   paragraph could live in. Her slide law is structural now, not an instruction
+   the model may or may not follow.
+2. **Her hook survives verbatim or there is no draft.** When the brief carries a
+   hook she wrote, a draft that improved it is rejected and retried once with
+   the violation named; a second rewording yields no draft and a logged
+   violation. She is never shown a tidied version of her own line.
+3. **The gates are judged by a second call, not the one that wrote the piece.**
+   A model grading its own output in the same turn is not a check. The reviewer
+   gets its own packet — the gate questions in her wording, boundaries, the
+   never-words, the merged format rule, the machine results — and none of the
+   drafting prompt. A pass with no evidence span is rejected and re-run once; a
+   pass it still cannot point at becomes a flag, never a pass.
+4. **A hard machine failure costs nothing.** If the format rules, the boundaries
+   scan, the proof check or her hook guard fails hard, the model call is not
+   made at all. The run is still logged, honestly, with `model: null`. "Never
+   use carousel as the convert format" is one of those checks, read off the
+   profile's own rule, so any client's prohibition works with no code change.
+5. **Nothing leaves build until all seven pass.** Six passing verdicts is
+   refused at the write door with the failing gate named. Remove the guard and
+   the same write goes straight through, which is what proves the guard is doing
+   the work.
+6. **Gate versions are forward only.** Locking version 2 leaves every version 1
+   record byte-identical — not touched, not recomputed, not re-rendered — and a
+   piece that passed under v1 still reports `gate_version: 1` on every verdict.
+   A posted piece is never re-judged by a standard that did not exist when it
+   was made.
+7. **Rights block publication, not review.** `rightsCleared` now delegates to
+   `rightsClearedAt`, so a piece scheduled for three weeks out is judged against
+   the day it posts rather than today. Build to review is allowed; approved to
+   scheduled is refused. Every profile starts at `legacy-grace`, where an asset
+   with nothing recorded warns instead of blocking the whole back catalogue, and
+   a recorded refusal blocks from day one. The flip to `enforced` is one way.
+8. **Feedback routes as a proposed diff and nothing else.** Three capture
+   moments, five classes, and the law that a class the engine proposed routes
+   nowhere. Accept applies the diff and creates strategy parameter version N+1,
+   dated, with her feedback as its reason line. Reject preserves the words, the
+   diff and her reason — the rejections are half the taste layer's evidence.
+9. **Her edits are the data, and she never writes a word of it.** An edit
+   creates version n+1 with a computed delta saying what moved and how. Twenty
+   versions resolve in order and version 1 stays exactly what was first written.
+10. **The taste layer crosses profiles; a client's data never does.** A proposed
+    rule is checked against every profile name, id, channel handle, seed name,
+    core message and piece title in the system, and against every figure that
+    appears in anyone's metrics. A hit refuses activation and names the token.
+    Only `rule` and `strength` are ever serialized into a packet — no evidence
+    ref, no profile id, no other profile's name — behind a per-profile consent
+    switch, capped at 25 and labelled at the bottom of the packet.
+
+### The two things that will surprise her, stated plainly
+
+- **The revise loop stops at two.** A third automatic attempt is not offered.
+  The screen says: "Two tries and it is still not passing. That usually means
+  the brief is wrong, not the copy," with a link back to the brief.
+- **Her usual and the profile's rule will disagree, and the profile wins.** A
+  ResumeGuru carousel drafts at 8 to 10 slides even though her standing habit is
+  5 to 6. The disagreement is shown once, plainly, rather than swallowed:
+  "Your usual is 5 to 6 slides. This profile's rules say 8 to 10. Drafted at 8
+  to 10."
+
+### Resolved inside the plan while building (for the control room)
+
+- **`owner/taste-rules` is the first owner-zone store since the shelf**, so it
+  is a new top-level AppState slice (`tasteRules`), wired through `emptyState`,
+  `normalizeState`, `filterStateForRole`, `mergeRoleWrite`, the scope map and
+  the address map, per CLAUDE.md rule 5. It is stripped from every non-owner
+  payload in both directions.
+- **Migration's all-unknown rights placeholder counts as an ABSENCE**, not a
+  recorded refusal, so legacy grace forgives it. `consent: not-given`, a
+  restriction, a passed expiry or a platform list that excludes this one are all
+  somebody actually saying something, and grace never forgives those.
+- **`EngineRun.model` is now nullable**, because a short-circuited gate run is a
+  real run that made no call. `runIsComplete` checks the field is present rather
+  than truthy, so `null` is honest and absent still fails.
+- **Distillation runs one profile at a time**, because the run log is per
+  profile. Its candidates land in the owner store as `proposed` and cannot
+  activate without passing the de-identification guard against the whole system.
+- **`work-log/creation/costume-recommendations` is a real store**, per spec 25
+  §9.5 and PLAN §12's ratification, with both of spec 27 §15's rules enforced at
+  the write door. Spec 27 §15.2 describes it as a read-time projection; the
+  address and the rules are what this spec fixes, and either shape can write
+  into it.
+
+### Not built, deliberately
+
+- **No playbook, and no cross-profile numbers anywhere** (§9.6). That is her one
+  open question, Q1, for the collective phase; nothing here depends on the
+  answer.
+- **No spend ceiling.** Still spec 23's parked question.
+- **No new screens.** Spec 25 §13.4's order is the data and model layer; the
+  Creation app's drafting surface belongs to the interface spec.
+
+### Files
+
+`lib/engine/drafts.ts` · `gates.ts` · `drafting.ts` · `taste.ts` ·
+`recommendations.ts` (all new) · `lib/engine/feedback.ts` (the five classes and
+her acceptance surface) · `packet.ts` (two more content profiles on the one
+assembler) · `formats.ts` (the rules version and the hashed resolution) ·
+`runs.ts` · `lib/tree/declarations.ts` · `switches.ts` · `objects.ts` ·
+`body.ts` · `features.ts` · `scopes.ts` · `validate.ts` · `migrate.ts` ·
+`lib/strategy/derivation.ts` · `lib/access.ts` · `types/index.ts` ·
+`app/api/state/route.ts` · `app/api/engine/draft/route.ts` (new) ·
+`app/api/engine/gate/route.ts` (new) · `tests/gates.test.ts` (new).
+
+---
+
+
+## 2026-07-27 — SPEC 26 (ANALYSIS ENGINE I — THE TRACKING STORE) IS BUILT, NOT DEPLOYED
+
+Built in spec 26 §14's order on a build branch: the addresses, switches and the
+validator first with no data touched, then the tables, then the connector with
+the existing Instagram logic moved into it, then the generalized run, then the
+migration, then the tests. **All 12 acceptance tests in §15 are implemented and
+green, and specs 21–24's 207 are still green — 238/238 via `npm test`** (plain
+Node, no dependencies, no build step). Typecheck clean, production build green
+with dummy keys. Nothing is deployed; the deploy is hers per DEPLOY.md.
+
+**No reading surface was built, on purpose.** Nothing renders. Scorecard,
+funnel, bifurcation, compare, verdicts and the digest are spec 27's.
+
+### What is now true that was not true this morning
+
+1. **The store is platform-neutral.** Seven tables (`channel_connections`,
+   `platform_posts`, `sync_runs`, `post_observations`, `account_observations`,
+   `post_links`, `post_readings`) replace the `ig_*` family, with `platform` as
+   a column and the per-platform difference pushed into a code connector. The
+   `ig_*` tables are untouched and stay readable — this is a copy, not a move.
+2. **Observations are append-only for real.** `ig_daily_snapshots` was an UPSERT
+   keyed on (post, day), so a second run the same day overwrote the first. The
+   new table has a surrogate id, and a database trigger refuses UPDATE and
+   DELETE outright. Two runs a day now add information and double-count nothing.
+3. **Backfill can never reconstruct a missing day, mechanically.** A backfilled
+   row is stamped as one, dated today, and closes no gap. There is no
+   interpolation, no carry-forward and no last-known-value anywhere in the
+   build. The 2026-07-12 stretch will render as a hole exactly as wide as it is.
+4. **An absence always carries a reason.** Every run writes a `sync_runs` row —
+   including the runs that decided NOT to collect — so a stall, a switched-off
+   platform, a revoked connector, a permission refusal and a stretch before the
+   channel started collecting all read differently. `switched-off` and
+   `not-yet-tracked` joined the gap reasons: a decision and a boundary are not
+   holes.
+5. **Windows materialize once and store the real age.** A reading at 19h
+   materializes `first-24h` with `age_hours: 19`. Readings at only 41h and 65h
+   leave it `unavailable` with the gap named — never zero, and never the 41h
+   value borrowed. Once materialized, a window is never recomputed, because
+   recomputing it later would silently change history.
+6. **A metric's kind is enforced.** Summing a cumulative lifetime counter across
+   days throws at the store boundary; a per-day figure is a difference of two
+   existing observations and is `unavailable` when either is missing;
+   differencing an interval metric throws too. `/api/ig-metrics`'s old comment
+   about lifetime counters became an assertion.
+7. **The measuring stick is a validated object, not a boolean.** A declaration
+   names its metrics, direction, calculation, denominator, window, target,
+   platform availability and not-measurable fallback; a rate over a level metric
+   is refused, a rate with no denominator is refused, and a blank target is
+   refused because "no target" must be a decision. The gate blocks goal tracking
+   per goal and the scorecard per pillar — and **collection runs regardless.**
+8. **The S23 wall is store-level.** An outcome without both a declared event
+   source and attribution method is `unknown`, and any attempt to compute a rate
+   from it returns a refusal carrying no number at all — there is nothing for a
+   surface to render by accident.
+9. **The link join keeps her typing at zero.** She pastes the live link; that
+   paste is still the whole trigger. The key now comes from the connector, the
+   target is the canonical piece (with `legacy-card` kept for unmigrated
+   profiles, never guessed into the other), two pieces claiming one post attach
+   to neither, and a time-window match is offered and never written.
+10. **The cron runs twice daily** (09:00 and 21:00 IST). A once-daily pipe
+    measures "the first 24 hours" anywhere between 1 and 25 hours after
+    publication, which made the most important window the least trustworthy one.
+
+### Four addresses added, and the narrowing rule
+
+`work-log/analysis/study-own-data/observations` ·
+`work-log/analysis/study-own-data/sync-health` ·
+`work-log/analysis/study-own-data/links` · `work-log/analysis/attributed-outcomes`.
+All four are `audience: owner` — this spec collects and stores, it shows
+nothing. Plus three parameters inside existing entry folders:
+`goals/*/measurement`, `pillars/*/measurement`, `platforms/*/metrics`.
+
+The validator now carries §4.1: a child may be narrower than its parent, never
+wider. A parameter may never be more visible than the entry it lives in, and any
+widening must declare its own client door. That is what keeps the measurement
+declarations out of the client's strategy summary while `goals/` itself stays
+part of it.
+
+### Three resolutions the build had to make, all inside the plan
+
+1. **An unwalked switchboard does not stop the pipe.** §6.2 step 2 requires the
+   platform and its collector switch to resolve `active`. With no positions set —
+   which is every profile today — they resolve `hidden`, so a literal reading
+   would have stopped all live collection the moment this shipped: exactly the
+   silence the spec exists to prevent. Spec 21 §9.6 already rules that a
+   migrated profile behaves as it does today until she sets positions, so
+   `decideCollection` collects when no position exists and says so in the run.
+   Once she walks the switchboard, the cascade check applies strictly.
+2. **`analysis.tracking.<platform>` allows `hidden`.** §11's table lists
+   `active · history` but its own suggested default is `hidden` where no channel
+   is connected. `hidden` is therefore an allowed position; neither it nor
+   `history` deletes anything, and every past observation stays readable in both.
+   The registry ships `suggested_default: null` (a platform switch cannot know
+   from the registry whether a channel is connected) plus
+   `suggestedTrackingState(hasConnectedChannel)` for the switchboard to call.
+3. **Tests 11 and 12 run on fixtures here.** §15 marks them live-data, but the
+   migration and the join are both pure functions, so their arithmetic and their
+   rules are proven now. The genuinely live halves — parity against the real
+   `ig_*` rows, and a real paste reaching a real post within one run — are
+   present as two NAMED skips rather than quietly omitted.
+
+### Honest limits, stated plainly
+
+- **This machine has no database access**, so nothing ran against the real
+  tables. `supabase/spec-26-tracking-store.sql` has never been executed, and the
+  migration's live half waits on her setup day.
+- **Step 0 of the migration is still hers and still urgent.** The collection
+  stall since 2026-07-12 is fixed by her "Update now" tap and the error it
+  reports. It does not wait for this build, and every day of delay is a day gone
+  forever.
+- **The collector dual-writes to `ig_*`** for the cutover window (§14.7). Both
+  sides are idempotent per run. `/api/ig-sync` forwards to `/api/metrics-sync`
+  for one release so the live cron cannot break mid-cutover.
+- **`ig_post_tags` is copied to `post_readings` and the tagging job still writes
+  the old table.** The rename changes no behavior, which is what §17 asks for;
+  re-pointing `app/api/ig-tag` is a behavior change nobody asked for.
+- Nothing was verified in a browser, because nothing renders.
+
+### What her sort queue gains
+
+Per channel: its timezone (migrated rows are stamped Asia/Kolkata because the
+pipe has always run on IST — confirm it), and its `track_since` (the 2026-05-01
+pivot was her call and becomes a stored value). Plus the v1 comparison
+thresholds, and an S16 declaration for every goal and every switched-on pillar
+job. None of them blocks anything: collection never waits on a decision.
+
+### Files
+
+`lib/platforms/index.ts` · `lib/platforms/instagram/index.ts` · `metrics.ts`
+(all new) · `lib/tree/collector.ts` · `postLinks.ts` · `measurement.ts` ·
+`migrateTracking.ts` (all new) · `lib/tree/metrics.ts` · `objects.ts` ·
+`declarations.ts` · `switches.ts` · `features.ts` · `validate.ts` ·
+`app/api/metrics-sync/route.ts` · `app/api/migrate-tracking/route.ts` (both
+new) · `app/api/ig-sync/route.ts` (now a forward) · `app/api/ig-metrics/route.ts` ·
+`supabase/spec-26-tracking-store.sql` (new) · `vercel.json` ·
+`tests/tracking.test.ts` (new) · `tests/run.ts`.
+
+---
+
+## 2026-07-27 — SPEC 24 (COSTUME, BRIEFS & FORMAT RULES) IS BUILT, NOT DEPLOYED
+
+Built in spec 24 §14.6's order on a build branch: the two new addresses, the
+four switches and both corrections first with no data touched, then the costume
+lists and the format library with tests and nothing on screen, then the surface
+that only enumerates, then the resolve step (the shippable stopping point), then
+the brief, then materials and rights, then the handoff, then the matched
+comparison. **All 19 acceptance tests in §15 are implemented and green, and
+specs 21, 22 and 23's 132 are still green — 207/207 via `npm test`** (plain
+Node, no dependencies, no build step). Typecheck clean, production build green
+with dummy keys. Nothing is deployed; the deploy is hers per DEPLOY.md.
+
+### What is now true that was not true this morning
+
+1. **A locked seed can be dressed, and exploring costs nothing.** Twelve
+   multi-select dimensions, a grid that enumerates every combination with a
+   count above it, and every row uncheckable. She can move eight pickers, look
+   at twenty-four rows, and walk away having written nothing. Cancel writes
+   nothing, logs nothing, spends nothing.
+2. **Every confirmed row becomes one piece at `build`, with a birth record
+   nothing can rewrite.** The costume, the pillar job read now, the goal
+   mapping, the gate version, the strategy version. A second write to `birth` is
+   refused at the write door from anyone, including both engines; a correction
+   is a dated amendment and the original stays byte-identical.
+3. **The engine writes the brief before a single line of copy exists**, on
+   claude-opus-5 at effort high, and **every prose field carries a hard schema
+   cap**. That is the whole guard against a brief becoming a draft, and it is
+   mechanical rather than a matter of the model behaving.
+4. **Format rules merge field by field.** Her carousel override replaces the
+   length bands and the never list and keeps the universal structure whole, and
+   the merged rule always says which field came from where. A format with no
+   rule at either level says "no rule yet" and invents nothing.
+5. **A rule-forbidden combination is shown and explained, not hidden.** A format
+   rule is not a switch, so the row renders refused with the rule quoted, and
+   she can pass it with a reason that lands in the birth snapshot, so analysis
+   can see the piece broke its own rule on purpose.
+6. **Rights are asked at attachment, against the piece's resolved platform.**
+   An absent right attaches BLOCKED with the missing right in words, because she
+   is often mid-clearance and being unable to build until a form comes back
+   would be the tool getting in her way. A `restriction: 'blocked'` item is
+   refused outright: that is someone saying no, not a gap to fill.
+7. **The outside-tool round trip lands on the same piece.** The brief leaves
+   carrying an immutable piece id and the version that left; the file comes back
+   into `assets/sets` and attaches to that same piece. No second piece is ever
+   created. A re-export sets `supersedes` and the chain is never broken.
+8. **A matched comparison is born at the only honest moment.** A batch changing
+   exactly one dimension offers one; two changed dimensions offer nothing; a
+   batch differing only in proof offers nothing; with tracking off it is not
+   offered at all. Held and changed variables are read off the costumes, never
+   inferred.
+9. **A second real leak is closed.** `work-log/creation` is declared
+   `audience: both, see:upcoming`, and the body filter worked at PATH level
+   only — so every piece at every stage would have reached a client login.
+   Nothing created pieces at `build` through the tree until this spec. Non-owner
+   logins now receive pieces at `review` and later only, with `costume`,
+   `birth`, `batch_id`, `materials` and `notes` stripped.
+10. **Nothing spends without a press.** Resolving twelve pieces makes zero model
+    calls. Each piece has one "Write the brief"; a batch has one "Brief them
+    all" that states the count and the dollar estimate first. "Write it myself"
+    is always there, and with no API key it is the only route, said plainly.
+
+### The wall she should expect, stated plainly
+
+**The costume surface does not open on ResumeGuru until she walks it through
+curation, derivation, the switches, and the lock.** Spec 22 §8.7 refuses any
+write under creation on a profile that has never locked a strategy, and this is
+that rule working exactly as written. It is also why the birth snapshot can
+promise a real gate version and a real strategy version instead of two nulls.
+The screen says this in plain words rather than failing silently.
+
+### Two things found while building, both closed
+
+- **`platforms/*/rules` was client-readable.** Spec 21 declared all four
+  platform sub-paths `audience: both, see:strategy`. Spec 24 §13.1's workshop
+  rule is absolute — no switch, in any position, may grant a client sight of a
+  format-rule override — so the rules child is now owner-only. Filtering only
+  got stronger (CLAUDE.md rule 2).
+- **Spec 24 §13.3's first declaration edit was already in place**: `owner` is
+  already a declared writer of `work-log/analysis/comparisons`. The reasoning is
+  now on the declaration so nobody removes it later.
+
+### Files
+
+`lib/engine/costume.ts` · `formats.ts` · `resolve.ts` · `brief.ts` ·
+`materials.ts` · `handoff.ts` (all new) · `lib/engine/packet.ts` (one assembler,
+two content profiles) · `runs.ts` · `lib/tree/declarations.ts` · `switches.ts` ·
+`objects.ts` · `features.ts` · `lib/access.ts` · `app/api/state/route.ts` ·
+`app/api/engine/brief/route.ts` (new) · `components/CostumeView.tsx` (new) ·
+`PieceBuildPanel.tsx` (new) · `EngineRoomView.tsx` ·
+`app/client/[id]/engine/costume/[seedId]/page.tsx` (new) ·
+`tests/costume.test.ts` · `tests/brief.test.ts` · `tests/costumeFixtures.ts`.
+
+---
+
+## 2026-07-27 — SPEC 23 (SEED BANK & THE ENGINE ROOM) IS BUILT, NOT DEPLOYED
+
+Built in spec 23 §14.3's order on a build branch: declarations and switches
+first with no data touched, then the seed sheet and the lock gates (the
+shippable stopping point, and the correct one if the API key is ever dead),
+then captures, then the model layer, then proposals, then the piece guard.
+**All 12 acceptance tests in §15 are implemented and green, and specs 21 and
+22's 96 are still green — 132/132 via `npm test`** (plain Node, no
+dependencies, no build step). Typecheck clean, production build green with
+dummy keys. Nothing is deployed; the deploy is hers per DEPLOY.md.
+
+### What is now true that was not true this morning
+
+1. **The seed bank works entirely by hand.** She can write a seed, fill the
+   template, walk the four-tap ladder and lock it without a model ever being
+   called. That was built first on purpose: if the API key is unset or dead,
+   everything above still works and the room says so plainly.
+2. **The raw thought is immutable, mechanically.** `raw_thought` and
+   `raw_material` refuse amendment at any status, and the seed sheet renders
+   them as quoted text with no edit affordance. A mis-capture is corrected by
+   appending a new capture — the record grows, it never rewrites.
+3. **One read function.** `resolveSeed` folds every amendment in order over a
+   birth record that is never touched. Twenty amendments later, the birth
+   record is byte-identical to what was first written, and the status ladder
+   has a dated trail for free.
+4. **Six lock gates, in her words.** Raw thought, core message, reframe,
+   audience value, prohibited interpretation, and at least one pillar. The lock
+   button lists what is missing as a sentence, never a red form. Only she locks
+   — there is no auto-lock anywhere in the code.
+5. **Only locked seeds mother pieces**, refused at the write door rather than
+   hidden in a screen. Content Engine II calls the same guard and cannot route
+   around it. Legacy pieces carrying no seed are untouched, and the migration
+   passes whole.
+6. **Captures are verbatim and written first.** The capture lands before the
+   model is called, so a failed or refused run never loses what she said. A
+   4,000-word capture with odd whitespace and emoji round-trips byte-identical,
+   and an edit to an existing capture is refused server side.
+7. **The model layer is real and grounded.** `claude-opus-5` at effort high,
+   through the SDK, with structured output against `PROPOSAL_SCHEMA`, two cached
+   system blocks, and `stop_reason` checked before content is read. A refusal
+   renders as words, never as an empty list.
+8. **The packet honors the cascade.** Only `active` paths enter it: turn
+   LinkedIn to hidden or history and no LinkedIn name or format reaches the
+   model, while every past LinkedIn piece stays readable. Block A is never
+   trimmed; every trim is recorded and shown to her.
+9. **The verbatim guard bites.** A paraphrased raw thought is rejected, the run
+   retries once with the violation named, and a second paraphrase shows zero
+   proposals rather than a polished lie. The other four checks badge and never
+   hide.
+10. **Proposals are untouchable until she picks them up**, enforced at the
+    write door. Picking one up births a draft seed with every engine-filled
+    field marked; a deepen proposal shows the clash beside her own wording and
+    she chooses; a migrated capture-input shell is amended, never duplicated.
+11. **Every run is logged, whatever happened.** Success, refusal or error each
+    write exactly one `engine_run` carrying the model, the effort, the packet
+    folder list, the context version, token counts and `cost_estimate_usd` —
+    from run one, so her ceiling question has real numbers when she answers it.
+12. **`ProfileBody.context_version` exists**, incremented by the path-scoped
+    write door on any write under `context/`. Every packet, and so every
+    proposal, is traceable to the exact state of Context it came from.
+
+### Four law-4 folders added
+
+`work-log/creation/topics/captures/` · `work-log/creation/topics/proposals/` ·
+`work-log/logs/engine-runs/` · `work-log/logs/feedback/`. The last two are FIXED
+records with `allowed_states: ['active']`: a switch that could turn either off
+would make S12 and S13 lies.
+
+### Honest limits, stated plainly
+
+- **The engine room does not open on ResumeGuru until she walks it through
+  curation, derivation, switches and the lock.** The room renders and the bank
+  browses; extraction refuses with a plain reason naming strategy. That is PLAN
+  §3.4's order working, and it is the one thing about this build that will feel
+  like a wall.
+- **No ceiling behavior was built** — her open question (§16). Cost is written
+  on every run and the shelf shows the running total; nothing blocks, warns or
+  throttles, because that shape is hers to choose.
+- **The live call has never run against the real API from here.** The whole
+  layer is exercised behind an injected stub, including the refusal path, the
+  retry path and the error path. The first real run is hers.
+- **`creation.seed_input_client` was corrected to a working-mode flag** with
+  `owns: []` and a note naming the intake parameter it governs. Spec §10 says
+  "amend its owns to the intake parameter" — but `owns` holds declared PATHS and
+  the validator enforces that, so it follows spec 22's established pattern for
+  surface switches instead. It grants no write either way.
+- **"Make a piece from this" is a door, not a room.** It is present and
+  disabled with its reason until the seed locks; what is behind it is Content
+  Engine II.
+- Not verified in a browser this session; verified by build, typecheck and the
+  132 checks.
+
+### What her sort queue gained
+
+Nothing new was added to it — and one thing can now clear. The three migrated
+capture-input subjects render badged "Not a seed yet — talk it out", cannot be
+locked because `raw_thought` is empty, and their queue entries clear the moment
+she talks one out, because picking up a proposal against a shell amends that
+shell instead of creating a second entry.
+
+### Next
+
+Spec 24 (Costume, Briefs & Format Rules) builds on this: it consumes
+`resolveSeed`, `canMotherPieces`, the `engine-runs` and `feedback` paths, and
+`context_version` — all shipped here as shared library functions, none of them
+screen-locked.
+
+---
+
+## 2026-07-27 — SPEC 22 (INTAKE & CONTEXT) IS BUILT, NOT DEPLOYED
+
+Built in spec 22 §13's order on a build branch: the registries and the
+validator first with no data touched, then spec 21's three named corrections,
+then the surfaces, then the round-0 mapping pass. **All 20 acceptance tests in
+§14 are implemented and green, and spec 21's 70 are still green — 96/96 via
+`npm test`** (plain Node, no dependencies, no build step). Typecheck clean,
+production build green with dummy keys. Nothing is deployed; the deploy is hers
+per DEPLOY.md, and batch mode holds it until all seven builds are in.
+
+### What is now true that was not true this morning
+
+1. **The parameter inventory exists** (`lib/intake/parameters.ts`): what we
+   know about a person and a business, each parameter in its declared folder,
+   each carrying its own question. It is universal, like the costume variables,
+   so it is code beside the tree registries rather than per-profile data.
+   **Every entry ships `vocabulary: draft`** and a round carrying a draft
+   parameter cannot be SENT. Her vocabulary pass flips them; nothing else in
+   the build waits on it.
+2. **Intake is HOW, mechanically.** Questions are generated FROM the
+   parameters and never authored: the validator fails the build on a question
+   with no parameter, on any parameter addressing content-strategy, and on a
+   second lane into the seed bank. A round's questions are snapshots, so an
+   answer stays readable years later, and adding a parameter puts it in the
+   next round with no code change.
+3. **The cascade reaches the questions.** A parameter that belongs to a
+   switched-off platform is never asked, and a question's options are narrowed
+   the same way. Nothing dormant asks to be filled in.
+4. **Raw answers cannot move.** Append-only was already true; `amendEntry` is
+   now shut at `context/intake/answers` outright. A correction is a new answer
+   in a new round, and the correction lands at the curated level.
+5. **No curated value without its source.** Every value she writes carries the
+   answers it came from, who curated it, when, and how sure she is. Re-curating
+   supersedes: the old reading stays legible, which is what lets analysis read
+   a piece against the strategy that existed when it was born.
+6. **A profile at `setup` can finally run intake.** Spec 21 shipped `setup`
+   with client access OFF, which made the only phase intake exists for the one
+   phase the client could not reach it. Client access is now scoped by DOOR:
+   setup opens `give:intake` and nothing else — not assets, not review, not
+   perception, not one see-point.
+7. **The strategy has a room.** Sources, decision, reason, one panel per
+   strategy parameter, with the reason REQUIRED. A parameter refuses to be
+   written before one of its sources is curated unless she marks it owner
+   declared, visibly.
+8. **The lock is one act with six refusals**, and a failing lock changes
+   nothing. On success everything is stamped at once, the profile moves setup
+   to active, and creation opens.
+9. **Creation is refused server side** on any profile that has never locked —
+   at the write door, the same way an undeclared path is. Migrated profiles
+   keep their legacy screens exactly as they are; this binds new writes through
+   the tree only.
+10. **The client sees the LOCKED version only.** Positioning, voice, audience,
+    cadence and CTAs became part of their strategy summary; her working edits
+    toward the next version are filtered out until she locks them. No second
+    copy of strategy exists.
+
+### One law-4 folder added
+
+`context/business-details/materials/` — what the client already has: brand
+book, logo files, photo bank, old content that worked, and the accounts they
+already run. Files never live in intake; this records the fact and holds the
+reference. `materials.existing-accounts` is the direct answer to one of the 16
+questions spec 21's ResumeGuru migration had to leave open.
+
+### Honest limits, stated plainly
+
+- **The inventory as written is 52 parameters, not 41.** The spec's tables list
+  52 rows; its prose counts 41. The tables are the inventory and the build
+  followed them — dropping eleven named parameters to match a number would have
+  been worse. Her vocabulary pass is where the list gets cut, which the spec
+  already says.
+- **18 of the 52 have no strategy reader** and carry `reader: none-by-design`
+  with a written reason. They feed the engine's context bundle and her reading
+  of the client. §8.1's derivation map was implemented exactly as written; a
+  parameter was never added to it on a guess.
+- **The client-side questionnaire screen is not built.** This spec's surfaces
+  are hers: intake rounds, curation, derivation, gates, switchboard, lock. What
+  a client sees is declared (audience and door per surface) so the client-side
+  regroup has a contract, but their screen belongs to that spec.
+- **`intake.reminders` ships declared and unbuilt**, as the spec says. She
+  chases clients on WhatsApp today and that keeps working.
+- **No profile is auto-locked and nothing was auto-curated.** The round-0
+  mapping pass reads the old answers, proposes where each one belongs, and puts
+  every proposal in her queue. Anything it cannot place is listed by name.
+- Verified in the browser at desktop: the intake round generates its questions
+  and refuses to send on the draft wording, the curation list renders, and all
+  four strategy surfaces render and refuse honestly on an empty profile.
+
+### What her sort queue gained
+
+Every round-0 answer now arrives with a proposal attached ("this looks like the
+best-customer parameter, curate it there or send it somewhere else, nothing has
+been written"), and the ones nothing matched are named rather than dropped.
+Running the pass twice does not double the queue.
+
+### Next
+
+Spec 23 (Seed Bank & the Engine Room) builds on this: its wall is real and
+worth saying out loud — **the engine room does not open on ResumeGuru until she
+walks it through curation, derivation, switches and the lock.** That is PLAN
+§3.4's order working exactly as written.
+
+## 2026-07-27 — THE BATCH IS FULLY BUILT (specs 21–28: written, built, verified)
+
+All seven batch builds are complete and merged on main: 396/396 tests, typecheck
+clean, production builds green, every build independently verified by the
+control room. Three real security leaks found and closed during the builds; the
+live app is UNTOUCHED (nothing deployed). What remains: (1) her ONE deploy go
+per DEPLOY.md, (2) the collective phase (HER LIST below). The new shell ships
+dormant: every profile keeps its legacy screens until it is migrated AND its
+strategy locks, so the deploy changes nothing visible until she walks a profile
+through.
+
+## Spec-set record (superseded heading kept below)
+
+All seven batch specs are written, control-room verified, and on main:
+22 (Intake & Context) · 23 (Seed Bank & Engine Room) · 24 (Costume, Briefs
+& Format Rules) · 25 (Drafting, Gates & Feedback) · 26 (The Tracking
+Store) · 27 (Bifurcation, Compare & Verdicts) · 28 (The Profile
+Interface). Integration records: PLAN.md §12. Next per batch mode: builds
+in order (22 → 23 → 24 → 25 → 26 → 27 → 28), undeployed, then ONE deploy
+on her go, then the collective phase.
+
+**HER LIST for the collective phase (everything owed by her, one place):**
+1. Spec 21's 13 migration confirmations → then the real ResumeGuru
+   `apply: true` run.
+2. The vocabulary pass on spec 22's 41-parameter inventory (no round
+   reaches a client before it).
+3. The ResumeGuru strategy pass: curation → derivation → gate set v1 →
+   switches → LOCK (unlocks the engines and the new shell for that
+   profile).
+4. Engine model spend ceiling (spec 23 §16): none / soft / hard,
+   shared across all AI features (~$20–40/month at expected use).
+5. Cross-profile playbook (spec 25 §16): no / patterns-only (plan
+   change) / owner-only reading surface.
+6. The suggested-values one-list (specs 26+27): comparison thresholds,
+   per-channel track-since, channel timezones, verdict bands (±15%),
+   quarter length (90d), weekly pulse time (Mon 08:00 IST).
+7. Staff & Sonia (spec 28 §19): what does a staff login see, and where
+   does Sonia's Orders/catalogue work live — the plan knows only
+   owner/client. Interim: those logins keep legacy screens; nothing
+   breaks.
+8. Standing, independent of all of it: the analytics setup day + the IG
+   collection stall (data lost daily), and the chat-brain model upgrade
+   decision (Haiku → Sonnet, parked).
+
+## 2026-07-25 — SPEC 21 DEPLOYED (deploy commit a65079a on client-tracker/main)
+
+Her go given in the control room; all three DEPLOY.md gates passed (green
+scratch build with dummy keys; drift check verified safe — every differing
+file's live version was an exact past vault state, vault strictly ahead; her
+explicit "go"). She ran the push herself (the control-room session's push was
+blocked by a safety permission — expected). The push landed twice with the
+same content (double-click, harmless). **Chat brain v4 shipped in the same
+deploy** — her live retest of the four-item message is now possible.
+Awaiting: Vercel green confirmation, then the ResumeGuru DRY RUN
+(`POST /api/migrate-profile`, writes nothing) and her read of the 16-question
+report.
+
+## Build record (what was built, before the deploy above)
 
 The data-layer restructure is built, in the order the spec set: declarations and
 validator first, then path-scoped writes, then one pilot profile migrated. All

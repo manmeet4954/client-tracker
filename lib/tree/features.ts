@@ -72,6 +72,62 @@ export const FEATURES: FeatureDeclaration[] = [
     id: 'intake.rounds', today: '— (S10)', writes: 'context/intake', reads: [],
     switch: 'intake.rounds_reopen', state: 'declared',
   }),
+  // ── Spec 22 — intake and context ──────────────────────────────────────────
+  F({
+    id: 'intake.inventory', today: 'lib/intake/parameters.ts, IntakeView',
+    writes: 'context/intake/questions',
+    reads: ['context/personal-details', 'context/business-details'],
+    switch: 'intake.questionnaire', state: 'active',
+    note: 'The 41-row parameter inventory (spec 22 §4), universal like the costume variables. Ships vocabulary: draft — no round reaches a client before her vocabulary pass.',
+  }),
+  F({
+    id: 'intake.round_zero_mapping', today: 'lib/intake/roundZero.ts',
+    writes: 'context/intake/answers',
+    reads: ['context/intake/answers', 'context/intake/questions'],
+    switch: 'intake.questionnaire', state: 'active',
+    note: 'Proposes the parameter each legacy answer belongs to and queues it for her. It never writes a curated value (spec 22 §13).',
+  }),
+  F({
+    id: 'intake.curation_surface', today: 'CurationView, client/[id]/curation',
+    writes: 'context/personal-details',
+    reads: ['context/intake/answers', 'context/business-details'],
+    switch: 'intake.curation', state: 'active',
+    note: 'Raw on the left, the curated value on the right, one parameter at a time. Every value carries S11 provenance or the write is refused.',
+  }),
+  F({
+    id: 'intake.reminders', today: '— (declared, unbuilt)', writes: 'context/intake', reads: [],
+    switch: 'intake.reminders', state: 'declared',
+    note: 'She chases clients on WhatsApp today and that keeps working.',
+  }),
+  F({
+    id: 'strategy.derivation_surface', today: 'StrategyDerivationView, client/[id]/strategy',
+    writes: 'context/content-strategy',
+    reads: ['context/personal-details', 'context/business-details', 'work-log/references/from-client'],
+    switch: 'strategy.derivation', state: 'active',
+    note: 'Sources, decision, reason. No AI writes here (PLAN §3.4: derived by her).',
+  }),
+  F({
+    id: 'strategy.gate_set_surface', today: 'GateSetView',
+    writes: 'context/content-strategy/gates',
+    reads: ['context/content-strategy/voice', 'context/content-strategy/positioning'],
+    switch: 'strategy.gate_set', state: 'active',
+    note: 'Five brand gates derived from strategy, plus the two fixed operational gates (S14).',
+  }),
+  F({
+    id: 'strategy.switchboard_surface', today: 'SwitchboardView',
+    writes: 'context/content-strategy/toolset',
+    reads: ['context/content-strategy/platforms', 'work-log/creation/channels'],
+    switch: 'strategy.switchboard', state: 'active',
+    note: 'Every switch with its suggested default, its cascade set, and the strategy decision it derives from.',
+  }),
+  F({
+    id: 'strategy.lock_action', today: 'StrategyLockView, lib/strategy/derivation.ts',
+    writes: 'context/content-strategy',
+    reads: ['context/content-strategy/toolset', 'context/content-strategy/gates',
+      'work-log/creation/channels'],
+    switch: 'strategy.lock', state: 'active',
+    note: 'One act, six refusal conditions, no partial lock. It opens creation (spec 22 §8.6, §8.7).',
+  }),
 
   // ── 8.3 personal-details / business-details ───────────────────────────────
   F({
@@ -209,13 +265,182 @@ export const FEATURES: FeatureDeclaration[] = [
     writes: 'frozen/card-role', reads: [], switch: 'frozen.legacy', state: 'frozen',
     note: 'Pillar jobs superseded it.',
   }),
+  // ── Spec 23 — the Engine Room and the seed bank ───────────────────────────
   F({
-    id: 'creation.engine_room', today: 'the Content Engine room (nothing built; spec 19 → PLAN §5.1)',
-    writes: 'work-log/creation/topics', reads: ['context'], switch: 'creation.engine', state: 'declared',
+    id: 'creation.engine_room', today: 'EngineRoomView, client/[id]/engine, lib/engine/seeds.ts',
+    writes: 'work-log/creation/topics',
+    reads: ['context', 'work-log/creation', 'work-log/creation/topics/captures'],
+    switch: 'creation.engine', state: 'active',
+    note: 'The brainstorm space (PLAN §3.10): the open box, the seed bank shelf, the seed sheet, the ladder and the six lock gates. It serves, it never rails.',
   }),
   F({
-    id: 'creation.client_seed_input', today: 'client bringing ideas (no code today)',
-    writes: 'work-log/creation/topics', reads: [], switch: 'creation.seed_input_client', state: 'declared',
+    id: 'creation.seed_captures', today: 'lib/engine/captures.ts, the capture box',
+    writes: 'work-log/creation/topics/captures', reads: ['context/intake/answers'],
+    switch: 'creation.engine', state: 'active',
+    note: 'Append-only, verbatim, forever. Written BEFORE the model is called, so a failed run never loses what she said.',
+  }),
+  F({
+    id: 'creation.seed_extraction', today: 'lib/engine/extraction.ts, app/api/engine/extract',
+    writes: 'work-log/creation/topics/proposals',
+    reads: ['context', 'work-log/creation/topics', 'work-log/creation/topics/captures'],
+    switch: 'creation.seed_extraction', state: 'active',
+    note: 'The claude-opus-5 call: the context packet, PROPOSAL_SCHEMA, and the six checks (spec 23 §5).',
+  }),
+  F({
+    id: 'creation.seed_proposals', today: 'lib/engine/proposals.ts, the proposal cards',
+    writes: 'work-log/creation/topics/proposals', reads: ['work-log/creation/topics'],
+    switch: 'creation.engine', state: 'active',
+    note: 'Marked ENGINE PROPOSED and untouchable until she picks them up, enforced at the write door (PLAN §5.2).',
+  }),
+  F({
+    id: 'logs.engine_runs', today: 'lib/engine/runs.ts',
+    writes: 'work-log/logs/engine-runs', reads: ['work-log/logs/feedback'],
+    switch: 'logs.engine_runs', state: 'active',
+    note: 'One entry per run — success, refusal or error. S12’s per-output log.',
+  }),
+  F({
+    id: 'logs.feedback', today: 'lib/engine/feedback.ts',
+    writes: 'work-log/logs/feedback', reads: [], switch: 'logs.feedback', state: 'active',
+    note: 'Scoped and routed, never piled (S13). Below-the-bar marks and dismissal reasons.',
+  }),
+  F({
+    id: 'creation.client_seed_input', today: 'the intake parameter "client-ideas"',
+    writes: null, reads: ['context/intake/answers'],
+    switch: 'creation.seed_input_client', state: 'active',
+    note: 'Spec 23 §10: a working-mode flag, not a door. It writes nothing — the client’s idea lands at context/intake/answers and HER curation births the seed.',
+  }),
+
+  // ── Spec 24 — the costume, the brief, format rules, materials, handoffs ────
+  F({
+    id: 'creation.costume_surface',
+    today: 'CostumeView, client/[id]/engine/costume/[seedId], lib/engine/costume.ts',
+    writes: 'work-log/creation',
+    reads: [
+      'work-log/creation/topics', 'context/content-strategy/pillars',
+      'context/content-strategy/platforms', 'context/content-strategy/ctas',
+      'context/content-strategy/voice', 'context/content-strategy/proof-library',
+    ],
+    switch: 'creation.costume', state: 'active',
+    note: 'The request layer of the Engine Room: twelve dimensions, multi-select everywhere, the variant grid. It enumerates freely and writes nothing until she confirms (PLAN §3.10).',
+  }),
+  F({
+    id: 'creation.costume_resolve', today: 'lib/engine/resolve.ts',
+    writes: 'work-log/creation',
+    reads: ['work-log/creation/topics', 'context/content-strategy/pillars',
+      'context/content-strategy/goals', 'context/content-strategy/gates'],
+    switch: 'creation.costume', state: 'active',
+    note: 'S4 resolution: one piece per confirmed row, at stage build, with the S15 birth snapshot that is never rewritten.',
+  }),
+  F({
+    id: 'creation.format_rules', today: 'lib/engine/formats.ts',
+    writes: 'context/content-strategy/platforms/*/rules',
+    reads: ['context/content-strategy/platforms/*/formats'],
+    switch: 'creation.format_overrides', state: 'active',
+    note: 'The universal library plus resolveFormatRule. Override beats universal, FIELD BY FIELD, and the merged rule always reports which fields came from where (PLAN §5.1).',
+  }),
+  F({
+    id: 'creation.brief', today: 'lib/engine/brief.ts, app/api/engine/brief',
+    writes: 'work-log/creation/making/briefs',
+    reads: ['context', 'work-log/creation', 'work-log/creation/topics'],
+    switch: 'creation.brief', state: 'active',
+    note: 'The claude-opus-5 call PLAN §5.1 puts BEFORE any copy. Every prose field carries a hard schema cap, which is what stops a brief becoming a draft (spec 24 §6.6).',
+  }),
+  F({
+    id: 'creation.materials', today: 'lib/engine/materials.ts',
+    writes: 'work-log/creation',
+    reads: ['work-log/assets/sets', 'work-log/references',
+      'context/content-strategy/proof-library'],
+    switch: 'creation.materials', state: 'active',
+    note: 'Attached by REFERENCE, never copied (PLAN §3.11). The S21 rights check runs at attachment, against the piece’s resolved platform.',
+  }),
+  F({
+    id: 'creation.handoff', today: 'lib/engine/handoff.ts',
+    writes: 'work-log/creation/making/handoffs',
+    reads: ['work-log/creation', 'work-log/creation/making/briefs', 'work-log/assets/sets'],
+    switch: 'creation.making_handoff', state: 'active',
+    note: 'S18’s contract, manual route first and it is not a lesser route. Canva becomes its first API implementation, not a special case.',
+  }),
+  F({
+    id: 'analysis.comparison_birth', today: 'lib/engine/resolve.ts (the matched-comparison offer)',
+    writes: 'work-log/analysis/comparisons',
+    reads: ['work-log/creation'],
+    switch: 'analysis.compare', state: 'active',
+    note: 'Spec 24 §5.6: held and changed variables are knowable only at resolve, so this is the only honest moment. Everything after birth is the Analysis family’s.',
+  }),
+  // Spec 24 §10 reserves the ADDRESS for analysis's costume recommendations and
+  // builds no mechanism: a recommendation is a hint on a picker, never a
+  // pre-selection, and it carries its cited verdict or it is refused at the
+  // write door. Its own path is spec 25's law-4 addition
+  // (`creation/costume-recommendations/`), so this spec does not pre-declare it —
+  // a reserved address with no code and no store is prose, not a registry row.
+  // What this spec DOES build is the pick-up half: spec 23's `revisit-seed`
+  // proposal opens the costume surface on the named locked seed with the cited
+  // costume pre-selected (`prefillFromRecommendation`, lib/engine/costume.ts).
+
+  // ── Spec 25 — drafting, the seven gates, the feedback memory, taste ───────
+  F({
+    id: 'creation.drafting', today: 'lib/engine/drafting.ts, app/api/engine/draft',
+    writes: 'work-log/creation/making',
+    reads: ['context', 'work-log/creation', 'work-log/creation/topics',
+      'work-log/creation/making/briefs', 'owner/taste-rules'],
+    switch: 'creation.drafting', state: 'active',
+    note: 'DRAFT_SCHEMA is a discriminated union on format family, so a carousel cannot BE an essay — her slide law is structural, not an instruction. Her hook, when present, survives verbatim or the draft is rejected and retried once.',
+  }),
+  F({
+    id: 'creation.draft_versions', today: 'lib/engine/drafts.ts',
+    writes: 'work-log/creation/making',
+    reads: ['work-log/creation', 'work-log/creation/making/briefs'],
+    switch: 'creation.making', state: 'active',
+    note: 'Append-only versions. Her edit never overwrites version n; it creates n+1 with an edit delta, which is the byproduct the taste layer reads.',
+  }),
+  F({
+    id: 'creation.gate_runs', today: 'lib/engine/gates.ts, app/api/engine/gate',
+    writes: 'work-log/creation/making/gate-runs',
+    reads: ['context/content-strategy/gates', 'context/content-strategy/boundaries',
+      'context/content-strategy/voice', 'context/content-strategy/proof-library',
+      'work-log/creation', 'work-log/creation/making'],
+    switch: 'creation.gates', state: 'active',
+    note: 'Machine checks first; if a hard one fails the model call is never made. The reviewer is a SEPARATE call — a model grading its own output in the same turn is not a check.',
+  }),
+  F({
+    id: 'creation.rights_gate', today: 'lib/engine/gates.ts (rightsClearedAt)',
+    writes: null,
+    reads: ['work-log/assets/sets', 'context/content-strategy/proof-library',
+      'work-log/creation/scheduling'],
+    switch: 'creation.rights_gate', state: 'active',
+    note: 'S21. Blocks approved → scheduled, never build → review, and judges expiry against the SCHEDULED date rather than today.',
+  }),
+  F({
+    id: 'creation.client_preview', today: 'clientPreviewOf, lib/engine/drafts.ts',
+    writes: null, reads: ['work-log/creation/making'],
+    switch: 'creation.review', state: 'active',
+    note: 'A server-side WHITELIST projection, never a copy (PLAN §3.11) and never a blacklist — a blacklist leaks the day someone adds a field and forgets.',
+  }),
+  F({
+    id: 'creation.feedback_memory', today: 'lib/engine/feedback.ts',
+    writes: 'work-log/logs/feedback',
+    reads: ['work-log/creation/review', 'work-log/creation/making', 'work-log/creation/topics'],
+    switch: 'logs.feedback', state: 'active',
+    note: 'S13: five classes, her confirmation required before anything routes, every durable route a proposed diff she accepts or rejects. Nothing applies automatically, ever.',
+  }),
+  F({
+    id: 'creation.post_learning', today: 'the one prompt on a posted piece',
+    writes: 'work-log/logs/feedback', reads: ['work-log/creation'],
+    switch: 'creation.post_learning', state: 'active',
+    note: 'Optional, dismissible, never a chore. Most performance-class feedback lands here.',
+  }),
+  F({
+    id: 'creation.costume_recommendations', today: 'lib/engine/recommendations.ts',
+    writes: 'work-log/creation/costume-recommendations',
+    reads: ['work-log/creation'],
+    switch: 'creation.engine', state: 'active',
+    note: 'Spec 25 §9.5 reserves the address and fixes the two rules the Analysis family must honour: evidence required at the write door for a verdict-sourced entry, and a recommendation never selects anything.',
+  }),
+  F({
+    id: 'owner.taste_rules', today: 'lib/engine/taste.ts, tasteRules[]',
+    writes: 'owner/taste-rules', reads: ['work-log/creation/making', 'work-log/logs/feedback'],
+    switch: 'owner.taste_rules', state: 'active', slices: ['state.tasteRules'],
+    note: 'Spec 10 re-cut with the leak guard the original did not have: what crosses a profile boundary is HER instruction, de-identified and accepted one at a time; a client’s data never crosses at all.',
   }),
 
   // ── 8.6 making, review, scheduling, distribution ──────────────────────────
@@ -400,15 +625,16 @@ export const FEATURES: FeatureDeclaration[] = [
 
   // ── 8.9 analysis ──────────────────────────────────────────────────────────
   F({
-    id: 'analysis.ig_sync', today: 'app/api/ig-sync, vercel.json cron (9:00 IST)',
+    id: 'analysis.ig_sync', today: 'app/api/ig-sync — a thin redirect to /api/metrics-sync',
     writes: 'work-log/analysis/study-own-data', reads: ['work-log/creation/channels'],
-    switch: 'analysis.tracking', state: 'active',
-    note: 'Gains every S7 field. Recording does NOT wait for the restructure; the 2026-07-12 stall is fixed before it.',
+    switch: 'analysis.tracking', state: 'history',
+    note: 'Spec 26 §6.1: superseded by analysis.metrics_sync. The route stays for one release so the live cron entry cannot break mid-cutover; it forwards and writes nothing itself.',
   }),
   F({
-    id: 'analysis.post_links', today: 'ig_post_links (spec 03)',
-    writes: 'work-log/analysis/study-own-data', reads: ['work-log/creation'],
+    id: 'analysis.post_links', today: 'ig_post_links (spec 03) → post_links',
+    writes: 'work-log/analysis/study-own-data/links', reads: ['work-log/creation'],
     switch: 'analysis.tracking', state: 'active',
+    note: 'Spec 26 §8: re-keyed to the canonical piece identity, with `legacy-card` kept for profiles that have not migrated. Neither kind is ever guessed into the other.',
   }),
   F({
     id: 'analysis.ai_tags', today: 'ig_post_tags, app/api/ig-tag (spec 06)',
@@ -441,15 +667,16 @@ export const FEATURES: FeatureDeclaration[] = [
     switch: 'analysis.scorecard', state: 'active',
   }),
   F({
-    id: 'analysis.compare', today: 'compare / A-B (nothing built)',
+    id: 'analysis.compare', today: 'lib/analysis/compare.ts, components/analysis/CompareTab',
     writes: 'work-log/analysis/comparisons', reads: ['work-log/analysis/study-own-data'],
-    switch: 'analysis.compare', state: 'declared',
-    note: 'PLAN §5.2 calls this the engine’s actual purpose.',
+    switch: 'analysis.compare', state: 'active',
+    note: 'PLAN §5.2 calls this the engine’s actual purpose. The screen says Compare; the machinery builds a matched comparison and calls `resolveComparison` unmodified (spec 27 §9).',
   }),
   F({
-    id: 'analysis.digest', today: 'spec 07 monthly digest (specced, unbuilt)',
+    id: 'analysis.digest', today: 'lib/analysis/digest.ts, app/api/analysis/digest',
     writes: 'work-log/analysis/digests', reads: ['work-log/analysis'],
-    switch: 'analysis.digest_owner', state: 'declared',
+    switch: 'analysis.digest_owner', state: 'active',
+    note: 'Monthly per profile right after month-end, coverage first (spec 27 §13.1).',
   }),
   F({
     id: 'analysis.client_perception', today: 'client perception (no structured home today)',
@@ -497,6 +724,210 @@ export const FEATURES: FeatureDeclaration[] = [
   F({
     id: 'legacy.debug_preview', today: 'app/api/debug-preview', writes: 'frozen/debug', reads: [],
     switch: 'frozen.legacy', state: 'frozen',
+  }),
+
+  // ── spec 26 — the tracking store ──────────────────────────────────────────
+  F({
+    id: 'analysis.metrics_sync',
+    today: 'app/api/metrics-sync, lib/platforms/index.ts, lib/platforms/instagram/*',
+    writes: 'work-log/analysis/study-own-data/observations',
+    reads: ['work-log/creation/channels', 'context/content-strategy/platforms',
+      'context/content-strategy/toolset'],
+    switch: 'analysis.tracking', state: 'active',
+    note: 'The generalized collector: one connector per platform, the existing ig-sync logic MOVED not rewritten. Two runs a day, append-only, every row carrying its own age, timezone, definition version and run id.',
+  }),
+  F({
+    id: 'analysis.sync_health',
+    today: 'sync_runs, lib/tree/metrics.ts (coverage gaps with reasons)',
+    writes: 'work-log/analysis/study-own-data/sync-health',
+    reads: ['work-log/analysis/study-own-data/observations', 'work-log/creation/channels'],
+    switch: 'analysis.sync_health', state: 'active',
+    note: 'Runs, connection status, retry and backfill state. A gap’s reason is READ OFF the runs, never guessed (§5.6).',
+  }),
+  F({
+    id: 'analysis.backfill', today: 'app/api/metrics-sync ?trigger=backfill',
+    writes: 'work-log/analysis/study-own-data/observations',
+    reads: ['work-log/analysis/study-own-data/sync-health'],
+    switch: 'analysis.backfill', state: 'active',
+    note: 'Fetches current lifetime totals for posts missed while the pipe was down, stamped `backfilled`. It closes no gap: the curve between the stall and the first successful run does not exist and will not exist (§6.4).',
+  }),
+  F({
+    id: 'analysis.window_materialization', today: 'lib/tree/metrics.ts',
+    writes: 'work-log/analysis/study-own-data/observations',
+    reads: ['work-log/analysis/study-own-data/observations'],
+    switch: 'analysis.tracking', state: 'active',
+    note: 'S6’s three windows, materialized ONCE from a qualifying lifetime reading and never recomputed. Stores the ACTUAL age, and says too-early or unavailable rather than zero.',
+  }),
+  F({
+    id: 'analysis.attributed_outcomes', today: 'lib/tree/metrics.ts (the S23 wall)',
+    writes: 'work-log/analysis/attributed-outcomes',
+    reads: ['work-log/analysis/study-own-data/observations'],
+    switch: 'analysis.attributed_outcomes', state: 'active',
+    note: 'S23: no code path may divide an attributed outcome by an observed metric unless event_source AND attribution_method are both declared. A store-level refusal, not a UI convention.',
+  }),
+  F({
+    id: 'analysis.measurement_declarations', today: 'lib/tree/measurement.ts',
+    writes: 'context/content-strategy/goals/*/measurement',
+    reads: ['context/content-strategy/goals', 'context/content-strategy/pillars',
+      'context/content-strategy/platforms/*/metrics'],
+    switch: 'strategy.fixed', state: 'active',
+    note: 'S16’s measuring stick, validated at strategy lock. It blocks ANALYSIS per subject and never blocks COLLECTION — recording is the first duty and does not wait for a decision (§9).',
+  }),
+  F({
+    id: 'analysis.platform_metrics', today: 'lib/platforms/instagram/metrics.ts',
+    writes: 'context/content-strategy/platforms/*/metrics',
+    reads: ['context/content-strategy/platforms/*/formats'],
+    switch: 'platforms.*', state: 'active',
+    note: 'The code catalogue is the shelf (it describes the platform, not the client); the profile parameter is what this account actually reports. Override beats universal.',
+  }),
+  F({
+    id: 'analysis.tracking_migration', today: 'lib/tree/migrateTracking.ts, app/api/migrate-tracking',
+    writes: 'work-log/analysis/study-own-data/observations',
+    reads: ['work-log/analysis/study-own-data/links'],
+    switch: 'analysis.tracking', state: 'migrated',
+    note: 'The ig_* history copied with count parity, definition_version 0 and fetch_time_precision day. No run records are invented; the pre-cutover gaps read `unknown`, which is what they are (§14).',
+  }),
+
+  // ── spec 27 §21 — the reading surfaces, on ONE computation layer ───────────
+  F({
+    id: 'analysis.read_layer', today: 'lib/analysis/read.ts, lib/analysis/compute.ts',
+    writes: null,
+    reads: [
+      'work-log/analysis/study-own-data/observations',
+      'work-log/analysis/study-own-data/sync-health',
+      'work-log/analysis/study-own-data/links',
+      'work-log/creation', 'work-log/creation/channels', 'work-log/creation/topics',
+      'context/content-strategy/pillars', 'context/content-strategy/goals',
+      'context/content-strategy/platforms', 'context/content-strategy/toolset',
+    ],
+    switch: 'analysis.tracking', state: 'active',
+    note: 'read.ts is the ONLY reader of the store and exports no writer; compute.ts is pure. Every surface below is a window onto these two — no screen queries Supabase, and no screen has its own idea of what "typical" means (§4).',
+  }),
+  F({
+    id: 'analysis.now', today: 'lib/analysis/digest.ts (period = month to date), components/analysis/NowTab',
+    writes: null, reads: ['work-log/analysis/study-own-data/observations', 'work-log/creation'],
+    switch: 'analysis.always_live', state: 'active',
+    note: 'The always-live view. The same calculation as the monthly digest with a different period argument, which is why it cannot drift from it (§13.3).',
+  }),
+  F({
+    id: 'analysis.bifurcation', today: 'lib/analysis/bifurcate.ts, components/analysis/SlicesTab',
+    writes: null,
+    reads: ['work-log/creation', 'work-log/analysis/study-own-data/observations',
+      'context/content-strategy/pillars', 'context/content-strategy/platforms'],
+    switch: 'analysis.bifurcation', state: 'active',
+    note: 'Dimensions are GENERATED from the profile’s own declarations, so a fourth pillar or a new hook type carries the moment it exists, with nothing blank (law 3, test 5).',
+  }),
+  F({
+    id: 'analysis.funnel_view', today: 'lib/analysis/funnel.ts, components/analysis/FunnelTab',
+    writes: null,
+    reads: ['work-log/analysis/study-own-data/observations', 'work-log/analysis/attributed-outcomes',
+      'context/content-strategy/funnel-shape', 'context/content-strategy/ctas'],
+    switch: 'analysis.funnel', state: 'active',
+    note: 'Observed platform metrics only. Attributed outcomes render in a separate block behind the S23 wall, labelled unknown without a declared method (§8.3).',
+  }),
+  F({
+    id: 'analysis.verdicts', today: 'lib/analysis/verdict.ts, app/api/analysis/verdict',
+    writes: 'work-log/analysis/verdicts', reads: ['work-log/analysis/study-own-data/observations'],
+    switch: 'analysis.verdicts', state: 'active',
+    note: 'Numbers computed by code and stored WHOLE before any model is called (§11.2). Append-only: a re-run appends and the old verdict stays.',
+  }),
+  F({
+    id: 'analysis.verdict_words', today: 'lib/analysis/words.ts',
+    writes: null, reads: ['work-log/analysis/verdicts', 'context/content-strategy/voice'],
+    switch: 'analysis.verdict_words', state: 'active',
+    note: 'The one wording call, with four guards run before she sees a word. The number guard is what makes "AI can never invent a metric" mechanical rather than a promise (§12.4).',
+  }),
+  F({
+    id: 'analysis.pulse', today: 'lib/analysis/digest.ts (weekly pulse)',
+    writes: 'work-log/analysis/digests', reads: ['work-log/analysis/study-own-data/sync-health'],
+    switch: 'analysis.pulse_owner', state: 'active',
+    note: 'Each profile writes its OWN pulse entry; the shelf composes her one screen from them. Nothing is stored between profiles (§13.2, PLAN §5.3).',
+  }),
+  F({
+    id: 'analysis.revisit_proposals', today: 'lib/analysis/verdict.ts → lib/engine/proposals.ts',
+    writes: 'work-log/creation/topics/proposals', reads: ['work-log/analysis/verdicts'],
+    switch: 'analysis.revisit_proposals', state: 'active',
+    note: 'It never creates a seed — the seed already exists. Evidence is required at the write door: a revisit proposal with no cited verdict is refused, not warned (§15.1).',
+  }),
+  F({
+    id: 'analysis.strategy_diffs', today: 'lib/analysis/verdict.ts → lib/engine/feedback.ts',
+    writes: 'work-log/logs/feedback', reads: ['work-log/analysis/verdicts'],
+    switch: 'analysis.strategy_diffs', state: 'active',
+    note: 'The engine PROPOSES a diff against mix targets or pillar jobs; her acceptance writes strategy version N+1, dated, with the cited reason. Nothing updates strategy behind her back (§15.3).',
+  }),
+  F({
+    id: 'analysis.costume_recommendations', today: 'lib/analysis/verdict.ts → lib/engine/recommendations.ts',
+    writes: 'work-log/creation/costume-recommendations', reads: ['work-log/analysis/verdicts'],
+    switch: 'analysis.costume_recommendations', state: 'active',
+    note: 'A projection of sufficient patterns, carrying its evidence, drawn by Content Engine II. It never pre-selects anything (§15.2).',
+  }),
+  F({
+    id: 'analysis.client_publication', today: 'lib/analysis/digest.ts, lib/access.ts publication gate',
+    writes: 'work-log/analysis/digests', reads: ['work-log/analysis/verdicts'],
+    switch: 'analysis.client_publication', state: 'active',
+    note: 'The client’s analysis window renders the latest APPROVED publication, never a live query. The resolver enforces it server side: on an analysis path a non-owner receives published entries and nothing else (§14).',
+  }),
+
+  // ── spec 28 — the shell ───────────────────────────────────────────────────
+  // Every feature registers its switch at birth (PLAN §6 rule 3). The shell
+  // writes exactly one path — `shelf/profiles`, already declared by spec 21 —
+  // and everything else it does is reading, routing and rendering (§12.3).
+  F({
+    id: 'shell.render_resolver', today: 'lib/tree/render.ts',
+    writes: null, reads: ['context/content-strategy/toolset'],
+    switch: 'spine.fixed', state: 'active',
+    note: 'renderState(profile, switch, role): the cascade, the lifecycle, the audience and the door, most restrictive wins. The ONLY visibility authority — no component reads a switch position itself (§17.5).',
+  }),
+  F({
+    id: 'shell.profile_frame', today: 'app/profile/[id], components/shell/Frame.tsx',
+    writes: null, reads: ['shelf/profiles', 'context/content-strategy/visual-branding'],
+    switch: 'spine.fixed', state: 'active',
+    note: 'The three-app frame. Replaces the nine-tab bar and the cross-profile sidebar; leaving a profile means going back to the shelf, and there is no other exit (§5.7).',
+  }),
+  F({
+    id: 'shell.shelf', today: 'app/shelf, components/shell/Shelf.tsx',
+    writes: null,
+    reads: ['shelf/profiles', 'work-log/creation', 'context/intake',
+      'work-log/analysis/study-own-data/sync-health'],
+    switch: 'shelf.profiles', state: 'active',
+    note: 'The cards. Status never content: counts composed at read time from each profile’s own paths, and one attention line from a fixed vocabulary (§4.2).',
+  }),
+  F({
+    id: 'shelf.add_profile', today: 'components/shell/Shelf.tsx add-profile',
+    writes: 'shelf/profiles', reads: [],
+    switch: 'shelf.add_profile', state: 'active',
+    note: 'The shell’s ONE write. Name and colour; born at lifecycle setup with no switch positions and no strategy version (§4.5).',
+  }),
+  F({
+    id: 'shelf.weekly_pulse', today: 'lib/shell/shelf.ts composeWeeklyPulse',
+    writes: null, reads: ['work-log/analysis/digests'],
+    switch: 'shelf.weekly_pulse', state: 'active',
+    note: 'The composition, never the entries: each profile writes its own weekly-pulse entry into its own digests (spec 27 §13.2) and the shelf composes her one screen. Nothing cross-profile is stored (§4.4).',
+  }),
+  F({
+    id: 'client_access.mini_shelf', today: 'components/shell/MiniShelf.tsx',
+    writes: null, reads: ['shelf/profiles'],
+    switch: 'client_access.mini_shelf', state: 'active',
+    note: 'THEIR profiles only, never anyone else’s (PLAN §11 Q3). No strip, no pulse, no add-profile, and no count that comes from behind a door they do not hold (§7.2).',
+  }),
+  F({
+    id: 'client_access.windows', today: 'lib/access.ts windowsForBinding',
+    writes: null, reads: ['work-log/creation', 'work-log/creation/review',
+      'work-log/analysis/digests', 'context/content-strategy'],
+    switch: 'client_access.login', state: 'active',
+    note: 'The ordered windows a binding grants, derived from doors + switches + lifecycle and asserted server side. It GRANTS nothing — it is a projection of what the filter already decided (§15.2).',
+  }),
+  F({
+    id: 'creation.review_deeplink', today: 'lib/shell/deeplink.ts, app/p/[shareId]',
+    writes: null, reads: ['work-log/creation/review', 'work-log/creation'],
+    switch: 'creation.review_deeplink', state: 'active',
+    note: 'The logged-in branch of a shared preview link. A delivery route into the review door, never a fifth door (§10, §14).',
+  }),
+  F({
+    id: 'shell.route_map', today: 'lib/shell/routes.ts',
+    writes: null, reads: [],
+    switch: 'spine.fixed', state: 'active',
+    note: 'Every route alive today with its fate. A route with no fate fails the build — the orphan check, applied to routes (§17.13).',
   }),
 ];
 

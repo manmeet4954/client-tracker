@@ -179,5 +179,7 @@ export function fixtureState(): AppState {
       { role: 'intern', profileId: 'divine-studio', kind: 'staff', createdAt: '2026-07-25T10:00:00.000Z' },
       { role: 'intern', profileId: 'resumeguru', kind: 'staff', createdAt: '2026-07-25T10:00:00.000Z' },
     ],
+    // Spec 25 §9.2: the owner-zone taste store, empty until a rule is accepted.
+    tasteRules: [],
   };
 }

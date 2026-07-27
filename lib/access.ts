@@ -2,8 +2,15 @@ import type { AppState, Client, ClientData, ListRow, ProfileBinding, TrackList }
 import type { ProfileBody } from '@/lib/tree/body';
 // Relative, extensioned imports: these modules also run under plain Node in the
 // acceptance tests (tests/run.ts), where the `@/` alias does not exist.
-import { LIFECYCLE_POLICY } from './tree/objects.ts';
-import { clientMayWrite, clientMayRead } from './tree/validate.ts';
+import type { ClientDoor } from './tree/contract.ts';
+import type { Lifecycle } from './tree/objects.ts';
+import { LIFECYCLE_POLICY, doorsOpenAt } from './tree/objects.ts';
+import { pathState } from './tree/switches.ts';
+import { renderState } from './tree/render.ts';
+import { switchConfigFromBody } from './strategy/derivation.ts';
+import { isCutOver, renderProfile, staysOnLegacy } from './shell/profile.ts';
+import { clientMayWrite, clientMayRead, clientMayWriteAt, clientMayReadAt } from './tree/validate.ts';
+import { findDeclaration } from './tree/declarations.ts';
 import { deriveLegacyBindings } from './tree/legacyBindings.ts';
 
 export type Role = 'owner' | 'intern' | 'sonia' | 'shiva' | 'merushri';
@@ -24,6 +31,13 @@ const EMPTY_MAP = { nodes: [] };
 export function bindingsForRole(state: AppState, role: Role): ProfileBinding[] {
   if (role === 'owner') return [];
   return (state.bindings ?? []).filter(b => b.role === role);
+}
+
+/** Staff or client, for one (person, profile) pair. Staff work inside her side;
+ *  a client login is scoped by the doors its lifecycle opens (spec 22 §11.1). */
+function bindingKind(state: AppState, role: Role, profileId: string): 'client' | 'staff' {
+  const b = (state.bindings ?? []).find(x => x.role === role && x.profileId === profileId);
+  return b?.kind === 'staff' ? 'staff' : 'client';
 }
 
 /** Does this profile's lifecycle still let a client login in at all (S22)? */
@@ -60,7 +74,7 @@ function stripInjectedLists(lists: TrackList[], listRows: ListRow[]): { lists: T
 
 /** An empty, valid AppState (used when there is no saved row yet). */
 export function emptyState(): AppState {
-  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP }, observations: [], chatLog: [], bindings: [] };
+  return { clients: [], clientData: {}, personalTasks: [], brainDump: { ...EMPTY_BRAIN }, containerMap: { ...EMPTY_MAP }, observations: [], chatLog: [], bindings: [], tasteRules: [] };
 }
 
 /** Normalize older saved states so every top-level field exists. */
@@ -105,6 +119,8 @@ export function normalizeState(state: AppState): AppState {
     // First normalize after the restructure: write down the access the name
     // rules were already granting, then never consult a name again (§6).
     bindings: state.bindings ?? deriveLegacyBindings(clients),
+    // Spec 25 §9.2: the owner-zone taste store. Empty until she accepts a rule.
+    tasteRules: state.tasteRules ?? [],
   };
 }
 
@@ -113,22 +129,171 @@ export function normalizeState(state: AppState): AppState {
 // profile's body is path-addressed, so "what may this login see" is answered by
 // the declarations themselves rather than by a hand-kept tab list.
 
-function filterBodyForNonOwner(body: ProfileBody | undefined): ProfileBody | undefined {
-  if (!body) return undefined;
-  const paths: ProfileBody['paths'] = {};
-  for (const p of Object.keys(body.paths)) {
-    if (clientMayRead(p)) paths[p] = body.paths[p];
-  }
-  return { ...body, paths, sort_queue: [] }; // her sort queue is never client-facing
+const STRATEGY_PREFIX = 'context/content-strategy';
+
+/**
+ * The client sees the LOCKED version only (spec 22 §8.8, §10). Working edits
+ * toward the next version are invisible until she locks them — that is PLAN
+ * §4's "never the raw working notes", and it needs no second artifact.
+ */
+function lockedOnly(entries: ProfileBody['paths'][string]): ProfileBody['paths'][string] {
+  return entries.filter(e => {
+    const v = (e.data as { strategy_version?: unknown } | undefined)?.strategy_version;
+    return e.state === 'active' && typeof v === 'number';
+  });
 }
 
-/** Only the four give-points may come back from any non-owner login (S19). */
-function mergeBodyFromNonOwner(current: ProfileBody | undefined, incoming: ProfileBody | undefined): ProfileBody | undefined {
+// ── Spec 24 §13.2 — the piece stage gate ─────────────────────────────────────
+//
+// The bug this closes: `filterBodyForNonOwner` filtered at PATH level only, so a
+// path either reached a non-owner login whole or not at all. `work-log/creation`
+// is `audience: 'both', client_door: 'see:upcoming'`, so EVERY piece at every
+// stage would have reached a client login. Nothing created pieces at `build`
+// through the tree until spec 24, which is why it had not bitten yet.
+//
+// The rule it generalizes: a child or an entry may be more restrictive than its
+// parent, never less. Law 3 inherits connections downward; it must not force
+// visibility downward. CLAUDE.md rule 2 stands — filtering only gets stronger.
+
+const PIECE_PATH = 'work-log/creation';
+
+/** The only stages a non-owner login may ever see. PLAN §4: "drafts before review". */
+const CLIENT_VISIBLE_STAGES = new Set(['review', 'approved', 'scheduled', 'posted']);
+
+/**
+ * The engine's internals, removed from every piece a non-owner receives. PLAN §4
+ * excludes the costume and the birth snapshot by name; materials, the batch id
+ * and her notes are the same kind of thing.
+ */
+const PIECE_FIELDS_STRIPPED = ['costume', 'birth', 'batch_id', 'materials', 'notes'] as const;
+
+function narrowPieces(entries: ProfileBody['paths'][string]): ProfileBody['paths'][string] {
+  const out: ProfileBody['paths'][string] = [];
+  for (const e of entries) {
+    const data = (e.data ?? {}) as Record<string, unknown>;
+    if (!CLIENT_VISIBLE_STAGES.has(String(data.stage))) continue;   // idea and build never travel
+    const kept: Record<string, unknown> = { ...data };
+    for (const f of PIECE_FIELDS_STRIPPED) delete kept[f];
+    // Amendments carry the same internals (a costume completion, a materials
+    // attach, a late birth), so they are stripped with the fields they change.
+    out.push({ ...e, data: kept, amendments: undefined });
+  }
+  return out;
+}
+
+// ── Spec 27 §14 — the publication gate ───────────────────────────────────────
+//
+// PLAN §5.2 rule 3: "anything a CLIENT sees is drafted by the engine and approved
+// or edited by her first." The committed pick is that the client's analysis
+// window renders the latest APPROVED PUBLICATION, never a live query — because
+// that is the only shape where "never automatic" is structurally true, and
+// because a live client view would show a client a coverage gap in real time with
+// no words around it.
+//
+// The rule, enforced server side and in the STRONGER direction only (CLAUDE.md
+// rule 2): on any analysis path, a non-owner role receives entries marked
+// `published: true` with an approval stamp, and nothing else. Everything else
+// under work-log/analysis — verdicts, comparisons, sync health, the funnel, the
+// engine runs, show-my-working — is `audience: owner` and never reaches this
+// function at all.
+
+const ANALYSIS_DOOR = 'see:analysis';
+
+function publishedOnly(
+  path: string, entries: ProfileBody['paths'][string],
+): ProfileBody['paths'][string] {
+  return entries.filter(e => {
+    const d = (e.data ?? {}) as Record<string, unknown>;
+    // Approval is a deliberate act with a date and her name on it. A `published`
+    // flag with no stamp is not an approval, so it does not travel.
+    if (d.published !== true) return false;
+    if (!d.approved_at || !d.approved_by) return false;
+    // Only a client publication is ever served to a client. A monthly digest or
+    // a weekly pulse marked published would still be her working record.
+    if (path === 'work-log/analysis/digests' && d.kind !== 'client-publication') return false;
+    return true;
+  });
+}
+
+// ── Spec 28 §6 — "not rendered" is a server-side fact ────────────────────────
+//
+// S9 splits "off" into three, and the last column of §6's table is the one that
+// matters: a `hidden` thing is ABSENT from the role-filtered body, and the shell
+// simply has nothing to draw. A `history` thing travels, read-only, and is
+// refused on write (spec 21 §5.2). This is the pass that makes that true.
+//
+// It only ever REMOVES (CLAUDE.md rule 2), and it only acts on a profile whose
+// switchboard she has actually walked. Spec 21 §9.6's rule stands: a migrated
+// profile with no positions set keeps rendering exactly what it renders today,
+// and suggestions are never applied as her decision. That is also why an
+// unwalked profile is untouched here rather than stripped by defaults.
+
+function applySwitchStates(body: ProfileBody, paths: ProfileBody['paths']): ProfileBody['paths'] {
+  const config = switchConfigFromBody(body);
+  if (Object.keys(config).length === 0) return paths;   // she has set nothing yet
+  const out: ProfileBody['paths'] = {};
+  for (const p of Object.keys(paths)) {
+    let state: 'active' | 'history' | 'hidden';
+    try {
+      state = pathState(p, config);
+    } catch {
+      state = 'active';   // an address the resolver cannot place is left as it was
+    }
+    if (state === 'hidden') continue;                    // absent, not greyed out
+    out[p] = state === 'history'
+      ? paths[p].map(e => ({ ...e, state: 'history' as const }))
+      : paths[p];
+  }
+  return out;
+}
+
+function filterBodyForNonOwner(
+  body: ProfileBody | undefined, kind: 'client' | 'staff', lifecycle: Lifecycle | undefined,
+): ProfileBody | undefined {
+  if (!body) return undefined;
+  // Staff work inside her side, so their body is filtered by audience alone.
+  // A client login is additionally scoped by the doors its lifecycle opens
+  // (spec 22 §11.1): at `setup` that is intake, and nothing else.
+  const doors = kind === 'client' ? doorsOpenAt(lifecycle) : null;
+  const paths: ProfileBody['paths'] = {};
+  for (const p of Object.keys(body.paths)) {
+    if (!clientMayRead(p)) continue;
+    if (doors && !clientMayReadAt(p, doors)) continue;
+    if (p === PIECE_PATH) {
+      // Entry-level narrowing, server side, for EVERY non-owner login — staff
+      // included. The engine's internals are hers (spec 24 §13.1).
+      paths[p] = narrowPieces(body.paths[p]);
+      continue;
+    }
+    if (findDeclaration(p)?.client_door === ANALYSIS_DOOR) {
+      // Spec 27 §14. Every non-owner login, staff included: nothing on an
+      // analysis path travels until she has approved it.
+      paths[p] = publishedOnly(p, body.paths[p]);
+      continue;
+    }
+    paths[p] = doors && (p === STRATEGY_PREFIX || p.startsWith(STRATEGY_PREFIX + '/'))
+      ? lockedOnly(body.paths[p])
+      : body.paths[p];
+  }
+  // her sort queue is never client-facing; and a switch she has set to hidden
+  // takes its paths out of the payload entirely (§6).
+  return { ...body, paths: applySwitchStates(body, paths), sort_queue: [] };
+}
+
+/** Only the four give-points may come back from any non-owner login (S19), and
+ *  only the ones this profile's lifecycle actually opens (spec 22 §11.1). */
+function mergeBodyFromNonOwner(
+  current: ProfileBody | undefined, incoming: ProfileBody | undefined,
+  kind: 'client' | 'staff', lifecycle: Lifecycle | undefined,
+): ProfileBody | undefined {
   if (!current) return current;           // nothing to merge into yet
   if (!incoming) return current;
+  const doors = kind === 'client' ? doorsOpenAt(lifecycle) : null;
   const paths = { ...current.paths };
   for (const p of Object.keys(incoming.paths)) {
-    if (clientMayWrite(p)) paths[p] = incoming.paths[p];
+    if (!clientMayWrite(p)) continue;
+    if (doors && !clientMayWriteAt(p, doors)) continue;
+    paths[p] = incoming.paths[p];
   }
   return { ...current, paths };
 }
@@ -150,7 +315,9 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
     // EVERY non-owner login, staff included: the body is filtered by the
     // declarations. Her per-profile notes live inside it now, and `audience:
     // owner` has to mean the same thing for the intern as for a client.
-    clientData[id] = { ...data, body: filterBodyForNonOwner(data.body) };
+    const kind = bindingKind(norm, role, id);
+    const lifecycle = norm.clients.find(c => c.id === id)?.lifecycle;
+    clientData[id] = { ...data, body: filterBodyForNonOwner(data.body, kind, lifecycle) };
   });
   // Shared lists (spec 12): inject a window onto any other client's list that
   // is shared with one of this role's clients. The window carries `sharedFrom`
@@ -190,7 +357,100 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
     chatLog: [],
     // Their own bindings only — never anyone else's (PLAN §11, Q3).
     bindings: bindingsForRole(norm, role),
+    // Spec 25 §12.1: no switch, in any position, grants anyone but her sight of
+    // a taste rule. It never leaves this function for a non-owner login.
+    tasteRules: [],
   };
+}
+
+// ── Spec 28 §15.2 — the client's windows ─────────────────────────────────────
+//
+// One exported function returning the ordered list of client windows a binding
+// grants, derived from doors + switches + lifecycle. The client's navigation is
+// rendered from it, and the same list is asserted server side.
+//
+// It GRANTS NOTHING. It is a projection of what the filter has already decided:
+// every window below reads paths that `filterBodyForNonOwner` has already let
+// through, and a window whose door is shut is simply not in the list. CLAUDE.md
+// rule 2 stands — filtering only gets stronger.
+
+export type ClientWindowId = 'brand' | 'intake' | 'content' | 'assets' | 'results';
+
+export interface ClientWindow {
+  id: ClientWindowId;
+  label: string;
+  /** Relative to `/profile/<id>`. Empty string is the profile root. */
+  route: string;
+  doors: ClientDoor[];
+}
+
+/** §7.3's table, in its own order — which is also their landing order. */
+const WINDOWS: {
+  id: ClientWindowId; label: string; route: string; doors: ClientDoor[];
+  /** Any one of these rendering for THEM is enough. */
+  clientSwitches: string[];
+  /** And these must be on HER side too, where the window depends on her flow. */
+  ownerSwitches?: string[];
+  /** The Brand window is the LOCKED strategy summary, so it needs a lock. */
+  needsLockedStrategy?: boolean;
+}[] = [
+  {
+    id: 'brand', label: 'Brand', route: '', doors: ['see:strategy', 'see:obligations'],
+    clientSwitches: ['strategy.fixed'], needsLockedStrategy: true,
+  },
+  {
+    id: 'intake', label: 'Intake', route: '/intake', doors: ['give:intake'],
+    clientSwitches: ['intake.questionnaire', 'intake.finding_session'],
+  },
+  {
+    id: 'content', label: 'Content', route: '/creation/board',
+    doors: ['see:upcoming', 'give:review', 'give:perception'],
+    clientSwitches: ['creation.review', 'creation.scheduling'],
+  },
+  {
+    id: 'assets', label: 'Assets', route: '/creation/assets', doors: ['give:assets'],
+    clientSwitches: ['assets.client_upload'],
+  },
+  {
+    id: 'results', label: 'Results', route: '/analysis', doors: ['see:analysis'],
+    clientSwitches: ['analysis.digest_client'],
+    // The Results window renders an approved PUBLICATION, never a live query
+    // (spec 27 §14). The publication flow is hers, so it is checked as hers.
+    ownerSwitches: ['analysis.client_publication'],
+  },
+];
+
+export function windowsForBinding(state: AppState, role: Role, profileId: string): ClientWindow[] {
+  if (role === 'owner') return [];
+  const norm = normalizeState(state);
+  if (!allowedClientIds(norm, role).includes(profileId)) return [];
+  const kind = bindingKind(norm, role, profileId);
+  // §19's interim ruling: staff and Sonia keep the legacy workspace, so the new
+  // shell offers them no windows at all.
+  if (staysOnLegacy(role, kind)) return [];
+  if (!isCutOver(norm.clientData[profileId])) return [];
+
+  const profile = renderProfile(norm, profileId, role);
+  const out: ClientWindow[] = [];
+  for (const w of WINDOWS) {
+    if (w.needsLockedStrategy && !profile.strategy_locked) continue;
+    const theirs = w.clientSwitches.some(s => renderState(profile, s, 'client') === 'active');
+    if (!theirs) continue;
+    const hers = (w.ownerSwitches ?? []).every(s => renderState(profile, s, 'owner') === 'active');
+    if (!hers) continue;
+    out.push({ id: w.id, label: w.label, route: w.route, doors: w.doors });
+  }
+  return out;
+}
+
+/** Every profile this login reaches in the NEW shell, with its windows. */
+export function windowsForRole(state: AppState, role: Role): Record<string, ClientWindow[]> {
+  const out: Record<string, ClientWindow[]> = {};
+  if (role === 'owner') return out;
+  for (const id of allowedClientIds(normalizeState(state), role)) {
+    out[id] = windowsForBinding(state, role, id);
+  }
+  return out;
 }
 
 /**
@@ -218,7 +478,10 @@ export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role
       // The body is path-addressed: a non-owner login may return the four
       // give-points and nothing else (S19). It never received the rest, so it
       // has nothing else to send back.
-      body: mergeBodyFromNonOwner(cur.clientData[id]?.body, inc.body),
+      body: mergeBodyFromNonOwner(
+        cur.clientData[id]?.body, inc.body,
+        bindingKind(cur, role, id), cur.clients.find(c => c.id === id)?.lifecycle,
+      ),
     };
     // Route each window's ROW edits back into the owning client's data — but
     // only when the AUTHORITATIVE state confirms the owner really shares that
@@ -250,5 +513,7 @@ export function mergeRoleWrite(current: AppState, incoming: AppState, role: Role
     observations: cur.observations,
     chatLog: cur.chatLog,
     bindings: cur.bindings,
+    // A non-owner login never received them, so it has nothing to send back.
+    tasteRules: cur.tasteRules,
   };
 }

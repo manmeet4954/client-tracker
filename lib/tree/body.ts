@@ -18,9 +18,33 @@ export interface SortQueueItem {
   question: string;
 }
 
+/** Raw answers are never altered (S11). There is no legitimate amendment of a
+ *  raw answer: a correction is a NEW answer in a NEW round, and the correction
+ *  lands at the curated level, where supersession lives (spec 22 §6, §11.2). */
+export const NO_AMENDMENT_PATHS = ['context/intake/answers'];
+
 export interface ProfileBody {
   body_version: number;
+  /** Set by the one-act strategy lock (spec 22 §8.6). Null until she locks;
+   *  while it is null, every write under work-log/creation is refused (§8.7). */
+  strategy_version?: number | null;
   migrated_at: string;
+  /**
+   * Spec 23 §5.7 (S12): a plain integer incremented by the path-scoped write
+   * door whenever any path under `context/` is written for this profile. Every
+   * packet — and therefore every proposal — is traceable to the exact state of
+   * Context it was assembled from.
+   */
+  context_version?: number;
+  /**
+   * Spec 25 §7.4, forward only. Migration sets `legacy-grace`: an asset with NO
+   * rights record at all warns and queues, rather than blocking publication
+   * across the whole back catalogue on day one. An asset WITH a record that
+   * fails blocks exactly as normal — grace forgives absence, never a recorded
+   * refusal. `enforced` can never flip back, and the ungraded count stays
+   * visible the whole time: a dated, visible debt, not an indefinite exemption.
+   */
+  rights_baseline?: 'legacy-grace' | 'enforced';
   /** Concrete declared path → the entries living at it. */
   paths: Record<string, BodyEntry[]>;
   /** Things migration refused to guess. Her one-time sort (spec 21 §9.5). */
@@ -28,7 +52,11 @@ export interface ProfileBody {
 }
 
 export function emptyBody(now = new Date().toISOString()): ProfileBody {
-  return { body_version: BODY_VERSION, migrated_at: now, paths: {}, sort_queue: [] };
+  return {
+    body_version: BODY_VERSION, strategy_version: null, context_version: 0,
+    rights_baseline: 'legacy-grace',
+    migrated_at: now, paths: {}, sort_queue: [],
+  };
 }
 
 // ── Reading ──────────────────────────────────────────────────────────────────
@@ -80,8 +108,15 @@ export function putEntry<T extends Record<string, unknown>>(
   const dec = assertDeclared(path, 'write');
   const now = opts.now ?? new Date().toISOString();
 
-  if (!dec.fed_by.includes(opts.writer as never) &&
-      !dec.fed_by.some(w => w.startsWith('path:') || w.startsWith('pipe:'))) {
+  // Spec 27 §4.1, a NARROWING of the writer check and nothing else: a path fed
+  // ONLY by pipes accepts only the pipes it names. `study-own-data/*` is
+  // BODY-OWNED (S3) — the engine computes from the observations and never owns
+  // them — so `engine:analysis` writing there is refused at the door, and the
+  // declaration's own `fed_by` is what refuses it (acceptance test 3).
+  const pipeOnly = dec.fed_by.length > 0 && dec.fed_by.every(w => w.startsWith('pipe:'));
+  const declaredWriter = dec.fed_by.includes(opts.writer as never);
+  const inherited = !pipeOnly && dec.fed_by.some(w => w.startsWith('path:') || w.startsWith('pipe:'));
+  if (!declaredWriter && !inherited) {
     throw new Error(`[tree] "${opts.writer}" is not a declared writer of "${path}"`);
   }
   if (entry.type !== dec.entry_type) {
@@ -120,6 +155,12 @@ export function amendEntry(
   body: ProfileBody, path: string, entryId: string, amendment: Amendment,
 ): ProfileBody {
   assertDeclared(path, 'write');
+  if (NO_AMENDMENT_PATHS.includes(path)) {
+    throw new Error(
+      `[tree] "${path}" accepts no amendments: a raw answer is never altered (S11). ` +
+      'A correction is a new answer in a new round.',
+    );
+  }
   const existing = body.paths[path] ?? [];
   const target = existing.find(e => e.id === entryId);
   if (!target) throw new Error(`[tree] no entry ${entryId} at "${path}"`);

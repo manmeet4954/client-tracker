@@ -17,6 +17,7 @@ import type { ProfileBody, SortQueueItem } from './body.ts';
 import { BODY_VERSION, emptyBody, putEntry, queueForHerSort } from './body.ts';
 import type { Confidence, PieceStage, Provenance } from './objects.ts';
 import { platformSwitchId } from './switches.ts';
+import { formatFamilyOf, legacyDraftPayload } from '../engine/drafts.ts';
 
 export interface MovedRow { path: string; count: number; from: string }
 export interface RefusedRow { what: string; why: string }
@@ -278,6 +279,7 @@ export function migrateProfile(
       raw_thought: '',
       raw_material: [{ at: now, source: s.from, text: s.raw }],
       status: 'draft',
+      origin: 'hers',
       possible_pillars: [],
       possible_angles: [],
     }, legacy(s.from, 'legacy-unverified', now));
@@ -330,9 +332,22 @@ export function migrateProfile(
     }
 
     // The draft body becomes version 1 in making/ — from here versions are kept.
+    //
+    // Spec 25 §13.1: it migrates as draft version 1 with `origin: 'hers'` and
+    // `engine_run_id: null`. Nothing is attributed to the engine that the engine
+    // did not write, and `gate_set_version: null` is honest — this text predates
+    // the gate set entirely, and no piece is ever retro-gated.
     if (card.content || card.hook || card.link) {
+      const family = formatFamilyOf(card.contentType ?? '', platform);
       write('work-log/creation/making', `${card.id}-v1`, 'draft_version', {
-        piece_id: card.id, version: 1, content: card.content ?? '', hook: card.hook ?? '', link: card.link ?? '',
+        piece_id: card.id, version: 1, origin: 'hers',
+        brief_version: 0, gate_set_version: null, strategy_version: null,
+        format_rules_resolution: 'legacy', format_rules_version: 0,
+        format_family: family,
+        content: legacyDraftPayload({ family, hook: card.hook ?? '', text: card.content ?? '' }),
+        claims: [], proof_refs: [], asset_refs: [],
+        engine_run_id: null, gate_run_id: null,
+        link: card.link ?? '',
       }, legacy(`contentCards[${card.id}].content`, 'confirmed', now));
       makingCount++;
     }

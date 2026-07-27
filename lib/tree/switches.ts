@@ -8,9 +8,13 @@
 // she sets them after intake → curation → strategy, and a migrated profile keeps
 // rendering exactly what it renders today until she does.
 
-import type { PathState, SwitchConfig, SwitchDeclaration } from './contract.ts';
+import type { ClientDoor, PathState, SwitchConfig, SwitchDeclaration } from './contract.ts';
 import { minState, stateRank } from './contract.ts';
 import { DECLARATIONS, findDeclaration } from './declarations.ts';
+// spec 26 §9 — the S16 gate is enforced at strategy lock, inside this file's
+// validator, because that is where every other contradiction refuses activation.
+import type { MeasurementDeclaration } from './objects.ts';
+import { validateMeasurementDeclaration } from './measurement.ts';
 
 const S = (s: SwitchDeclaration): SwitchDeclaration => s;
 
@@ -19,6 +23,16 @@ export const PLATFORM_SWITCH_PREFIX = 'platforms.';
 
 export function platformSwitchId(platform: string): string {
   return PLATFORM_SWITCH_PREFIX + platform.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+// spec 26 §11 — one collector switch per platform entry, generated the same way
+// `platforms.<platform>` is. It exists so the platform switch can depend on ITS
+// platform's tracking only: turning LinkedIn off must not drag the whole
+// tracking switch and stop Instagram collecting.
+export const TRACKING_SWITCH_PREFIX = 'analysis.tracking.';
+
+export function trackingSwitchId(platform: string): string {
+  return TRACKING_SWITCH_PREFIX + platform.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
 export const SWITCHES: SwitchDeclaration[] = [
@@ -52,6 +66,31 @@ export const SWITCHES: SwitchDeclaration[] = [
     audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
     note: 'Her one cross-profile window (PLAN §2).',
   }),
+  // ── spec 28 §13.2 — the shell's three new switches (the fourth sits with
+  // review, below). The shell adds no switch to anything that already had one:
+  // every app, tab and panel it renders is governed by the switch its owning
+  // spec already registered, which is what makes the cascade trace complete.
+  S({
+    // `owns: []` follows spec 22 §9.2's precedent: the per-profile pulse ENTRIES
+    // stay governed by `analysis.pulse_owner`, whose declaration names their
+    // path. This switch owns the composition on the shelf, and nothing else.
+    id: 'shelf.weekly_pulse', owns: [], requires: ['shelf.profiles'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 28 §13.2',
+    note: 'The pulse block on the shelf — the composition, never the entries. Each profile writes its own weekly-pulse entry into its own digests (spec 27 §13.2); the shelf composes her one screen from them and stores nothing between profiles.',
+  }),
+  S({
+    id: 'shelf.add_profile', owns: ['shelf/profiles'], requires: ['shelf.profiles'], dependents: [],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'structural (spec 28 §13.2)',
+    note: 'The add-profile tile and the shell’s one write. Fixed: a dashboard whose owner can be locked out of creating a workspace is broken, not configured.',
+  }),
+  S({
+    id: 'client_access.mini_shelf', owns: [], requires: ['client_access.login'], dependents: [],
+    audience: 'client', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'structural: it renders exactly when a person holds more than one live binding',
+    note: 'The multi-binding picker (spec 28 §7.2) — their own profiles only, never anyone else’s. Fixed: there is no honest position in which a single binding should show a picker.',
+  }),
 
   // ── Intake ────────────────────────────────────────────────────────────────
   S({
@@ -73,12 +112,56 @@ export const SWITCHES: SwitchDeclaration[] = [
     dependents: [], audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
     note: 'Owner-triggered versioned reopen for selected parameters (S10).',
   }),
+  // Spec 22 §9.2. Owner-side surface switches carry `owns: []` and name what
+  // they govern in their note: the governing switch of a PATH stays the one its
+  // declaration names, so nothing is re-pointed.
+  S({
+    id: 'intake.curation', owns: [], requires: ['spine.fixed'], dependents: [],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'structural: her pass is the only writer of the detail folders',
+    note: 'The curation workspace (spec 22 §7).',
+  }),
+  S({
+    id: 'intake.reminders', owns: [], requires: ['intake.questionnaire', 'client_access.login'],
+    dependents: [], audience: 'client', allowed_states: ['active', 'hidden'], suggested_default: 'hidden',
+    derived_from: 'working-mode: does this client need chasing',
+    note: 'Nudging a client whose round is sent. DECLARED, UNBUILT — she chases on WhatsApp today and that keeps working.',
+  }),
 
   // ── Strategy-owned parameters ─────────────────────────────────────────────
   S({
     id: 'strategy.visual_branding', owns: ['context/content-strategy/visual-branding'],
     requires: ['strategy.fixed'], dependents: [], audience: 'both',
     allowed_states: ['active'], suggested_default: 'active', fixed: true,
+  }),
+  // Spec 22 §9.2 — the four strategy surfaces. Structural: strategy is not a
+  // switch (PLAN §3.10), it is the always-on layer that owns the switchboard.
+  S({
+    id: 'strategy.derivation', owns: [], requires: ['strategy.fixed'],
+    dependents: ['strategy.gate_set', 'strategy.switchboard', 'strategy.lock'],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'structural (PLAN §3.10)',
+    note: 'The derivation workspace: sources, decision, reason (spec 22 §8.2).',
+  }),
+  S({
+    id: 'strategy.gate_set', owns: [], requires: ['strategy.derivation'], dependents: [],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'structural',
+    note: 'The v1 gate set surface (S14). Five brand gates from voice and positioning.',
+  }),
+  S({
+    id: 'strategy.switchboard', owns: [], requires: ['strategy.derivation'], dependents: [],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'structural',
+    note: 'The switch-setting step (PLAN §3.4). Suggestions are shown as suggestions.',
+  }),
+  S({
+    id: 'strategy.lock', owns: [],
+    requires: ['strategy.derivation', 'strategy.gate_set', 'strategy.switchboard'],
+    dependents: ['creation.board'],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'structural',
+    note: 'The lock action and its validation. Creation cannot be active where strategy has not locked (spec 22 §8.7).',
   }),
 
   // ── Platforms — the cascade parents ───────────────────────────────────────
@@ -88,7 +171,11 @@ export const SWITCHES: SwitchDeclaration[] = [
       id: platformSwitchId(p),
       owns: [`context/content-strategy/platforms/${p.toLowerCase()}`],
       requires: ['strategy.fixed'],
-      dependents: ['creation.channels', 'analysis.tracking'],
+      // Spec 26 §11's cascade refinement: `analysis.tracking` here was coarse —
+      // turning LinkedIn off would have dragged the whole tracking switch, and
+      // with it Instagram's collection. The platform now depends on ITS
+      // platform's collector only.
+      dependents: ['creation.channels', trackingSwitchId(p)],
       audience: 'both', allowed_states: ['active', 'history', 'hidden'],
       suggested_default: null,
       derived_from: 'the platforms this profile actually publishes on',
@@ -102,23 +189,108 @@ export const SWITCHES: SwitchDeclaration[] = [
     audience: 'both', allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
   }),
   S({
-    id: 'creation.engine', owns: ['work-log/creation/topics'], requires: ['creation.board'],
-    dependents: [], audience: 'owner', allowed_states: ['active', 'history', 'hidden'],
-    suggested_default: 'active',
+    id: 'creation.engine',
+    owns: [
+      'work-log/creation/topics',
+      'work-log/creation/topics/captures',
+      'work-log/creation/topics/proposals',
+    ],
+    requires: ['creation.board'],
+    dependents: ['creation.seed_extraction', 'creation.costume'], audience: 'owner',
+    allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
+    note: 'The Engine Room, the seed bank, the captures and the proposals. Hidden removes all four on her side; nothing is deleted (S9).',
+  }),
+  // ── Spec 24 §12.2 — the costume surface, the brief, and the two owner-side
+  // surfaces that govern no path of their own.
+  S({
+    id: 'creation.costume', owns: [], requires: ['creation.engine', 'creation.board'],
+    dependents: ['creation.brief'], audience: 'owner',
+    allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 24 §12',
+    note: 'The costume surface and the resolve step. Hidden takes the "Make a piece from this" door with it; every existing piece, brief, handoff and comparison stays readable (S9). The pieces it writes are governed by creation.board, whose declaration names it.',
   }),
   S({
-    id: 'creation.seed_input_client', owns: ['work-log/creation/topics'],
+    id: 'creation.brief', owns: ['work-log/creation/making/briefs'], requires: ['creation.costume'],
+    dependents: [], audience: 'owner', allowed_states: ['active', 'hidden'],
+    suggested_default: 'active', derived_from: 'spec 24 §12',
+    note: 'The brief path and the model call behind it. Hidden alone leaves the whole costume surface working and stops only the spend — she writes briefs by hand. It mirrors creation.seed_extraction exactly.',
+  }),
+  S({
+    id: 'creation.format_overrides', owns: [], requires: ['strategy.fixed'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 24 §12',
+    note: 'The per-profile format-rule editor. The PATH stays governed by platforms.* — its declaration names that switch and nothing is re-pointed (spec 22 §9.2’s precedent).',
+  }),
+  S({
+    id: 'creation.materials', owns: [], requires: ['creation.board', 'assets.library'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 24 §12',
+    note: 'Attaching assets, references and proof to a piece. The paths stay governed by assets.library, references.* and strategy.fixed — nothing is re-pointed.',
+  }),
+  S({
+    id: 'creation.seed_extraction', owns: [], requires: ['creation.engine'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 23 §12',
+    note: 'The model call, and only the model call. The proposals path is governed by creation.engine (spec 27’s accepted correction) so cost-free analysis proposals survive with extraction off. Hidden leaves the whole bank working by hand.',
+  }),
+  // Spec 23 §10: corrected. Registered with owns: ['work-log/creation/topics'],
+  // which read literally implied a client write into the seed bank — S19 forbids
+  // it and the path's `audience: owner` already blocks it.
+  S({
+    id: 'creation.seed_input_client', owns: [],
     requires: ['creation.engine', 'client_access.login'], dependents: [],
     audience: 'client', allowed_states: ['active', 'hidden'], suggested_default: 'hidden',
     derived_from: 'working-mode: does this client bring ideas',
+    note: 'A WORKING-MODE FLAG, not a write grant. It governs the intake parameter "client-ideas" (does this client bring ideas), and its only effect is that the intake round asks for them. It opens no door into work-log/creation/topics — that path is audience: owner (S19, spec 23 §10).',
   }),
   S({
     id: 'creation.making', owns: ['work-log/creation/making'], requires: ['creation.board'],
-    dependents: ['creation.making_handoff'], audience: 'owner',
+    dependents: ['creation.making_handoff', 'creation.drafting', 'creation.gates'],
+    audience: 'owner',
     allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
+    note: 'Hidden removes drafting, gates and the whole making surface on her side; existing drafts and gate runs move to history and stay readable — nothing is deleted (S9).',
+  }),
+  // ── Spec 25 §11 — drafting, the gates, rights, the post-learning prompt and
+  // the per-profile taste consent. `creation.drafting` mirrors
+  // `creation.seed_extraction` and `creation.brief` exactly: it owns the model
+  // CALL, and the path it writes stays governed by `creation.making`, whose
+  // declaration names it. Nothing is re-pointed (spec 22 §9.2's precedent).
+  S({
+    id: 'creation.drafting', owns: [], requires: ['creation.making'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 25 §11',
+    note: 'The drafting model call, and only the call. Hidden alone leaves gates, review and the board fully working: the honest off-switch for a profile where she writes every draft herself.',
   }),
   S({
-    id: 'creation.making_handoff', owns: ['work-log/creation/making'], requires: ['creation.making'],
+    id: 'creation.gates', owns: ['work-log/creation/making/gate-runs'],
+    requires: ['creation.making'], dependents: [], audience: 'owner',
+    allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'PLAN §5.1: nothing reaches review until all seven pass',
+    note: 'The seven-gate run and its record. Fixed: a switch that could turn this off would make the plan’s own sentence a lie.',
+  }),
+  S({
+    id: 'creation.rights_gate', owns: [], requires: ['creation.making'], dependents: [],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    derived_from: 'S21: gates block publication when required rights are absent',
+    note: 'The publication block. Fixed, for the same reason: a rights gate that can be switched off is not a gate.',
+  }),
+  S({
+    id: 'creation.post_learning', owns: [], requires: ['creation.board'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 25 §8.1',
+    note: 'The one light prompt on a posted piece: "Anything you learned from this one?" Optional, dismissible, never a chore. It writes through logs.feedback, which its declaration governs.',
+  }),
+  S({
+    id: 'creation.taste_rules', owns: [],
+    requires: ['creation.drafting', 'owner.taste_rules'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 25 §9.3 rule 5',
+    note: 'Whether THIS profile’s drafting packets carry her standing habits. A client whose brand is deliberately unlike her defaults gets it off, and nothing about the store changes. It cannot be more active than owner.taste_rules, which starts hidden — the cascade resolver enforces that, and no second check exists.',
+  }),
+  S({
+    id: 'creation.making_handoff',
+    owns: ['work-log/creation/making', 'work-log/creation/making/handoffs'],
+    requires: ['creation.making'],
     dependents: [], audience: 'owner', allowed_states: ['active', 'history', 'hidden'],
     suggested_default: 'hidden',
     note: 'The outside-tool round-trip contract (S18). Canva stays parked until its OAuth app exists.',
@@ -134,7 +306,25 @@ export const SWITCHES: SwitchDeclaration[] = [
     dependents: [], audience: 'client', allowed_states: ['active', 'history', 'hidden'],
     suggested_default: 'active',
     derived_from: 'PLAN §11 Q2 — her answer',
-    note: 'Her ruling: public preview links SURVIVE, default on for clients without logins. A client WITH a binding should land inside their review window instead (client-side regroup).',
+    note: 'Her ruling: public preview links SURVIVE, default on for clients without logins. A client WITH a binding should land inside their review window instead (spec 28 §10). Spec 28 §15.3: the suggested default is `active` — a SUGGESTION, like every other. Hidden serves nothing to an unauthenticated viewer; a bound client still deep-links, because their access comes from their door.',
+  }),
+  S({
+    // §13.2's table names `creation.review_public_link` as a prerequisite, and
+    // §10 says in the same spec that with the public link hidden "a bound client
+    // hitting the same URL STILL deep-links, because their access comes from
+    // their door, not from the public link". Both cannot be true: `requires`
+    // means never-more-active-than, so the public link at hidden would drag the
+    // deep link down and close the door §10 keeps open.
+    //
+    // §10 is the behaviour she asked for (PLAN §11 Q2) and the plan outranks the
+    // spec's own table, so the prerequisite is the DOOR the link delivers into —
+    // `creation.review` — plus a login to deliver it to. §13.3's check is intact:
+    // a deep link into a profile nobody can log into is still refused.
+    id: 'creation.review_deeplink', owns: [],
+    requires: ['creation.review', 'client_access.login'], dependents: [],
+    audience: 'client', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 28 §13.2 (PLAN §11 Q2)',
+    note: 'The logged-in branch of /p/<shareId>: a bound client lands in their review window at that piece instead of the public page. Hidden is the honest off-switch for a client who prefers a link that never asks them to log in — everyone gets the public page. It opens no fifth door (§14).',
   }),
   S({
     id: 'creation.review_perception', owns: ['work-log/analysis/client-perception'],
@@ -260,6 +450,21 @@ export const SWITCHES: SwitchDeclaration[] = [
     dependents: [], audience: 'owner', allowed_states: ['active', 'history', 'hidden'],
     suggested_default: 'hidden', derived_from: 'PLAN §7: her own profiles only',
   }),
+  // Spec 23 §12: two FIXED records. S12 requires the model, the packet and the
+  // context version logged per output; S13 requires the original feedback and
+  // her decision both preserved. They carry allowed_states: ['active'] rather
+  // than escaping the registry, so it stays exhaustive (her law).
+  S({
+    id: 'logs.engine_runs', owns: ['work-log/logs/engine-runs'], requires: ['creation.engine'],
+    dependents: [], audience: 'owner', allowed_states: ['active'], suggested_default: 'active',
+    fixed: true,
+    note: 'The run log. Fixed: a switch that could turn it off would make S12 a lie.',
+  }),
+  S({
+    id: 'logs.feedback', owns: ['work-log/logs/feedback'], requires: [], dependents: [],
+    audience: 'owner', allowed_states: ['active'], suggested_default: 'active', fixed: true,
+    note: 'The feedback record. Fixed: S13 requires the original and her decision both preserved.',
+  }),
   S({
     id: 'logs.observations', owns: ['work-log/logs/observations'], requires: [], dependents: [],
     audience: 'owner', allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
@@ -331,12 +536,126 @@ export const SWITCHES: SwitchDeclaration[] = [
     suggested_default: 'hidden',
   }),
 
+  // ── spec 26 §11 — the tracking store's switches ───────────────────────────
+  // All four are `audience: owner`, so none of them can open a fifth door (S19).
+  // The client's eventual view of analysis arrives through `analysis.digest_client`
+  // and `see:analysis`, both of which already exist and are spec 27's to feed.
+  ...['Instagram', 'LinkedIn', 'YouTube'].map(p =>
+    S({
+      id: trackingSwitchId(p),
+      // The path stays governed by `analysis.tracking`, whose declaration names
+      // it — spec 22 §9.2's established pattern for a switch over a surface or a
+      // job rather than a path.
+      owns: [],
+      requires: [platformSwitchId(p), 'analysis.tracking', 'creation.channels'],
+      dependents: [], audience: 'owner',
+      // `hidden` is here because the suggested position for a platform with no
+      // connected channel IS hidden. Neither `history` nor `hidden` deletes
+      // anything, and every past observation stays readable in both (S9).
+      allowed_states: ['active', 'history', 'hidden'],
+      suggested_default: null,
+      derived_from: 'whether a channel on this platform is connected',
+      note: `The collector for ${p}. Suggested active where a channel on ${p} is connected, hidden otherwise — see suggestedTrackingState. At history or hidden the stretch reads "switched-off": a decision, never a fault.`,
+    })),
+  S({
+    id: 'analysis.sync_health', owns: ['work-log/analysis/study-own-data/sync-health'],
+    requires: ['analysis.tracking'], dependents: [], audience: 'owner',
+    allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 26 §11',
+    note: 'The runs, the connection status, the retry and backfill state, the gaps. Hidden stops the surface, never the recording.',
+  }),
+  S({
+    id: 'analysis.backfill', owns: [], requires: ['analysis.tracking'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 26 §11',
+    note: 'The owner-triggered retry and backfill action. Backfill fetches current lifetime totals for posts missed while the pipe was down; it can never reconstruct the missing days, and a backfilled row closes no gap (§6.4).',
+  }),
+  S({
+    id: 'analysis.attributed_outcomes', owns: ['work-log/analysis/attributed-outcomes'],
+    requires: [], dependents: [], audience: 'owner',
+    allowed_states: ['active', 'history', 'hidden'], suggested_default: 'hidden',
+    derived_from: 'spec 26 §11',
+    note: 'Suggested hidden: nothing is declared yet, and an empty outcomes surface invites guessing.',
+  }),
+
+  // ── spec 27 §18.2 — the reading layer's switches ──────────────────────────
+  // All eight are `audience: owner`. The client's sight of analysis arrives
+  // through `analysis.digest_client` and `see:analysis`, both of which already
+  // exist — and no switch, in any position, grants anything more (§14, §19).
+  //
+  // Four carry `owns: []` and name what they govern in their note, following
+  // spec 22 §9.2's precedent: the governing switch of a PATH stays the one its
+  // declaration names, so nothing is re-pointed.
+  S({
+    id: 'analysis.always_live', owns: [], requires: ['analysis.tracking'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 27 §18.2',
+    note: 'The Now tab — this month so far, coverage first. It is the same computation layer with period = month to date, so it cannot drift from the digest (§13.3).',
+  }),
+  S({
+    id: 'analysis.verdicts', owns: ['work-log/analysis/verdicts'],
+    requires: ['analysis.tracking', 'analysis.scorecard'],
+    dependents: ['analysis.revisit_proposals', 'analysis.strategy_diffs', 'analysis.costume_recommendations'],
+    audience: 'owner', allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 27 §18.2',
+    note: 'The 30-day and quarter cycles and the path they land at. At history every past verdict stays readable and nothing new computes (S9).',
+  }),
+  S({
+    id: 'analysis.verdict_words', owns: [], requires: ['analysis.verdicts'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 27 §18.2',
+    note: 'The model call that WORDS a verdict or a digest, and only the call. Hidden leaves every number, band, refusal and comparison verdict computing exactly as before; only the strategist’s paragraph goes away. It mirrors creation.seed_extraction exactly.',
+  }),
+  S({
+    id: 'analysis.pulse_owner', owns: [], requires: ['analysis.tracking'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 27 §18.2',
+    note: 'This profile’s weekly pulse entry, written into its OWN digests path; the shelf composes her one screen from them. Hidden removes exactly this profile’s lines and stores nothing between profiles (§13.2).',
+  }),
+  S({
+    id: 'analysis.revisit_proposals', owns: [],
+    requires: ['analysis.verdicts', 'creation.engine'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 27 §18.2',
+    note: 'The "make more of this" write door into work-log/creation/topics/proposals, whose declaration governs that path. A revisit proposal with no cited verdict is refused, not warned (§15.1).',
+  }),
+  S({
+    id: 'analysis.costume_recommendations', owns: [],
+    requires: ['analysis.verdicts', 'creation.engine'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 27 §18.2',
+    note: 'The recommendations block inside the engine room. Computed from the verdicts at read time — no new store — and it never pre-selects anything (§15.2).',
+  }),
+  S({
+    id: 'analysis.strategy_diffs', owns: [], requires: ['analysis.verdicts'], dependents: [],
+    audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'spec 27 §18.2',
+    note: 'Engine-proposed diffs against mix targets and pillar jobs, written as feedback items at work-log/logs/feedback. The engine never writes strategy; her acceptance does (§15.3).',
+  }),
+  S({
+    id: 'analysis.client_publication', owns: [], requires: ['analysis.digest_client'],
+    dependents: [], audience: 'owner', allowed_states: ['active', 'hidden'],
+    suggested_default: 'hidden',
+    derived_from: 'spec 27 §18.2',
+    note: 'The draft-and-approve flow for a client publication. Suggested hidden: nothing publishes until she has one to approve, and approval is a deliberate act with a date and her name on it (§14).',
+  }),
+
   // ── Owner-level capture routes ────────────────────────────────────────────
   S({
     id: 'owner.chat', owns: ['frozen/chat-log', 'frozen/observations-inbox'], requires: [],
     dependents: ['owner.whatsapp_inbox'], audience: 'owner',
     allowed_states: ['active', 'history'], suggested_default: 'active',
     note: 'HELD by her ruling (PLAN §11 Q1): the chat keeps working exactly as today, outside the tree, until its own spec.',
+  }),
+  // Spec 25 §11, owner level. The taste STORE and its screen, across her whole
+  // practice. Suggested hidden: it has nothing to say until roughly three
+  // months of edits exist, and flipping it on later changes no stored data.
+  S({
+    id: 'owner.taste_rules', owns: ['owner/taste-rules'], requires: [],
+    dependents: ['creation.taste_rules'], audience: 'owner',
+    allowed_states: ['active', 'hidden'], suggested_default: 'hidden',
+    derived_from: 'spec 25 §9.2',
+    note: 'Her standing habits, distilled from her own edits and decisions. Hidden until the deltas exist; the store keeps filling either way.',
   }),
   S({
     id: 'owner.whatsapp_inbox', owns: [], requires: ['owner.chat'], dependents: [],
@@ -371,8 +690,23 @@ export function findSwitch(id: string): SwitchDeclaration | null {
 
 export function switchExists(id: string): boolean {
   if (BY_ID.has(id)) return true;
-  // Platform switches are born with their platform entry (law 3).
-  return id.startsWith(PLATFORM_SWITCH_PREFIX);
+  // Platform switches are born with their platform entry (law 3), and so is that
+  // platform's collector switch (spec 26 §11).
+  return id.startsWith(PLATFORM_SWITCH_PREFIX) || id.startsWith(TRACKING_SWITCH_PREFIX);
+}
+
+/**
+ * A declaration for any switch id, including the two families that are born with
+ * their entry rather than listed above: `platforms.<platform>` and
+ * `analysis.tracking.<platform>`. One resolver, used everywhere a switch is
+ * looked up, so a generated switch behaves exactly like a registered one.
+ */
+export function resolveSwitch(id: string): SwitchDeclaration | null {
+  const registered = findSwitch(id);
+  if (registered) return registered;
+  if (id.startsWith(TRACKING_SWITCH_PREFIX)) return trackingSwitch(id.slice(TRACKING_SWITCH_PREFIX.length));
+  if (id.startsWith(PLATFORM_SWITCH_PREFIX)) return platformSwitch(id.slice(PLATFORM_SWITCH_PREFIX.length));
+  return null;
 }
 
 /** The switch that governs a CONCRETE path (wildcards resolved to the entry). */
@@ -393,12 +727,37 @@ export function platformSwitch(platform: string): SwitchDeclaration {
     id,
     owns: [`context/content-strategy/platforms/${platform.toLowerCase()}`],
     requires: ['strategy.fixed'],
-    dependents: ['creation.channels', 'analysis.tracking'],
+    dependents: ['creation.channels', trackingSwitchId(platform)],
     audience: 'both',
     allowed_states: ['active', 'history', 'hidden'],
     suggested_default: null,
     derived_from: 'the platforms this profile actually publishes on',
   };
+}
+
+/** spec 26 §11 — the collector switch for a platform that exists on this profile. */
+export function trackingSwitch(platform: string): SwitchDeclaration {
+  const id = trackingSwitchId(platform);
+  return findSwitch(id) ?? {
+    id,
+    owns: [],
+    requires: [platformSwitchId(platform), 'analysis.tracking', 'creation.channels'],
+    dependents: [],
+    audience: 'owner',
+    allowed_states: ['active', 'history', 'hidden'],
+    suggested_default: null,
+    derived_from: 'whether a channel on this platform is connected',
+    note: `The collector for ${platform}.`,
+  };
+}
+
+/**
+ * §11's suggested position, as a function rather than a constant, because it
+ * depends on something the registry cannot know: whether a channel on that
+ * platform is actually connected. A SUGGESTION — she finalizes every position.
+ */
+export function suggestedTrackingState(hasConnectedChannel: boolean): PathState {
+  return hasConnectedChannel ? 'active' : 'hidden';
 }
 
 /**
@@ -414,7 +773,7 @@ export function effectiveState(id: string, config: SwitchConfig): PathState {
 function resolve(id: string, config: SwitchConfig, seen: Set<string>): PathState {
   if (seen.has(id)) return 'hidden'; // a cycle can never be trusted into `active`
   seen.add(id);
-  const dec = findSwitch(id) ?? (id.startsWith(PLATFORM_SWITCH_PREFIX) ? platformSwitch(id.slice(PLATFORM_SWITCH_PREFIX.length)) : null);
+  const dec = resolveSwitch(id);
   if (!dec) return 'hidden';
   const own = config[id]?.state ?? dec.suggested_default ?? 'hidden';
   let state: PathState = own;
@@ -442,7 +801,7 @@ export function pathState(path: string, config: SwitchConfig): PathState {
 export function cascadeOf(id: string): { switches: string[]; paths: string[] } {
   const switches = new Set<string>();
   const walk = (sid: string) => {
-    const dec = findSwitch(sid) ?? (sid.startsWith(PLATFORM_SWITCH_PREFIX) ? platformSwitch(sid.slice(PLATFORM_SWITCH_PREFIX.length)) : null);
+    const dec = resolveSwitch(sid);
     if (!dec) return;
     for (const d of dec.dependents) {
       if (switches.has(d)) continue;
@@ -456,7 +815,7 @@ export function cascadeOf(id: string): { switches: string[]; paths: string[] } {
     if (s.requires.includes(id)) switches.add(s.id);
   }
   const paths = new Set<string>();
-  const own = findSwitch(id) ?? (id.startsWith(PLATFORM_SWITCH_PREFIX) ? platformSwitch(id.slice(PLATFORM_SWITCH_PREFIX.length)) : null);
+  const own = resolveSwitch(id);
   for (const p of own?.owns ?? []) paths.add(p);
   for (const sid of switches) {
     const s = findSwitch(sid);
@@ -501,10 +860,68 @@ export interface SwitchValidationContext {
   /** Goals that carry an S16 metric declaration. */
   goalsWithMetricDeclaration?: string[];
   goals?: string[];
+  /**
+   * Spec 26 §9: the declaration is a real validated object now, not a boolean.
+   * Pass the goal's or pillar job's declaration and the check validates it
+   * field by field — a `calculation: rate` with no denominator is rejected here,
+   * at strategy lock, rather than surfacing as a wrong number later.
+   *
+   * Keyed by subject: `goal:<id>` and `pillar-job:<pillar id>`.
+   * `undefined` means "not asserted here" and leaves the older boolean check in
+   * charge, so nothing that already locks stops locking.
+   */
+  measurementDeclarations?: Record<string, Partial<MeasurementDeclaration> | undefined>;
+  /** The pillars switched ON. PLAN §5.2's scorecard judges each on its job's metrics. */
+  pillars?: string[];
+  /** Which platforms are switched on, for validating that a metric is reportable. */
+  platforms?: string[];
   /** working-mode: does the client post, or do we? */
   postingOwnership?: 'we-post' | 'client-posts';
   clientAccess?: boolean;
+  /**
+   * Spec 22 §11.1: client access is scoped by lifecycle, not boolean. Pass the
+   * doors this profile's lifecycle opens and the check becomes door-aware — a
+   * profile at `setup` may run intake and nothing else.
+   */
+  clientDoors?: ClientDoor[];
+  /**
+   * Spec 23 §12: `creation.seed_extraction` cannot be active on a profile whose
+   * content-strategy has never locked — extraction there would be grounded on
+   * nothing and would miss the intelligence bar by construction.
+   *
+   * `undefined` means "not asserted here" and skips the check. The one-act lock
+   * (spec 22 §8.6) deliberately does not assert it: the lock IS what locks the
+   * strategy, so by the time these positions apply the strategy is locked. The
+   * check bites where it can actually be false — the extraction door itself.
+   */
+  strategyEverLocked?: boolean;
+  /**
+   * Spec 24 §12: `creation.brief` cannot be active on a profile with no locked
+   * gate set — a brief written toward gates that do not exist misses the bar by
+   * construction. `undefined` means "not asserted here" and skips the check,
+   * exactly like `strategyEverLocked`: the one-act lock is what locks the gate
+   * set, so the check bites where it can actually be false (the brief door).
+   */
+  gateSetLocked?: boolean;
 }
+
+/** Which door a client-audience switch reaches through. Anything not listed is
+ *  a switch that opens no client door on its own. */
+export const SWITCH_DOOR: Record<string, ClientDoor> = {
+  'intake.questionnaire': 'give:intake',
+  'intake.finding_session': 'give:intake',
+  'intake.reminders': 'give:intake',
+  'creation.seed_input_client': 'give:intake',
+  'assets.client_upload': 'give:assets',
+  'references.from_client': 'give:assets',
+  'creation.review': 'give:review',
+  'creation.review_public_link': 'give:review',
+  // Spec 28 §14: the deep link is a DELIVERY ROUTE into the review door, not a
+  // fifth door. It reaches through the door the client already holds.
+  'creation.review_deeplink': 'give:review',
+  'creation.review_perception': 'give:perception',
+  'analysis.digest_client': 'see:analysis',
+};
 
 export interface SwitchViolation {
   switch: string;
@@ -518,7 +935,7 @@ export function validateSwitchConfig(ctx: SwitchValidationContext): SwitchViolat
     ctx.config[id]?.state ?? findSwitch(id)?.suggested_default ?? 'hidden';
 
   for (const id of Object.keys(ctx.config)) {
-    const dec = findSwitch(id) ?? (id.startsWith(PLATFORM_SWITCH_PREFIX) ? platformSwitch(id.slice(PLATFORM_SWITCH_PREFIX.length)) : null);
+    const dec = resolveSwitch(id);
     if (!dec) { out.push({ switch: id, reason: 'not in the switch registry' }); continue; }
     const own = ctx.config[id].state;
     if (!dec.allowed_states.includes(own)) {
@@ -547,21 +964,59 @@ export function validateSwitchConfig(ctx: SwitchValidationContext): SwitchViolat
     }
   }
 
-  // No client-audience switch active while client access is off (S22).
-  if (ctx.clientAccess === false) {
+  // No client-audience switch active while its door is shut (S22, spec 22 §11.1).
+  if (ctx.clientAccess === false || ctx.clientDoors) {
+    const doors = ctx.clientAccess === false ? [] : (ctx.clientDoors ?? []);
     for (const s of SWITCHES) {
-      if (s.audience === 'client' && stateOf(s.id) === 'active') {
-        out.push({ switch: s.id, reason: 'client-facing switch is active while this profile has no client access' });
+      if (s.audience !== 'client' || stateOf(s.id) !== 'active') continue;
+      // Spec 28 §13.2: a FIXED structural switch is not a position she can hold
+      // wrongly. `client_access.mini_shelf` renders exactly when a person holds
+      // more than one live binding, and the cascade already keeps it no more
+      // active than `client_access.login`. Flagging it here would refuse every
+      // lock on a profile with no client login, for a switch nobody can move.
+      if (s.fixed) continue;
+      const door = SWITCH_DOOR[s.id];
+      if (!door || !doors.includes(door)) {
+        out.push({
+          switch: s.id,
+          reason: door
+            ? `client-facing switch is active while this profile's lifecycle does not open ${door}`
+            : 'client-facing switch is active while this profile has no client access',
+        });
       }
     }
   }
 
   // No analysis switch active for a goal with no metric declaration (S16).
+  // Per-goal blocking, not all-or-nothing (spec 21 §8.9).
+  const declarationCtx = { platforms: ctx.platforms ?? [] };
   if (stateOf('analysis.goal_tracking') === 'active') {
     const declared = new Set(ctx.goalsWithMetricDeclaration ?? []);
     for (const g of ctx.goals ?? []) {
-      if (!declared.has(g)) {
+      if (ctx.measurementDeclarations) {
+        // Spec 26 §9: the declaration is validated, not merely counted.
+        const violations = validateMeasurementDeclaration(
+          ctx.measurementDeclarations[`goal:${g}`] ?? ctx.measurementDeclarations[g], declarationCtx,
+        );
+        for (const v of violations) {
+          out.push({ switch: 'analysis.goal_tracking', reason: `goal "${g}": ${v.field} — ${v.reason}` });
+        }
+      } else if (!declared.has(g)) {
         out.push({ switch: 'analysis.goal_tracking', reason: `goal "${g}" has no metric declaration (S16)` });
+      }
+    }
+  }
+
+  // And the same check for pillar jobs: PLAN §5.2's scorecard judges each pillar
+  // ONLY on its job's metrics, so a job with no measuring stick has nothing to
+  // be judged against (spec 26 §9).
+  if (stateOf('analysis.scorecard') === 'active' && ctx.measurementDeclarations) {
+    for (const p of ctx.pillars ?? []) {
+      const violations = validateMeasurementDeclaration(
+        ctx.measurementDeclarations[`pillar-job:${p}`], declarationCtx,
+      );
+      for (const v of violations) {
+        out.push({ switch: 'analysis.scorecard', reason: `pillar "${p}" job: ${v.field} — ${v.reason}` });
       }
     }
   }
@@ -576,6 +1031,87 @@ export function validateSwitchConfig(ctx: SwitchValidationContext): SwitchViolat
     }
   }
 
+  // No model call on a profile whose strategy has never locked (spec 23 §12).
+  if (ctx.strategyEverLocked === false && stateOf('creation.seed_extraction') === 'active') {
+    out.push({
+      switch: 'creation.seed_extraction',
+      reason: 'this profile has never locked a strategy, so extraction would be grounded on nothing',
+    });
+  }
+
+  // Spec 24 §12: the costume surface cannot be active where strategy has never
+  // locked. This is §2.4 expressed at the switch level, and it is the same shape
+  // as spec 22's strategy.lock → creation.board dependency.
+  if (ctx.strategyEverLocked === false && stateOf('creation.costume') === 'active') {
+    out.push({
+      switch: 'creation.costume',
+      reason: 'this profile has never locked a strategy, so nothing can be written into creation',
+    });
+  }
+
+  // And the brief cannot be active with no locked gate set: it is written TOWARD
+  // the gates it will be judged by, and gates that do not exist judge nothing.
+  if (ctx.gateSetLocked === false && stateOf('creation.brief') === 'active') {
+    out.push({
+      switch: 'creation.brief',
+      reason: 'this profile has no locked gate set, so a brief would be written toward nothing',
+    });
+  }
+
+  // Spec 25 §11: a draft grounded on nothing misses the bar by construction.
+  // The second check that section names — creation.taste_rules cannot outlive
+  // owner.taste_rules — is the prerequisite loop above, and is deliberately NOT
+  // repeated here, so nobody adds a second one.
+  if (ctx.strategyEverLocked === false && stateOf('creation.drafting') === 'active') {
+    out.push({
+      switch: 'creation.drafting',
+      reason: 'this profile has never locked a strategy, so a draft would be grounded on nothing',
+    });
+  }
+
+  // Spec 27 §18.4, check 1: a verdict against no declared measuring stick would
+  // be a number with no meaning, so verdicts cannot be active on a profile whose
+  // content-strategy has never locked. Same shape as spec 23's extraction check.
+  if (ctx.strategyEverLocked === false && stateOf('analysis.verdicts') === 'active') {
+    out.push({
+      switch: 'analysis.verdicts',
+      reason: 'this profile has never locked a strategy, so a verdict would be judged against nothing',
+    });
+  }
+
+  // Check 2: the publication flow cannot be active while the door it publishes
+  // through is shut. The prerequisite loop above catches a hidden
+  // `analysis.digest_client`; this catches client access being off entirely.
+  if (stateOf('analysis.client_publication') === 'active') {
+    if (ctx.clientAccess === false) {
+      out.push({
+        switch: 'analysis.client_publication',
+        reason: 'this profile has no client access, so there is nobody to publish to',
+      });
+    }
+    if (stateOf('analysis.digest_client') !== 'active') {
+      out.push({
+        switch: 'analysis.client_publication',
+        reason: `the client digest is ${stateOf('analysis.digest_client')}, so a publication would have no door`,
+      });
+    }
+  }
+
+  // Spec 28 §13.3: a deep link into a profile nobody can log into is a redirect
+  // to a login wall, which is worse than the public page it replaced.
+  //
+  // It bites on a position SHE set, not on the suggestion — the same discipline
+  // as every other check in this function ("not asserted here" skips). The lock's
+  // condition 4 already refuses while any non-fixed switch has no position, so
+  // by the time a configuration can lock, this has been asserted.
+  if (ctx.config['creation.review_deeplink']?.state === 'active'
+      && stateOf('client_access.login') !== 'active') {
+    out.push({
+      switch: 'creation.review_deeplink',
+      reason: 'this profile has no client login, so the deep link would land on a login wall',
+    });
+  }
+
   // The effort and money meters live only in her own profiles (PLAN §7).
   if (ctx.owner_kind === 'client') {
     for (const id of ['logs.effort_meter', 'logs.effort_money']) {
@@ -588,11 +1124,39 @@ export function validateSwitchConfig(ctx: SwitchValidationContext): SwitchViolat
   return out;
 }
 
+/**
+ * Spec 28 §3.2, the door half of the render resolver: which client door a switch
+ * reaches through. Taken from the explicit map where one exists, otherwise
+ * DERIVED from the declarations of the paths the switch owns — so a screen whose
+ * switch forgets to name its door still cannot be rendered to a client through a
+ * door nobody granted. A switch with no door reaches no client at all.
+ */
+export function doorsForSwitch(id: string): ClientDoor[] {
+  const out = new Set<ClientDoor>();
+  const named = SWITCH_DOOR[id];
+  if (named) out.add(named);
+  const dec = resolveSwitch(id);
+  for (const p of dec?.owns ?? []) {
+    const d = findDeclaration(p);
+    if (d?.client_door) out.add(d.client_door);
+  }
+  // The paths whose own declaration names this switch (spec 22 §9.2's pattern:
+  // a surface switch carries `owns: []` and the PATH keeps naming its governor).
+  for (const d of DECLARATIONS) {
+    if (d.switch === id && d.client_door) out.add(d.client_door);
+  }
+  return [...out];
+}
+
 /** Every switch a profile needs a position for, given its platforms. */
 export function switchesForProfile(platforms: string[]): SwitchDeclaration[] {
-  const extra = platforms
-    .filter(p => !findSwitch(platformSwitchId(p)))
-    .map(p => platformSwitch(p));
+  const extra: SwitchDeclaration[] = [];
+  for (const p of platforms) {
+    // Both switches are born with the platform entry (law 3): the platform
+    // itself, and — spec 26 §11 — its collector.
+    if (!findSwitch(platformSwitchId(p))) extra.push(platformSwitch(p));
+    if (!findSwitch(trackingSwitchId(p))) extra.push(trackingSwitch(p));
+  }
   return [...SWITCHES, ...extra];
 }
 

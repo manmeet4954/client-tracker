@@ -67,6 +67,7 @@ export const PROFILE_SCOPES: Record<string, (keyof ClientData)[]> = {
 export const OWNER_SCOPES: Record<string, (keyof AppState)[]> = {
   'shelf/profiles': ['clients', 'bindings'],
   'shelf/today-strip': ['personalTasks'],
+  'owner/taste-rules': ['tasteRules'],
   'frozen/chat-log': ['chatLog'],
   'frozen/observations-inbox': ['observations'],
   'leaves/brain-dump': ['brainDump'],
@@ -161,17 +162,36 @@ export function checkScopes(scopes: string[]): ScopeRejection[] {
 
 // ── Applying: only the declared scopes merge ─────────────────────────────────
 
+/** Spec 23 §5.7: any write under `context/` bumps the profile's context version. */
+export function isContextPath(path: string): boolean {
+  return path === 'context' || path.startsWith('context/');
+}
+
 function mergeBodies(cur: ProfileBody | undefined, inc: ProfileBody | undefined, paths: string[]): ProfileBody | undefined {
   if (!inc) return cur;
   if (!cur) return inc;                       // first migration of this profile
   const next: ProfileBody = {
     ...cur,
     body_version: Math.max(cur.body_version, inc.body_version),
+    // The lock is one act and it only ever moves forward (spec 22 §8.6).
+    strategy_version: inc.strategy_version ?? cur.strategy_version ?? null,
+    context_version: Math.max(cur.context_version ?? 0, inc.context_version ?? 0),
+    // Spec 25 §7.4: the rights baseline is forward only. Once a profile is
+    // enforcing, no save — however stale the tab that sent it — takes it back.
+    rights_baseline: cur.rights_baseline === 'enforced' || inc.rights_baseline === 'enforced'
+      ? 'enforced'
+      : inc.rights_baseline ?? cur.rights_baseline ?? 'legacy-grace',
     paths: { ...cur.paths },
   };
+  // S12's versioned packet needs a counter, and the write door is the only
+  // place that sees every context write. Cheap, because writes already declare
+  // their paths — and it only moves when the content actually differs.
+  let contextTouched = false;
   for (const p of paths) {
     if (p in inc.paths) next.paths[p] = inc.paths[p];
+    if (isContextPath(p) && !same(cur.paths[p], inc.paths[p])) contextTouched = true;
   }
+  if (contextTouched) next.context_version = (next.context_version ?? 0) + 1;
   // The sort queue is her to-do list, not a rendered surface: union it rather
   // than let one tab's copy erase another's.
   const seen = new Set(cur.sort_queue.map(q => `${q.entry_id}|${q.question}`));

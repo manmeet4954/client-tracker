@@ -84,9 +84,11 @@ export default function Home() {
   const router     = useRouter();
   const [popping, setPopping] = useState(false);
 
-  // Restricted roles don't get the personal home — send them to their clients.
+  // Spec 28 §11.1: after auth, a non-owner login goes to /shelf, which sends a
+  // single live binding straight into that profile and two or more to the
+  // mini-shelf. The shelf itself is never rendered for them (§7.1).
   useEffect(() => {
-    if (role !== 'owner') router.replace('/clients');
+    if (role !== 'owner') router.replace('/shelf');
   }, [role, router]);
 
   const greeting = getGreeting();
@@ -102,7 +104,7 @@ export default function Home() {
   }
 
   function visitClients() {
-    router.push('/clients');
+    router.push('/shelf');
   }
 
   // Find matching client for each logo definition

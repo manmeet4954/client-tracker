@@ -29,6 +29,18 @@ export const DECLARATIONS: PathDeclaration[] = [
     audience: 'owner',
     note: 'The ONE cross-profile window: client tasks due across profiles. A view, never a store.',
   }),
+  // Spec 25 §9.2, law-4 addition in the OWNER zone. Taste rules are hers across
+  // her whole practice, so they cannot live inside a profile — a copy per
+  // profile would be five copies of one truth. What crosses into a profile's
+  // packet is HER instruction, never a client's data, and §9.3's
+  // de-identification guard is what makes that mechanical rather than hoped for.
+  D({
+    path: 'owner/taste-rules', zone: 'owner', kind: 'variable', entry_type: 'taste_rule',
+    fed_by: ['owner', 'engine:content'], read_by: ['engine:content', 'owner'],
+    switch: 'owner.taste_rules', states: ['active', 'hidden'], history: 'append_only',
+    audience: 'owner',
+    note: 'Spec 10 re-cut. Rules are TEXT the engine reads openly, never weights. Evidence refs never leave this surface (§9.3 rule 3).',
+  }),
 
   // ── context/ ───────────────────────────────────────────────────────────────
   D({
@@ -57,10 +69,16 @@ export const DECLARATIONS: PathDeclaration[] = [
   D({
     path: 'context/intake/answers', zone: 'tree', kind: 'variable', entry_type: 'answer',
     fed_by: ['client', 'owner'],
-    read_by: ['context/personal-details', 'context/business-details'],
+    read_by: [
+      'context/personal-details', 'context/business-details',
+      // Spec 22 §7.5: the client-ideas lane. A client who brings ideas gives
+      // them at intake (give-point 1) and HER curation births the seed — never
+      // a fifth door (S19).
+      'work-log/creation/topics',
+    ],
     switch: 'intake.questionnaire', states: ['active', 'history', 'hidden'], history: 'append_only',
     audience: 'both', client_door: 'give:intake',
-    note: 'Raw answers, untouched, forever (S11). Give-point 1.',
+    note: 'Raw answers, untouched, forever (S11). Give-point 1. No amendments, ever (spec 22 §6).',
   }),
 
   // context/personal-details (PLAN §3.2)
@@ -82,18 +100,30 @@ export const DECLARATIONS: PathDeclaration[] = [
   // context/business-details (PLAN §3.3)
   D({
     path: 'context/business-details', zone: 'tree', kind: 'variable', entry_type: 'curated_parameter',
-    fed_by: ['owner'], read_by: ['context/content-strategy', 'work-log/analysis/market-research'],
+    fed_by: ['owner'],
+    read_by: [
+      'context/content-strategy', 'work-log/analysis/market-research',
+      // Spec 22 §11.3: materials.existing-accounts seeds the channels, and
+      // materials.* points at what already sits in assets.
+      'work-log/creation/channels', 'work-log/assets',
+    ],
     switch: 'spine.fixed', states: ['active'], history: 'mutable_with_supersession',
     audience: 'owner',
   }),
-  ...['offers', 'buying-route', 'market', 'numbers', 'pains', 'audience-raw'].map(sub =>
+  ...['offers', 'buying-route', 'market', 'numbers', 'pains', 'audience-raw', 'materials'].map(sub =>
     D({
       path: `context/business-details/${sub}`, zone: 'tree', kind: 'parameter',
       entry_type: 'curated_parameter',
-      fed_by: ['owner'], read_by: ['context/content-strategy', 'work-log/analysis/market-research'],
+      fed_by: ['owner'],
+      read_by: sub === 'materials'
+        ? ['context/content-strategy', 'work-log/creation/channels', 'work-log/assets']
+        : ['context/content-strategy', 'work-log/analysis/market-research'],
       switch: 'spine.fixed', states: ['active'], history: 'mutable_with_supersession',
       audience: 'owner',
-      note: sub === 'offers' ? 'Each offer an entry; one marked hero.' : undefined,
+      note: sub === 'offers' ? 'Each offer an entry; one marked hero.'
+        : sub === 'materials'
+          ? 'Law-4 addition (spec 22 §12): what the client already has — brand book, logo files, photo and video bank, old content that worked, and the accounts they already run. Files never live here; this records the FACT and holds the reference.'
+          : undefined,
     })),
 
   // context/content-strategy — the decision layer (PLAN §3.4)
@@ -105,21 +135,28 @@ export const DECLARATIONS: PathDeclaration[] = [
     audience: 'both', client_door: 'see:strategy',
     note: 'DERIVED, never collected. Locked before creation opens. Strategy is not a switch.',
   }),
+  // Spec 22 §11.3: the client sees their strategy summary (PLAN §4), and a brand
+  // book without positioning or voice is not one. It is a filtered view of the
+  // LOCKED version, never a second artifact, and never her working edits.
+  // boundaries, proof-library and funnel-shape stay owner-only.
   ...[
     'positioning', 'voice', 'audience-decided', 'funnel-shape', 'ctas',
     'proof-library', 'boundaries', 'cadence', 'obligations',
-  ].map(sub =>
-    D({
+  ].map(sub => {
+    const summary = ['positioning', 'voice', 'audience-decided', 'cadence', 'ctas'].includes(sub);
+    return D({
       path: `context/content-strategy/${sub}`, zone: 'tree', kind: 'parameter',
       entry_type: 'strategy_parameter',
       fed_by: ['owner', 'engine:analysis'], read_by: ['work-log', 'engine:content'],
       switch: 'strategy.fixed', states: ['active'], history: 'versioned',
-      audience: sub === 'obligations' ? 'both' : 'owner',
-      client_door: sub === 'obligations' ? 'see:obligations' : undefined,
+      audience: sub === 'obligations' || summary ? 'both' : 'owner',
+      client_door: sub === 'obligations' ? 'see:obligations' : summary ? 'see:strategy' : undefined,
       note: sub === 'proof-library' ? 'Real results, quotes, BTS, case studies. Carries rights (S21).'
         : sub === 'boundaries' ? 'Prohibited claims, never-promises, the unwanted audience.'
+        : summary ? 'Part of the client’s strategy summary — the locked version only (spec 22 §10).'
         : undefined,
-    })),
+    });
+  }),
   D({
     path: 'context/content-strategy/visual-branding', zone: 'tree', kind: 'parameter',
     entry_type: 'strategy_parameter',
@@ -175,8 +212,15 @@ export const DECLARATIONS: PathDeclaration[] = [
         ? ['work-log/creation/topics', 'work-log/creation', 'work-log/analysis']
         : ['work-log/creation', 'work-log/analysis'],
       switch: 'platforms.*', states: ['active', 'history', 'hidden'], history: 'versioned',
-      audience: 'both', client_door: 'see:strategy',
-      note: sub === 'rules' ? 'Per-client overrides beat the universal format rules, always.' : undefined,
+      // Spec 24 §13.1, and the workshop rule is absolute: no switch, in any
+      // position, may grant a client sight of a format-rule override. The client
+      // sees `platforms/` at the STRATEGY SUMMARY level only — the parent, which
+      // spec 22 §11.3 already scoped. The rules child is hers.
+      audience: sub === 'rules' ? 'owner' : 'both',
+      client_door: sub === 'rules' ? undefined : 'see:strategy',
+      note: sub === 'rules'
+        ? 'Per-client overrides beat the universal format rules, always. Owner-only: a merged rule is workshop material (spec 24 §13.1).'
+        : undefined,
     })),
 
   // pillars — each pillar its own folder
@@ -208,7 +252,11 @@ export const DECLARATIONS: PathDeclaration[] = [
   D({
     path: 'context/content-strategy/gates', zone: 'tree', kind: 'variable', entry_type: 'gate_set',
     fed_by: ['owner'],
-    read_by: ['work-log/creation/making', 'work-log/creation/review'],
+    read_by: [
+      'work-log/creation/making', 'work-log/creation/review',
+      // S14: gates are DERIVED from strategy, never a separate questionnaire.
+      'context/content-strategy/voice', 'context/content-strategy/positioning',
+    ],
     switch: 'strategy.fixed', states: ['active', 'history'], history: 'versioned',
     audience: 'owner',
     note: 'Five brand gates derived from voice/ and positioning/, plus accuracy and format.',
@@ -229,10 +277,14 @@ export const DECLARATIONS: PathDeclaration[] = [
     read_by: [
       'work-log/creation/making', 'work-log/creation/review', 'work-log/creation/scheduling',
       'work-log/analysis/study-own-data', 'shelf/today-strip', 'client',
+      // Spec 24 §13.3, declaration edit 2: the seed detail already lists a
+      // seed's pieces (spec 23 §7.3) and the declaration never granted it.
+      // Read-only, and it opens no new door.
+      'engine:content',
     ],
     switch: 'creation.board', states: ['active', 'history', 'hidden'], history: 'append_only',
     audience: 'both', client_door: 'see:upcoming',
-    note: 'THE canonical piece identity (S2). making/review/scheduling are views over it.',
+    note: 'THE canonical piece identity (S2). making/review/scheduling are views over it. A non-owner login receives pieces at review and later ONLY, field-filtered (spec 24 §13.2) — the path declaration alone was too coarse.',
   }),
   D({
     path: 'work-log/creation/topics', zone: 'tree', kind: 'variable', entry_type: 'seed',
@@ -242,6 +294,21 @@ export const DECLARATIONS: PathDeclaration[] = [
     audience: 'owner',
     note: 'The seed bank. Seeds never have stages (S1); loose subjects are capture input only (S24). A client who brings ideas gives them at intake (give-point 1); her curation makes them seeds — never a fifth door (S19).',
   }),
+  // Spec 23 §11.3, law-4 additions ratified into PLAN §3.
+  D({
+    path: 'work-log/creation/topics/captures', zone: 'tree', kind: 'variable', entry_type: 'seed_capture',
+    fed_by: ['owner'], read_by: ['engine:content', 'work-log/creation/topics'],
+    switch: 'creation.engine', states: ['active', 'history', 'hidden'], history: 'append_only',
+    audience: 'owner',
+    note: 'The raw material every seed is born from, kept verbatim forever (PLAN §5.1). Loose subjects are capture INPUT, never peer entries (S24) — this is where they live.',
+  }),
+  D({
+    path: 'work-log/creation/topics/proposals', zone: 'tree', kind: 'variable', entry_type: 'seed_proposal',
+    fed_by: ['engine:content', 'engine:analysis'], read_by: ['owner'],
+    switch: 'creation.engine', states: ['active', 'history', 'hidden'], history: 'append_only',
+    audience: 'owner',
+    note: 'Engine-proposed seeds, clearly marked and untouchable until she picks them up (PLAN §5.2). Governed by creation.engine, not creation.seed_extraction (spec 27 correction), so cost-free analysis proposals survive with the model call off.',
+  }),
   D({
     path: 'work-log/creation/making', zone: 'tree', kind: 'variable', entry_type: 'draft_version',
     fed_by: ['owner', 'engine:content'],
@@ -249,6 +316,53 @@ export const DECLARATIONS: PathDeclaration[] = [
     switch: 'creation.making', states: ['active', 'history', 'hidden'], history: 'append_only',
     audience: 'owner',
     note: 'Versions are kept. Outside-tool handoffs live here with their contract (S18).',
+  }),
+  // Spec 24 §11.3, law-4 additions ratified into PLAN §3. Both live INSIDE an
+  // existing spine folder (law 1 intact) and declare their feeds and readers at
+  // birth (law 4). They need their own addresses because `making/`'s entry type
+  // is `draft_version`, and a brief is not a draft and a handoff is not one either.
+  D({
+    path: 'work-log/creation/making/briefs', zone: 'tree', kind: 'variable', entry_type: 'internal_brief',
+    fed_by: ['owner', 'engine:content'],
+    read_by: ['owner', 'engine:content', 'work-log/creation/making', 'work-log/creation'],
+    switch: 'creation.brief', states: ['active', 'hidden'], history: 'versioned',
+    audience: 'owner',
+    note: 'The internal brief PLAN §5.1 puts BEFORE any copy. Versioned and permanent, because S18’s brief_version must point at something that cannot move under it.',
+  }),
+  // Spec 25 §10.3, law-4 addition ratified into PLAN §3. S14 requires every
+  // verdict to carry its gate version and old pass records to be immutable;
+  // without an address that amendment cannot be honoured, and analysis has
+  // nowhere to read "what standard judged this piece".
+  D({
+    path: 'work-log/creation/making/gate-runs', zone: 'tree', kind: 'variable', entry_type: 'gate_run',
+    fed_by: ['engine:content', 'owner'],
+    read_by: [
+      'work-log/creation', 'work-log/creation/review', 'work-log/analysis/study-own-data', 'owner',
+    ],
+    switch: 'creation.gates', states: ['active'], history: 'append_only',
+    audience: 'owner',
+    note: 'One record per gate run, every verdict stamped with its gate version (S14). Forward only: version N’s pass records are never touched, never recomputed, never re-rendered.',
+  }),
+  D({
+    path: 'work-log/creation/making/handoffs', zone: 'tree', kind: 'variable', entry_type: 'handoff_record',
+    fed_by: ['owner', 'pipe:canva'],
+    read_by: ['owner', 'work-log/creation'],
+    switch: 'creation.making_handoff', states: ['active', 'history', 'hidden'], history: 'append_only',
+    audience: 'owner',
+    note: 'S18’s contract: immutable piece id, brief version, destination tool, exported-at, expected deliverable, returned asset, import status, supersession chain.',
+  }),
+  // Spec 25 §9.5, law-4 addition ratified into PLAN §3. PLAN §5.2's loop-back
+  // writes winning combinations into the engine room; declared HERE so the
+  // Analysis family cannot invent a second home, with both rules already
+  // enforced at the write door: a `verdict`-sourced entry with no cited
+  // evidence is refused, and a recommendation never selects anything.
+  D({
+    path: 'work-log/creation/costume-recommendations', zone: 'tree', kind: 'variable',
+    entry_type: 'costume_recommendation',
+    fed_by: ['engine:analysis', 'owner'], read_by: ['engine:content', 'owner'],
+    switch: 'creation.engine', states: ['active', 'history', 'hidden'], history: 'append_only',
+    audience: 'owner',
+    note: 'A suggestion beside the costume pickers. It cannot pre-resolve a costume, cannot birth a piece, and never enters a drafting packet as an instruction.',
   }),
   D({
     path: 'work-log/creation/review', zone: 'tree', kind: 'variable', entry_type: 'review_record',
@@ -410,6 +524,29 @@ export const DECLARATIONS: PathDeclaration[] = [
     note: 'Law-4 addition. Her private notes. Soft signals — never the engine’s math.',
   }),
 
+  // Spec 23 §11.3, law-4 additions. Both are FIXED records: S12 requires the
+  // model, the packet and the context version logged per output; S13 requires
+  // the original feedback and her decision both preserved. A switch that could
+  // turn either off would make the amendment a lie.
+  D({
+    path: 'work-log/logs/engine-runs', zone: 'tree', kind: 'variable', entry_type: 'engine_run',
+    fed_by: ['engine:content', 'engine:analysis'], read_by: ['owner'],
+    switch: 'logs.engine_runs', states: ['active'], history: 'append_only',
+    audience: 'owner',
+    note: 'S12’s per-output log: model, packet contents, context version, tokens, cost. Never stores the API key, never another profile’s data.',
+  }),
+  D({
+    path: 'work-log/logs/feedback', zone: 'tree', kind: 'variable', entry_type: 'feedback_item',
+    // Spec 27 §17.1: the Analysis Engine writes `candidate-strategy-change` and
+    // `profile-rule` items here. It PROPOSES; she decides; nothing updates
+    // strategy behind her back (§15.3).
+    fed_by: ['owner', 'engine:analysis'],
+    read_by: ['owner', 'engine:content', 'engine:analysis', 'context/content-strategy'],
+    switch: 'logs.feedback', states: ['active'], history: 'append_only',
+    audience: 'owner',
+    note: 'S13’s classified, routed feedback with her decision preserved. Declared once for the whole engine family.',
+  }),
+
   // analysis (PLAN §3.8)
   D({
     path: 'work-log/analysis', zone: 'tree', kind: 'variable', entry_type: 'analysis_record',
@@ -451,14 +588,33 @@ export const DECLARATIONS: PathDeclaration[] = [
     fed_by: ['owner', 'engine:analysis'], read_by: ['owner'],
     switch: 'analysis.compare', states: ['active', 'history', 'hidden'], history: 'append_only',
     audience: 'owner',
-    note: 'Matched comparisons (S5): hypothesis, held/changed variables, windows, baseline.',
+    note: 'Matched comparisons (S5): hypothesis, held/changed variables, windows, baseline. Spec 24 §13.3, declaration edit 1: `owner` is a declared writer, because held and changed variables are knowable only at resolve and resolve is her act (§5.6).',
   }),
   D({
     path: 'work-log/analysis/digests', zone: 'tree', kind: 'variable', entry_type: 'digest',
-    fed_by: ['engine:analysis'], read_by: ['owner', 'client'],
+    // Spec 27 §17.1: `owner` is a declared writer because APPROVAL is her act and
+    // nothing publishes on a timer (§14). Without it the publication gate could
+    // not exist — approval would have to be an engine write.
+    fed_by: ['engine:analysis', 'owner'], read_by: ['owner', 'client'],
     switch: 'analysis.digest_owner', states: ['active', 'history', 'hidden'], history: 'append_only',
     audience: 'both', client_door: 'see:analysis',
-    note: 'Her digest displays automatically; a client digest is hers to approve or edit first.',
+    note: 'Monthly digests, weekly pulse entries and client publications. Her digest displays automatically; a client publication is hers to approve or edit first, and only a published one is ever served to a client (spec 27 §14).',
+  }),
+  // Spec 27 §25, law-4 addition, inside an existing spine folder (law 1 intact).
+  // PLAN §5.2 point 4 makes the verdict a first-class output on a cycle, distinct
+  // from the digest that delivers it — and revisit proposals and strategy diffs
+  // must CITE a verdict by id at their write door, so the verdict needs an
+  // address to be citable at all.
+  D({
+    path: 'work-log/analysis/verdicts', zone: 'tree', kind: 'variable', entry_type: 'verdict',
+    fed_by: ['engine:analysis'],
+    read_by: [
+      'owner', 'work-log/analysis/digests', 'work-log/creation/topics/proposals',
+      'work-log/logs/feedback',
+    ],
+    switch: 'analysis.verdicts', states: ['active', 'history', 'hidden'], history: 'append_only',
+    audience: 'owner',
+    note: 'The 30-day and quarter verdicts: the computed input and the worded output together. Never edited — a re-run appends, because a verdict is a fact about what we believed on a date (spec 27 §11.4).',
   }),
 
   // ── Frozen: retained, read-only, not rendered, not migrated ────────────────
@@ -526,6 +682,79 @@ export const DECLARATIONS: PathDeclaration[] = [
     path: 'leaves/container-map', zone: 'leaves', kind: 'variable', entry_type: 'legacy',
     fed_by: [], read_by: [], switch: 'leaves.exported', states: ['history'], history: 'none',
     audience: 'owner',
+  }),
+
+  // ── spec 26 §16 — the tracking store's law-4 additions ─────────────────────
+  // Four new paths, each inside an existing spine folder (law 1 intact), each
+  // declaring its feeds and readers at birth (law 4). Every one is
+  // `audience: owner`: this spec collects and stores, it shows nothing (§12).
+  D({
+    path: 'work-log/analysis/study-own-data/observations', zone: 'tree', kind: 'variable',
+    entry_type: 'metric_observation',
+    fed_by: ['pipe:platform-metrics'],
+    read_by: ['engine:analysis', 'work-log/analysis'],
+    switch: 'analysis.tracking', states: ['active', 'history'], history: 'append_only',
+    audience: 'owner',
+    note: 'The append-only observations themselves. INSERT-only for real (§5.3): a second run the same day adds a row, it never overwrites one. Rows carry their own age, so nothing is ever compared at unequal ages (S6).',
+  }),
+  D({
+    path: 'work-log/analysis/study-own-data/sync-health', zone: 'tree', kind: 'variable',
+    entry_type: 'sync_run',
+    fed_by: ['pipe:platform-metrics'],
+    read_by: ['owner', 'engine:analysis'],
+    switch: 'analysis.sync_health', states: ['active', 'history', 'hidden'], history: 'append_only',
+    audience: 'owner',
+    note: 'Runs, connection status, last successful sync, retry/backfill state, coverage gaps. The record that makes an absence explainable (S7) — without it a missing day and a failed day look identical.',
+  }),
+  D({
+    path: 'work-log/analysis/study-own-data/links', zone: 'tree', kind: 'variable',
+    entry_type: 'post_link',
+    fed_by: ['pipe:platform-metrics', 'owner'],
+    read_by: ['engine:analysis', 'work-log/creation'],
+    switch: 'analysis.tracking', states: ['active', 'history'], history: 'append_only',
+    audience: 'owner',
+    note: 'Spec 03’s join, finally addressed and re-pointed at the canonical PIECE identity (S2). A time-window match is a SUGGESTION and never attaches on its own (§8).',
+  }),
+  D({
+    path: 'work-log/analysis/attributed-outcomes', zone: 'tree', kind: 'variable',
+    entry_type: 'attributed_outcome',
+    // The declared event source is a pipe like any other; where there is none,
+    // the number is hers by hand and the record says so.
+    fed_by: ['owner', 'pipe:declared-event-source'],
+    read_by: ['owner'],
+    switch: 'analysis.attributed_outcomes', states: ['active', 'history', 'hidden'],
+    history: 'append_only', audience: 'owner',
+    note: 'S23’s wall made structural: business outcomes cannot sit in the same folder as observed metrics. Without a declared event_source AND attribution_method the row is `unknown` and no rate may be computed from it (§10).',
+  }),
+
+  // Parameters added INSIDE existing entry folders (law 2, level three — not new
+  // folders). §4.1's narrowing rule is what keeps these owner-only inside
+  // `audience: both` parents: law 3 inherits connections downward, never
+  // visibility.
+  D({
+    path: 'context/content-strategy/goals/*/measurement', zone: 'tree', kind: 'parameter',
+    entry_type: 'measurement_declaration',
+    fed_by: ['owner'], read_by: ['work-log/analysis', 'engine:analysis'],
+    switch: 'strategy.fixed', states: ['active', 'history'], history: 'versioned',
+    audience: 'owner',
+    note: 'The S16 declaration for one goal, living WITH its subject because the measuring stick IS the strategy (PLAN §5.2). Owner-only inside an `audience: both` parent: a raw metric declaration is workshop material (CLAUDE.md rule 1).',
+  }),
+  D({
+    path: 'context/content-strategy/pillars/*/measurement', zone: 'tree', kind: 'parameter',
+    entry_type: 'measurement_declaration',
+    fed_by: ['owner'], read_by: ['work-log/analysis', 'engine:analysis'],
+    switch: 'strategy.fixed', states: ['active', 'history'], history: 'versioned',
+    audience: 'owner',
+    note: 'The S16 declaration for one pillar job. PLAN §5.2’s scorecard judges each pillar only on its job’s metrics, so the job needs the same declaration a goal does.',
+  }),
+  D({
+    path: 'context/content-strategy/platforms/*/metrics', zone: 'tree', kind: 'parameter',
+    entry_type: 'platform_metrics',
+    fed_by: ['owner'],
+    read_by: ['work-log/analysis', 'pipe:platform-metrics'],
+    switch: 'platforms.*', states: ['active', 'history', 'hidden'], history: 'versioned',
+    audience: 'owner',
+    note: 'Which metrics this platform actually reports FOR THIS PROFILE, plus per-profile overrides. The code catalogue is the shelf; this parameter is what this account really reports. Override beats universal, always (PLAN §5.1).',
   }),
 ];
 

@@ -2,8 +2,83 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, signRole, SESSION_COOKIE, cookieOptionsForRole } from '@/lib/auth';
 import { readState, writeState } from '@/lib/supabaseServer';
-import { filterStateForRole, mergeRoleWrite, normalizeState, emptyState, type Role } from '@/lib/access';
+import {
+  filterStateForRole, mergeRoleWrite, normalizeState, emptyState, windowsForRole, type Role,
+} from '@/lib/access';
 import { applyScopes, checkScopes } from '@/lib/tree/scopes';
+import { refusedCreationWrites } from '@/lib/strategy/derivation';
+import { refusedPieceWrites } from '@/lib/engine/seeds';
+import { refusedProposalWrites } from '@/lib/engine/proposals';
+import { refusedCaptureWrites } from '@/lib/engine/captures';
+import { refusedCostumeWrites } from '@/lib/engine/resolve';
+import { refusedMaterialWrites } from '@/lib/engine/materials';
+import { refusedDraftWrites } from '@/lib/engine/drafts';
+import { refusedGateRunWrites, refusedStageWrites } from '@/lib/engine/gates';
+import { refusedRecommendationWrites } from '@/lib/engine/recommendations';
+import { refusedEvidenceWrites } from '@/lib/analysis/verdict';
+import type { AppState } from '@/types';
+
+/**
+ * Spec 22 §8.7: creation stays locked until strategy locks. Any write to a path
+ * under work-log/creation on a profile whose `strategy_version` is null is
+ * refused here — not hidden, not grayed out, refused at the write door, the same
+ * way an undeclared path is. Spec 21's migrated profiles keep their legacy
+ * slices rendering exactly as they do today; this binds new writes through the
+ * tree only (§13.6).
+ */
+function creationRefusals(current: AppState, incoming: AppState): { profileId: string; paths: string[] }[] {
+  const out: { profileId: string; paths: string[] }[] = [];
+  for (const id of Object.keys(incoming.clientData ?? {})) {
+    const paths = refusedCreationWrites(current.clientData?.[id]?.body, incoming.clientData[id]?.body);
+    if (paths.length) out.push({ profileId: id, paths });
+  }
+  return out;
+}
+
+/**
+ * Spec 23's three data-layer guards, at the same door and for the same reason:
+ *  §9.1 only a LOCKED seed may mother a piece (S1),
+ *  §8.2 a waiting proposal is untouchable until she picks it up (PLAN §5.2),
+ *  §4.1 a capture is kept exactly as given, forever (PLAN §5.1).
+ *
+ * Plus spec 24's two, at the same door and for the same reason:
+ *  §5.2 one value per dimension, and the birth record is never rewritten (S4, S15),
+ *  §9.1 a restricted asset is refused at attachment (S21).
+ *
+ * And spec 25's four:
+ *  §3.3 a draft version is never rewritten — an edit is the next version,
+ *  §6.2 nothing leaves build until all seven gates pass,
+ *  §7.3 nothing schedules or posts while a required right is missing (S21),
+ *  §6.7 a gate run is never rewritten, and the rights baseline is forward only.
+ *
+ * They live here rather than in a screen so no later spec can route around them.
+ */
+function engineRefusals(current: AppState, incoming: AppState): { profileId: string; reasons: string[] }[] {
+  const out: { profileId: string; reasons: string[] }[] = [];
+  const now = new Date().toISOString();
+  for (const id of Object.keys(incoming.clientData ?? {})) {
+    const before = current.clientData?.[id]?.body;
+    const after = incoming.clientData[id]?.body;
+    const reasons = [
+      ...refusedPieceWrites(before, after).map(r => `piece ${r.piece_id}: ${r.reason}`),
+      ...refusedProposalWrites(before, after).map(r => `proposal ${r.proposal_id}: ${r.reason}`),
+      ...refusedCaptureWrites(before, after).map(r => `capture ${r.capture_id}: ${r.reason}`),
+      ...refusedCostumeWrites(before, after).map(r => `piece ${r.piece_id}: ${r.reason}`),
+      ...refusedMaterialWrites(before, after).map(r => `piece ${r.piece_id}: ${r.reason}`),
+      ...refusedDraftWrites(before, after).map(r => `draft ${r.draft_id}: ${r.reason}`),
+      ...refusedStageWrites(before, after, now).map(r => `piece ${r.piece_id}: ${r.reason}`),
+      ...refusedGateRunWrites(before, after).map(r => `piece ${r.piece_id}: ${r.reason}`),
+      ...refusedRecommendationWrites(before, after).map(r => `recommendation ${r.recommendation_id}: ${r.reason}`),
+      // And spec 27's one, at the same door and for the same reason:
+      //  §15.1 / §15.3 every suggestion cites its evidence — a revisit proposal
+      //  or a proposed strategy change arriving with no cited verdict is refused,
+      //  not warned (PLAN §5.2's honesty rule made structural).
+      ...refusedEvidenceWrites(before, after).map(r => `${r.id}: ${r.reason}`),
+    ];
+    if (reasons.length) out.push({ profileId: id, reasons });
+  }
+  return out;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +98,13 @@ export async function GET() {
     ? (role === 'owner' ? null : emptyState()) // no saved row yet
     : filterStateForRole(raw, role);
 
-  const res = NextResponse.json({ role, state });
+  // Spec 28 §15.2: the client's navigation, computed here from the AUTHORITATIVE
+  // state — doors + switches + lifecycle — and asserted server side. It grants
+  // nothing: every window it names reads paths the filter above already let
+  // through, and a window whose door is shut is simply not in the list.
+  const windows = raw && role !== 'owner' ? windowsForRole(raw, role) : {};
+
+  const res = NextResponse.json({ role, state, windows });
   // Refresh the cookie on each visit (keeps persistent roles persistent).
   if (authConfigured()) res.cookies.set(SESSION_COOKIE, signRole(role), cookieOptionsForRole(role));
   return res;
@@ -71,6 +152,24 @@ export async function POST(req: Request) {
     // to the paths this save declared.
     const merged = role === 'owner' ? normalizeState(incoming) : mergeRoleWrite(base, incoming, role);
     const next = paths ? applyScopes(base, merged, paths) : merged;
+
+    const refused = creationRefusals(base, next);
+    if (refused.length) {
+      return NextResponse.json({
+        error: 'creation-locked',
+        detail: 'Strategy has not locked on this profile yet, so nothing can be written into creation.',
+        refused,
+      }, { status: 409 });
+    }
+
+    const engineRefused = engineRefusals(base, next);
+    if (engineRefused.length) {
+      return NextResponse.json({
+        error: 'engine-guard',
+        detail: engineRefused[0].reasons[0],
+        refused: engineRefused,
+      }, { status: 409 });
+    }
 
     await writeState(next);
     return NextResponse.json({ ok: true, scoped: !!paths });

@@ -1,6 +1,6 @@
 import type { ProfileBody } from '@/lib/tree/body';
 import type { SwitchConfig } from '@/lib/tree/contract';
-import type { Lifecycle } from '@/lib/tree/objects';
+import type { Lifecycle, TasteRule } from '@/lib/tree/objects';
 
 export type ColumnId = 'raw' | 'in-progress' | 'done' | 'scheduled';
 export type ReferenceType = 'link' | 'image' | 'text';
@@ -525,6 +525,9 @@ export interface Client {
   ownerKind?: ProfileOwnerKind;
   /** S22. Absent = `active` for everything that exists today. */
   lifecycle?: Lifecycle;
+  /** When the current lifecycle state was set. The shelf's chip says "Paused
+   *  since 3 June" from this; with no date it just says "Paused" (spec 28 §4.6). */
+  lifecycleAt?: string;
   /** Her switch positions for this profile. Migration never sets these. */
   switches?: SwitchConfig;
   /** What migration suggested, kept separate so a suggestion is never mistaken
@@ -669,6 +672,13 @@ export interface AppState {
   chatLog: ChatMessage[];
   /** Spec 21 §6: who may open which profile. Replaces the client-NAME regexes. */
   bindings: ProfileBinding[];
+  /**
+   * Spec 25 §9.2: the owner-zone taste store at `owner/taste-rules`. It sits on
+   * AppState rather than inside a profile body for the reason the spec gives —
+   * these rules are hers across her whole practice, and a copy per profile would
+   * be five copies of one truth. Owner-only, in every direction.
+   */
+  tasteRules: TasteRule[];
 }
 
 // ── Studio types ──────────────────────────────────────────────────────────
