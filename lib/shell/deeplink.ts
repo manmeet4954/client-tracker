@@ -18,6 +18,7 @@ import { renderState } from '../tree/render.ts';
 import { renderProfile, staysOnLegacy } from './profile.ts';
 
 const REVIEW = 'work-log/creation/review';
+const TOOLSET = 'context/content-strategy/toolset';
 
 export type DeepLinkBranch =
   /** No preview with this share id. Today's not-found page, unchanged. */
@@ -50,6 +51,21 @@ export function resolveShare(
   return null;
 }
 
+/** Has she actually PICKED a position for this switch on this profile, and is
+ *  it the one asked about? A `suggested` entry, or no entry at all, is not a
+ *  decision — spec 22 §8.5, "a suggestion is not a setting", read here the way
+ *  spec 26 §6.2 reads it for collection. */
+function positionSetTo(
+  state: AppState, profileId: string, switchId: string, want: 'on' | 'off',
+): boolean {
+  const entries = state.clientData?.[profileId]?.body?.paths?.[TOOLSET] ?? [];
+  const entry = entries.find(e => e.id === switchId);
+  if (!entry) return false;
+  const d = (entry.data ?? {}) as { state?: string; suggested?: boolean };
+  if (d.suggested === true) return false;
+  return want === 'on' ? d.state === 'active' : d.state !== 'active';
+}
+
 export interface DeepLinkInput {
   state: AppState | null;
   shareId: string;
@@ -72,7 +88,14 @@ export function resolveDeepLink(input: DeepLinkInput): DeepLinkBranch {
   // `hidden` the URL serves nothing to an unauthenticated viewer: the link is
   // revoked, and revoked means gone. A bound client hitting the same URL still
   // deep-links below, because their access comes from their door, not the link.
+  //
+  // REVOKED MEANS SHE REVOKED IT. Spec 21 §9.6 and spec 26 §6.2's precedent: a
+  // profile whose switchboard she has never walked behaves exactly as it did
+  // before, because a suggestion is not a setting. Reading an UNSET switch as
+  // "off" took every live preview link dark the day the shell shipped — hers
+  // and every client's — which is the opposite of what the switch is for.
   const publicLinkOff = !!found
+    && positionSetTo(state, found.profileId, 'creation.review_public_link', 'off')
     && renderState(renderProfile(state, found.profileId, 'owner'), 'creation.review_public_link', 'owner') !== 'active';
 
   // The fallback, once. Revoked means gone for everyone the link was the access
@@ -98,7 +121,10 @@ export function resolveDeepLink(input: DeepLinkInput): DeepLinkBranch {
 
   // The honest off-switch: no redirect for anyone, the public page for everyone.
   // Checked after the owner branch because it governs the CLIENT's landing.
-  if (renderState(profile, 'creation.review_deeplink', 'client') !== 'active') {
+  // Unset stays unset here too: on a profile she has not walked, the client
+  // simply gets the page they always got, which is the safe direction.
+  if (!positionSetTo(state, found.profileId, 'creation.review_deeplink', 'on')
+    || renderState(profile, 'creation.review_deeplink', 'client') !== 'active') {
     return fallback;
   }
 

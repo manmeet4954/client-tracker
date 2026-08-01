@@ -637,6 +637,44 @@ test('11h. review_deeplink hidden sends everyone to the public page', () => {
   eq(link(state, null).branch, 'public', 'and the page still serves');
 });
 
+// The live regression of 2026-08-01: every preview link in the system went dark
+// the day the shell shipped, because an UNSET switch read as "off". A profile
+// whose switchboard she has never walked must behave exactly as it did before
+// (spec 21 §9.6, and spec 26 §6.2's precedent for collection).
+test('11i. an unwalked profile still serves its links (2026-08-01 regression)', () => {
+  const bare = withPreview(shellState(), null);
+  // No toolset entries at all — the state of every profile before she walks it.
+  const body = bare.clientData['career-bubble'].body!;
+  bare.clientData['career-bubble'] = {
+    ...bare.clientData['career-bubble'],
+    body: { ...body, paths: { ...body.paths, 'context/content-strategy/toolset': [] } },
+  };
+  eq(link(bare, null).branch, 'public', 'a stranger with the link still sees the post');
+  eq(link(bare, 'merushri').branch, 'public', 'and so does a client');
+  eq(link(bare, 'owner').branch, 'public', 'and so does she');
+});
+
+test('11j. a SUGGESTED position is not a decision either', () => {
+  const state = withPreview(shellState(), null);
+  const body = state.clientData['career-bubble'].body!;
+  state.clientData['career-bubble'] = {
+    ...state.clientData['career-bubble'],
+    body: {
+      ...body,
+      paths: {
+        ...body.paths,
+        'context/content-strategy/toolset': [{
+          id: 'creation.review_public_link', type: 'switch_setting',
+          path: 'context/content-strategy/toolset', state: 'active',
+          data: { id: 'creation.review_public_link', state: 'hidden', set_at: NOW, suggested: true },
+          created_at: NOW, updated_at: NOW,
+        }],
+      },
+    },
+  };
+  eq(link(state, null).branch, 'public', 'a suggestion never revokes a working link');
+});
+
 // ── 12. The chat is mounted and untouched ────────────────────────────────────
 
 suite('spec 28 §17.12 — the chat, mounted and untouched');

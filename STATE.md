@@ -794,16 +794,28 @@ worth saying out loud — **the engine room does not open on ResumeGuru until sh
 walks it through curation, derivation, switches and the lock.** That is PLAN
 §3.4's order working exactly as written.
 
-## 2026-07-27 — THE BATCH IS FULLY BUILT (specs 21–28: written, built, verified)
+## 2026-07-27 — THE BATCH IS DEPLOYED (deploy commit e7bea63 on client-tracker/main, Vercel success)
 
-All seven batch builds are complete and merged on main: 396/396 tests, typecheck
-clean, production builds green, every build independently verified by the
-control room. Three real security leaks found and closed during the builds; the
-live app is UNTOUCHED (nothing deployed). What remains: (1) her ONE deploy go
-per DEPLOY.md, (2) the collective phase (HER LIST below). The new shell ships
-dormant: every profile keeps its legacy screens until it is migrated AND its
-strategy locks, so the deploy changes nothing visible until she walks a profile
-through.
+Her go in the control room; all three DEPLOY.md gates passed (green scratch
+build; drift check — all 26 differing files verified as past vault states,
+vault strictly ahead; her explicit go). She ran the push; Vercel reports
+success. **The live app looks unchanged by design** — the entire new world is
+dormant until a profile is migrated (apply) AND its strategy locks; legacy
+screens keep working per profile until then. RESUMEGURU IS LOCKED AND LIVE IN THE NEW WORLD (2026-07-28). The full
+strategy pass completed with her in the side panel: 14/14 parameters decided
+with reasons (owner-declared, from her taxonomy and voice rules) · gate set
+v1 saved (Coach, Hook, Value, Stance, Friend + accuracy + format) · all 78
+switch positions set (suggestions adopted via the cascade-preview flow;
+three contradictions caught by the validator and corrected: taste_rules,
+review_deeplink, client_upload all off for this no-client-login profile) ·
+the channel on record from migration · zero violations · SHE pressed Lock.
+strategy_version: 1, lifecycle: active. Creation is open, the Engine Room
+is unlocked, ResumeGuru is the first profile rendering in the new shell.
+
+REMAINING ON HER LIST (shrunk): the vocabulary pass (spec 22's parameters,
+before any client round) · spend ceiling · playbook question · staff/Sonia
+ruling · the small suggested values · the setup day + IG stall (STILL losing
+data daily) · other profiles' migrate+lock walks, one at a time.
 
 ## Spec-set record (superseded heading kept below)
 

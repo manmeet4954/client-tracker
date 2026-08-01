@@ -37,34 +37,9 @@ Then report back in two lines: where the project stands and what the next step i
 
 ---
 
-## Layout
-
-```
-dashboard/
-├── app/
-│   ├── page.tsx              login / entry
-│   ├── clients/              client list home
-│   ├── client/[id]/          one client's workspace, one folder per tab
-│   │                         (content is the hub; kanban and pillars are
-│   │                          legacy routes that redirect into it)
-│   ├── me/                   Manmeet's personal dashboard
-│   ├── brain/                brain dump canvas
-│   ├── map/                  container map
-│   ├── p/[shareId]/          public share pages
-│   ├── share-target/         Android share-to-save
-│   └── api/                  auth, state, upload, share, canva, debug
-├── components/               one View component per tab or section
-├── contexts/AppContext.tsx   loads state, saves state, holds it in memory
-├── lib/                      access rules, auth, supabase, canva, utils
-└── types/index.ts            the whole data model
-```
-
-Stack: Next.js 14 (app router), React 18, Tailwind, Supabase (storage), Cloudinary (media), dnd-kit (drag and drop). Deployed on Vercel.
-
----
-
 ## How the data works (read before touching state)
 
+- In `app/client/[id]/`, the Content tab is the hub. `kanban` and `pillars` are legacy routes that redirect into it — do not build onto them.
 - The entire app state is ONE JSON blob (`AppState`) stored in a single Supabase row. `app/api/state/route.ts` reads and writes it. There is no per-table schema for app data.
 - **Writes are PATH-SCOPED** (spec 21). A save sends `{ state, paths }`: the paths it touched, addressed in the tree (`lib/tree/scopes.ts`). The server merges only those and takes everything else from what is stored. An undeclared path is refused. This is what closed the old save race.
 - **The tree is the address system** (`lib/tree/`). Every folder declares what feeds it, what reads it, and the switch that governs it; a read or write against an undeclared path throws. `npm test` runs the validator plus spec 21's acceptance tests — no dependencies, no build step.
@@ -79,12 +54,6 @@ Stack: Next.js 14 (app router), React 18, Tailwind, Supabase (storage), Cloudina
 ---
 
 ## Running
-
-```
-cd dashboard
-npm install
-npm run dev
-```
 
 Needs `.env.local` with the Supabase, Cloudinary, and passcode variables. Variable names may be written in docs; values never.
 
