@@ -1171,6 +1171,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setStatus('needsAuth');
             return false;
           }
+          if (res.status === 409) {
+            // The door refused this tab's save. If it is the stale-tab refusal,
+            // this bundle is older than the server and must not keep trying:
+            // reload once, so the tab comes back on the current code with the
+            // authoritative state. (2026-08-01: a stale tab's pathless save is
+            // what erased two previews.)
+            res.json().then(j => { if (j?.error === 'stale-tab') window.location.reload(); }).catch(() => {});
+            return false;
+          }
           if (!res.ok) return false; // server error (e.g. Supabase write failed)
           dirtyRef.current = false;
           syncedRef.current = state;

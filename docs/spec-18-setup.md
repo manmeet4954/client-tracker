@@ -1,5 +1,55 @@
 # WhatsApp Inbox — Manmeet's setup steps (Spec 18 part B)
 
+## RESEARCH 2026-07-26 — Coexistence: a second door that skips the wall
+
+She asked about "coexistence" — she remembered it as registering as a tech
+support. Two different things, and the useful one is real.
+
+**Coexistence is real and it dodges the exact step that killed the 07-20
+attempt.** It lets one number run the WhatsApp Business APP and the Cloud API
+at the same time. Onboarding is a **QR-code scan from inside the WhatsApp
+Business app** (Settings → WhatsApp → sign up with Facebook, app version
+2.24.17+). No SMS. No voice call. No 6-digit PIN registration. The whole
+"Registration failed" dead end below does not exist on this path.
+
+**"Tech Provider" is the wrong door.** That programme is for agencies who
+onboard OTHER businesses' numbers (Wati, 360dialog, AiSensy). For her own
+number she does not need it — she either runs her own Meta app, or lets an
+existing provider do the onboarding and forwards their webhook.
+
+What it costs her, on the record:
+- The number must have been **actively used in the WhatsApp Business app for
+  7+ days**, and must not already sit on a WhatsApp Business Account. **The
+  eSIM +91 95186 00319 is currently attached to WABA 1346017167069849 in a
+  Pending state** — it was never successfully registered, so deleting it
+  should clear the way, but sources warn of a 1–2 month cooldown after a real
+  WABA deletion. Unverified for a never-registered number.
+- **No blue badge, ever.** Official Business Account is not supported on
+  coexistence numbers.
+- Broadcast lists are disabled, live location is off, disappearing messages
+  are unsupported, and groups do not appear on the API side.
+- App-sent messages stay free; API-sent messages bill at Cloud API rates.
+- Messages she SENDS from the Business app are echoed to the webhook as
+  `smb_message_echoes`. That is the mechanism that would let her type into a
+  chat and have the dashboard read it — no second "Dashboard" contact needed.
+- India is supported.
+
+The decision this forces: coexistence works best on a number she ALREADY uses
+in the WhatsApp Business app — which means her real working number, and every
+client chat on it streaming to the dashboard webhook. That is a bigger
+privacy call than the dead eSIM ever was. Hers to make.
+
+**Separate and more urgent:** the "it just pasted my words in" complaint is
+not a WhatsApp problem. `app/api/chat-brain/route.ts` returns
+`{fallback:true}` with no `ANTHROPIC_API_KEY` set in Vercel — and it has
+never been set. Fallback = the dumb hashtag rules, which take her raw words
+as titles. Also `app/api/whatsapp/route.ts` still routes through the OLD v1
+brain in `lib/whatsappInbox.ts`, not chat brain v4 — so connecting WhatsApp
+today would deliver the dumb version regardless of the transport.
+
+Order that follows: set the key → retest the chat → only then decide whether
+WhatsApp is worth the coexistence tradeoffs.
+
 ## IN PROGRESS 2026-07-20 — stuck at number registration
 
 CORRECTION to the first diagnosis below: she reports the eSIM works and can

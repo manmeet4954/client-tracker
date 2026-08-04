@@ -462,3 +462,30 @@ side until a profile locks. One law-4 folder ratified:
 `context/business-details/materials/`. All 20 acceptance tests green with spec
 21's 70 — 96/96 via `npm test`. Deploy is hers per DEPLOY.md; her vocabulary
 pass is still owed before any round reaches a client.
+
+---
+
+## 16. Reel Room
+
+**What:** `20 — Reel Room.md`, requested 2026-07-24. A place to practise talking
+to camera where the practice run IS the output. Records a vertical take, measures
+what a machine can honestly measure (pace, fillers, pauses, throat-clearing,
+hedging), and asks Claude for ONE correction across delivery, English, substance
+and presence. Presence comes from six still frames sampled across the take, so it
+can read her hands, posture and eye line. No composite score, ever. Every take
+becomes a LinkedIn content card. Doctrine lives in the vault at
+`personal/Speaking Practice.md`; a working standalone version exists at
+`personal/Reel Room.html`.
+
+**Placement:** her LinkedIn workspace only, owner only, using the existing
+client-specific tab pattern. Clients never see it. Her call 2026-07-24.
+
+**Status:** SPEC DRAFTED, not built, awaiting her go. Blocked on
+`ANTHROPIC_API_KEY` in Vercel (STATE.md setup day item 2 — the same one env var
+also unblocks the momentum diary reader, the nightly tagger and the digest).
+Open: the LinkedIn workspace's exact name for the matcher, the video retention
+rule, whether practice cards get marked so the board can fold them, and whether
+phone recording is in v1. Video upload to Supabase is a NEW storage pattern and
+needs a decision recorded in STATE.md before it is built (CLAUDE.md rule 5).
+
+---

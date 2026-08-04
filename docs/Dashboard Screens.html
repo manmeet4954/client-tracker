@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KRNL Dashboard — every screen, as it looks today</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f2f0ee;color:#1c1917;
+    font:14px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .page{max-width:1320px;margin:0 auto;padding:36px 20px 120px}
+  h1{font-size:28px;font-weight:600;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{color:#78716c;margin:0 0 8px}
+  .sec{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:#a8a29e;margin:54px 0 14px;border-top:1px solid #dcd9d6;padding-top:14px}
+  .name{font-size:17px;font-weight:600;margin:26px 0 2px}
+  .path{font:12px ui-monospace,Menlo,monospace;color:#a8a29e}
+  .desc{color:#57534e;font-size:13.5px;margin:4px 0 10px;max-width:900px}
+
+  /* ── app frame ───────────────────────────── */
+  .frame{background:#fff;border:1px solid #d6d3d1;border-radius:14px;overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:8px}
+  .app{display:flex;min-height:520px}
+  .sb{width:212px;flex-shrink:0;padding:14px 12px;color:#fff;display:flex;flex-direction:column;
+    background:linear-gradient(165deg,#f2a950 0%,#ee7f52 40%,#e2638c 100%)}
+  .sb-top{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;margin-bottom:16px}
+  .sb-ico{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.22);
+    display:flex;align-items:center;justify-content:center;font-size:12px}
+  .sb-btn{display:flex;align-items:center;justify-content:space-between;
+    background:rgba(255,255,255,.17);border-radius:11px;padding:9px 11px;margin-bottom:7px;font-size:13.5px;font-weight:500}
+  .sb-lbl{font-size:10px;letter-spacing:.14em;opacity:.85;margin:14px 0 8px}
+  .sb-c{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:9px;
+    margin-bottom:2px;font-size:13.5px;opacity:.92}
+  .sb-c.on{background:rgba(255,255,255,.24);font-weight:600;opacity:1}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .sb-add{margin-top:auto;padding:9px 11px;font-size:13.5px;opacity:.9}
+
+  .main{flex:1;min-width:0;background:#fbfaf9;display:flex;flex-direction:column}
+  .hdr{background:#fff;padding:14px 22px;display:flex;align-items:center;gap:11px;
+    font-size:19px;font-weight:600;border-bottom:1px solid #f0efed}
+  .tabs{background:#fff;display:flex;gap:2px;padding:0 14px;border-bottom:1px solid #e7e5e4;
+    overflow-x:auto;white-space:nowrap}
+  .tab{padding:11px 11px;font-size:13px;color:#57534e;border-bottom:2px solid transparent;flex-shrink:0}
+  .tab.on{color:#4f46e5;border-bottom-color:#4f46e5;font-weight:500}
+  .tab i{opacity:.55;font-style:normal;margin-right:5px}
+  .tab.new{color:#9a3412}
+  .canvas{padding:22px;flex:1}
+
+  .h2{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0}
+  .h2s{color:#a8a29e;font-size:14px;margin:2px 0 18px}
+  .row{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+  .nav{display:flex;align-items:center;gap:14px;border:1px solid #e7e5e4;background:#fff;
+    border-radius:10px;padding:7px 14px;font-size:13px;color:#57534e}
+
+  .card{background:#fff;border:1px solid #eceae8;border-radius:14px;padding:18px 20px;margin-bottom:14px}
+  .card-t{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .card-t b{font-size:15px;font-weight:600}
+  .muted{color:#a8a29e}
+  .s{font-size:13px}
+  .xs{font-size:11.5px}
+  .bar{height:7px;background:#f0efed;border-radius:99px;overflow:hidden;margin:10px 0}
+  .bar i{display:block;height:100%;background:#1c1917;border-radius:99px}
+  .g2{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+  .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .input{border:1px solid #e7e5e4;border-radius:10px;padding:11px 13px;color:#c2bdb8;
+    background:#fff;font-size:13.5px;flex:1}
+  .btn{background:#1c1917;color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;
+    font-weight:500;display:inline-block}
+  .btn.g{background:#fff;color:#57534e;border:1px solid #dcd9d6}
+  .btn.d{background:#e7e5e4;color:#a8a29e}
+  .pill{display:inline-block;font-size:11px;padding:3px 9px;border-radius:99px;
+    background:#f5f5f4;color:#57534e;margin-right:4px}
+  .pill.b{background:#e0e7ff;color:#3730a3}
+  .pill.g{background:#dcfce7;color:#166534}
+  .pill.o{background:#ffedd5;color:#9a3412}
+
+  /* board */
+  .cols{display:flex;gap:10px}
+  .col{flex:1;background:#f5f4f2;border-radius:12px;padding:10px;min-height:230px}
+  .col-h{font-size:11px;font-weight:600;color:#78716c;letter-spacing:.05em;
+    text-transform:uppercase;margin-bottom:9px;display:flex;justify-content:space-between}
+  .ccard{background:#fff;border:1px solid #eceae8;border-radius:10px;padding:10px;
+    margin-bottom:7px;font-size:12.5px;line-height:1.45}
+
+  .chat{position:absolute;right:20px;bottom:18px;width:44px;height:44px;border-radius:50%;
+    background:#1c1917;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px}
+  .rel{position:relative}
+  .empty{color:#c2bdb8;font-size:13px;padding:10px 0}
+  .note{background:#fff8f4;border:1px solid #fed7aa;border-left:3px solid #ea4711;
+    border-radius:0 10px 10px 0;padding:13px 17px;margin:14px 0;font-size:13.5px}
+  .note b{color:#9a3412}
+  .phone{width:270px;border:9px solid #1c1917;border-radius:30px;overflow:hidden;background:#fbfaf9}
+  .phonebar{display:flex;background:#fff;border-top:1px solid #e7e5e4;padding:8px 0;
+    justify-content:space-around;font-size:10px;color:#78716c}
+  @media(max-width:900px){.sb{display:none}.g2,.g3,.g4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Every screen, as it looks today</h1>
+<p class="sub">KRNL client dashboard · drawn from the live app · 1 August 2026. Sidebar and tab bar are the real ones. Data is real-shaped, not real.</p>
+
+<div class="note">
+<b>Read this first:</b> the app currently has <b>two</b> navigation systems live at once — the tab bar you see below (used every day, 9 to 15 tabs per profile), and a newer shelf-and-three-apps shell that only one profile has moved into. Both are in this file. Sections 1–6 are what she actually uses. Section 7 is the half-built new one.
+</div>
+
+<!-- ══════════ 1. ENTRY ══════════ -->
+<div class="sec">1 · Getting in</div>
+
+<div class="name">Passcode gate</div>
+<div class="path">/</div>
+<p class="desc">The only door. One field. No usernames, no signup, no forgot-password.</p>
+<div class="frame">
+  <div style="min-height:340px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#8b5cf6,#c74f9b,#ee7f52)">
+    <div style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+      border-radius:18px;padding:28px;width:330px;color:#fff">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.2);
+        display:flex;align-items:center;justify-content:center;margin-bottom:16px">🔒</div>
+      <div style="font-size:20px;font-weight:600">Enter passcode</div>
+      <div style="opacity:.8;font-size:13.5px;margin-bottom:16px">This dashboard is private.</div>
+      <div style="background:rgba(255,255,255,.18);border-radius:11px;padding:12px;
+        color:rgba(255,255,255,.7);font-size:13.5px;margin-bottom:10px">Passcode</div>
+      <div style="background:rgba(255,255,255,.85);color:#1c1917;border-radius:11px;padding:12px;
+        text-align:center;font-weight:600;font-size:14px">Enter →</div>
+    </div>
+  </div>
+</div>
+
+<div class="name">Client list — the old home</div>
+<div class="path">/clients</div>
+<p class="desc">Where she lands after login. Every profile as a card. This is also permanently in the sidebar, on every screen.</p>
+<div class="frame"><div class="app">
+  <aside class="sb" data-sb></aside>
+  <div class="main">
+    <div class="hdr">My Clients</div>
+    <div class="canvas">
+      <div class="g3">
+        <div class="card" style="margin:0"><div style="display:flex;align-items:center;gap:9px"><span class="dot" style="background:#4f46e5;width:11px;height:11px"></span><b>Career Bubble</b></div><div class="muted s" style="margin-top:6px">Open workspace →</div></div>
+        <div class="card" style="margin:0"><div style="display:flex;align-items:center;gap:9px"><span class="dot" style="background:#0ea5e9;width:11px;height:11px"></span><b>Divine Studio</b></div><div class="muted s" style="margin-top:6px">Open workspace →</div></div>
+        <div class="card" style="margin:0"><div style="display:flex;align-items:center;gap:9px"><span class="dot" style="background:#ec4899;width:11px;height:11px"></span><b>Sonia's Crochet</b></div><div class="muted s" style="margin-top:6px">Open workspace →</div></div>
+        <div class="card" style="margin:0"><div style="display:flex;align-items:center;gap:9px"><span class="dot" style="background:#22c55e;width:11px;height:11px"></span><b>ResumeGuru</b></div><div class="muted s" style="margin-top:6px">Open workspace →</div></div>
+        <div class="card" style="margin:0"><div style="display:flex;align-items:center;gap:9px"><span class="dot" style="background:#f97316;width:11px;height:11px"></span><b>KRNL Studio</b></div><div class="muted s" style="margin-top:6px">Open workspace →</div></div>
+        <div class="card" style="margin:0;border-style:dashed;color:#a8a29e;display:flex;
+          align-items:center;justify-content:center">+ Add Client</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════ 2. THE NINE CORE TABS ══════════ -->
+<div class="sec">2 · Inside a profile — the nine core tabs</div>
+
+<div class="name">Dashboard</div>
+<div class="path">/client/[id]</div>
+<p class="desc">The landing tab. Month counter, agenda, deadlines. Mostly empty for most profiles.</p>
+<div class="frame"><div class="app">
+  <aside class="sb" data-sb data-on="Career Bubble"></aside>
+  <div class="main rel">
+    <div class="hdr"><span class="dot" style="background:#4f46e5;width:13px;height:13px"></span>Career Bubble</div>
+    <nav class="tabs" data-tabs data-active="Dashboard"></nav>
+    <div class="canvas">
+      <div class="row">
+        <div><div class="h2">August 2026</div><div class="h2s">Monthly overview</div></div>
+        <div class="nav">‹ <span>Today</span> ›</div>
+      </div>
+      <div class="card">
+        <div class="card-t"><b>◎ Monthly Post Target</b><span class="muted s">Target: 15 posts</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px">
+          <div><div style="font-size:42px;font-weight:600;line-height:1">0</div><div class="muted s">of 15</div></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between"><span class="s">15 posts to go</span><span class="s">0%</span></div>
+            <div class="bar"><i style="width:0%"></i></div>
+            <div class="muted xs">Counts posts that reached <b>Scheduled</b> or <b>Posted</b> this month</div>
+          </div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card" style="margin:0">
+          <div class="card-t"><span><b>Agenda</b><div class="muted s">0 of 0 items complete</div></span><span class="pill">0 items</span></div>
+          <div class="empty">🗓 No agenda items yet — add your first one:</div>
+          <div style="display:flex;gap:8px"><div class="input">Add an agenda item…</div>
+            <div class="input" style="flex:0 0 120px">08/04/2026</div><span class="btn d">Add</span></div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>Upcoming Deadlines</b></div>
+          <div class="empty">No deadlines set — add a due date to an agenda item.</div>
+        </div>
+      </div>
+    </div>
+    <div class="chat">💬</div>
+  </div>
+</div></div>
+
+<div class="name">Content — Board view</div>
+<div class="path">/client/[id]/content</div>
+<p class="desc">The most-used screen in the product. One card per post. Drag between stages. "One card per post, from idea to live."</p>
+<div class="frame"><div class="app">
+  <aside class="sb" data-sb data-on="Career Bubble"></aside>
+  <div class="main rel">
+    <div class="hdr"><span class="dot" style="background:#4f46e5;width:13px;height:13px"></span>Career Bubble</div>
+    <nav class="tabs" data-tabs data-active="Content"></nav>
+    <div class="canvas">
+      <div class="row" style="margin-bottom:14px">
+        <div><div class="h2" style="font-size:22px">Content</div><div class="muted s">One card per post, from idea to live.</div></div>
+        <div style="display:flex;gap:7px;align-items:center">
+          <span class="pill">All platforms ▾</span><span class="pill">All pillars ▾</span>
+          <span class="pill">August ▾</span><span class="btn">+ New</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <span class="btn" style="padding:6px 14px">Board</span>
+        <span class="btn g" style="padding:6px 14px">Pillars</span>
+        <span class="btn g" style="padding:6px 14px">Table</span>
+      </div>
+      <div class="cols">
+        <div class="col"><div class="col-h"><span>Idea</span><span>4</span></div>
+          <div class="ccard"><b>Salary question carousel</b><div style="margin-top:5px"><span class="pill b">AI Lane</span><span class="pill">carousel</span></div></div>
+          <div class="ccard"><b>Why tailoring takes long</b><div style="margin-top:5px"><span class="pill b">Value</span></div></div>
+          <div class="ccard"><b>Cover letter myth</b></div>
+        </div>
+        <div class="col"><div class="col-h"><span>Making</span><span>2</span></div>
+          <div class="ccard"><b>Career OS walkthrough</b><div style="margin-top:5px"><span class="pill o">Product</span><span class="pill">reel</span></div></div>
+          <div class="ccard"><b>Founder story part 2</b></div>
+        </div>
+        <div class="col"><div class="col-h"><span>Ready</span><span>1</span></div>
+          <div class="ccard"><b>Review pattern post</b><div style="margin-top:5px"><span class="pill g">Proof</span></div></div>
+        </div>
+        <div class="col"><div class="col-h"><span>Scheduled</span><span>3</span></div>
+          <div class="ccard"><b>LinkedIn is a consequence</b><div class="muted xs" style="margin-top:4px">Aug 12 · 9:00</div></div>
+        </div>
+        <div class="col" style="opacity:.65"><div class="col-h"><span>Posted</span><span>7</span></div>
+          <div class="ccard muted">7 posted this month<div class="xs">tap to unfold</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="chat">💬</div>
+  </div>
+</div></div>
+
+<div class="name">Content — Pillars view &amp; Table view</div>
+<p class="desc">Same cards, two other lenses. Pillars: columns become the content pillars. Table: a dense list with every field. Both share the month and platform filters.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="canvas" style="background:#fbfaf9">
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <span class="btn g" style="padding:6px 14px">Board</span>
+        <span class="btn" style="padding:6px 14px">Pillars</span>
+        <span class="btn g" style="padding:6px 14px">Table</span>
+      </div>
+      <div class="cols">
+        <div class="col"><div class="col-h"><span style="color:#3730a3">AI Lane · 40%</span><span>5</span></div>
+          <div class="ccard">AI can't choose your career</div><div class="ccard">Prompt vs context</div></div>
+        <div class="col"><div class="col-h"><span style="color:#166534">Value · 25%</span><span>3</span></div>
+          <div class="ccard">Confidence isn't the problem</div></div>
+        <div class="col"><div class="col-h"><span style="color:#9a3412">Career OS · 20%</span><span>4</span></div>
+          <div class="ccard">Five tools, one career</div></div>
+        <div class="col"><div class="col-h"><span style="color:#a16207">Proof · 15%</span><span>1</span></div>
+          <div class="ccard">What the reviews taught us</div></div>
+      </div>
+      <div style="margin-top:16px" class="card">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;font-size:12px;
+          color:#78716c;border-bottom:1px solid #eceae8;padding-bottom:8px;font-weight:600">
+          <span>Post</span><span>Pillar</span><span>Format</span><span>Stage</span><span>Date</span></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;font-size:12.5px;padding:9px 0;border-bottom:1px solid #f5f4f2">
+          <span>Salary question carousel</span><span class="muted">AI Lane</span><span class="muted">carousel</span><span class="muted">idea</span><span class="muted">—</span></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;font-size:12.5px;padding:9px 0">
+          <span>LinkedIn is a consequence</span><span class="muted">Value</span><span class="muted">reel</span><span class="muted">scheduled</span><span class="muted">Aug 12</span></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Card editor</div>
+<p class="desc">Opens over any card. Everything about one post lives here — this is where a post gets its pillar, format, date and live link.</p>
+<div class="frame"><div style="background:rgba(28,25,23,.45);padding:34px;display:flex;justify-content:center">
+  <div style="background:#fff;border-radius:16px;width:520px;padding:22px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <b style="font-size:16px">Edit post</b><span class="muted">✕</span></div>
+    <div class="input" style="color:#1c1917;margin-bottom:9px">Salary question carousel</div>
+    <div class="g2" style="gap:9px;margin-bottom:9px">
+      <div class="input">Pillar ▾</div><div class="input">Format ▾</div></div>
+    <div class="g2" style="gap:9px;margin-bottom:9px">
+      <div class="input">Platform ▾</div><div class="input">Live date</div></div>
+    <div class="input" style="margin-bottom:9px">Paste the live post link…</div>
+    <div class="input" style="min-height:70px;margin-bottom:14px">Notes, script, caption…</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <span class="btn g">Cancel</span><span class="btn">Save</span></div>
+  </div>
+</div></div>
+
+<div class="name">Journey</div>
+<div class="path">/client/[id]/journey</div>
+<p class="desc">"Every month, told in your pillars' colors." Goal card on top, month bars below, effort/money meter for her own profiles.</p>
+<div class="frame"><div class="app">
+  <aside class="sb" data-sb data-on="ResumeGuru"></aside>
+  <div class="main">
+    <div class="hdr"><span class="dot" style="background:#22c55e;width:13px;height:13px"></span>ResumeGuru</div>
+    <nav class="tabs" data-tabs data-active="Journey"></nav>
+    <div class="canvas">
+      <div class="card">
+        <div class="card-t"><b>The goal</b><span class="pill">by December</span></div>
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:34px;font-weight:600">1,240</span>
+          <span class="muted">of 5,000 followers</span></div>
+        <div class="bar"><i style="width:25%"></i></div>
+      </div>
+      <div class="card">
+        <div class="card-t"><b>Every month, in your pillars' colors</b></div>
+        <div style="display:flex;align-items:flex-end;gap:14px;height:130px;padding-top:8px">
+          <div style="flex:1;text-align:center"><div style="height:52px;background:#4f46e5;border-radius:6px 6px 0 0"></div><div style="height:24px;background:#22c55e"></div><div style="height:14px;background:#f97316"></div><div class="muted xs" style="margin-top:5px">May</div></div>
+          <div style="flex:1;text-align:center"><div style="height:70px;background:#4f46e5;border-radius:6px 6px 0 0"></div><div style="height:30px;background:#22c55e"></div><div style="height:18px;background:#f97316"></div><div class="muted xs" style="margin-top:5px">Jun</div></div>
+          <div style="flex:1;text-align:center"><div style="height:40px;background:#4f46e5;border-radius:6px 6px 0 0"></div><div style="height:36px;background:#22c55e"></div><div style="height:10px;background:#f97316"></div><div class="muted xs" style="margin-top:5px">Jul</div></div>
+          <div style="flex:1;text-align:center"><div style="height:16px;background:#4f46e5;border-radius:6px 6px 0 0"></div><div class="muted xs" style="margin-top:5px">Aug</div></div>
+        </div>
+        <div class="muted xs" style="margin-top:8px">Tap a month to isolate it. Percentages show actual vs target mix.</div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-t"><b>Momentum</b><span class="muted s">this month</span></div>
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:28px;font-weight:600">₹1,840</span><span class="muted s">earned · 12 of 31 days logged</span></div>
+        <div class="bar"><i style="width:39%"></i></div>
+        <div style="display:flex;gap:5px;margin-top:8px">
+          <span class="pill g">wrote</span><span class="pill g">designed</span><span class="pill">filmed</span><span class="pill">posted</span></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Analytics</div>
+<div class="path">/client/[id]/analytics</div>
+<p class="desc">Instagram numbers. Currently reads the daily collection; the newer version splits into eight tabs (shown in section 7).</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <nav class="tabs" data-tabs data-active="Analytics"></nav>
+    <div class="canvas">
+      <div class="g4">
+        <div class="card" style="margin:0"><div class="muted xs">FOLLOWERS</div><div style="font-size:24px;font-weight:600">1,240</div><div class="xs" style="color:#16a34a">+38 this month</div></div>
+        <div class="card" style="margin:0"><div class="muted xs">REACH</div><div style="font-size:24px;font-weight:600">18.2k</div></div>
+        <div class="card" style="margin:0"><div class="muted xs">SAVES</div><div style="font-size:24px;font-weight:600">412</div></div>
+        <div class="card" style="margin:0"><div class="muted xs">PROFILE VISITS</div><div style="font-size:24px;font-weight:600">906</div></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="card-t"><b>Top posts by saves</b></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;font-size:12px;color:#78716c;padding-bottom:7px;border-bottom:1px solid #eceae8">
+          <span>Post</span><span>Views</span><span>Saves</span><span>Posted</span></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;font-size:12.5px;padding:8px 0;border-bottom:1px solid #f5f4f2">
+          <span>AI can't choose your career</span><span>4,120</span><span>96</span><span class="muted">Jul 18</span></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;font-size:12.5px;padding:8px 0">
+          <span>Five tools, one career</span><span>3,860</span><span>74</span><span class="muted">Jul 11</span></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Lists</div>
+<div class="path">/client/[id]/lists</div>
+<p class="desc">Any pipeline with her own stages. Used for workshops, leads, anything with a flow. Can be shared into another profile.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <nav class="tabs" data-tabs data-active="Lists"></nav>
+    <div class="canvas">
+      <div class="row" style="margin-bottom:14px">
+        <b style="font-size:17px">Workshop signups</b>
+        <div><span class="pill">Edit list &amp; stages</span><span class="pill">Share this list</span></div>
+      </div>
+      <div class="cols">
+        <div class="col"><div class="col-h"><span>Reached out</span><span>6</span></div>
+          <div class="ccard"><b>Priya M.</b><div class="muted xs">DM sent · Jul 28</div></div>
+          <div class="ccard"><b>Anjali R.</b></div></div>
+        <div class="col"><div class="col-h"><span>Interested</span><span>3</span></div>
+          <div class="ccard"><b>Ravi K.</b><div class="muted xs">asked about pricing</div></div></div>
+        <div class="col"><div class="col-h"><span>Paid</span><span>2</span></div>
+          <div class="ccard"><b>Neha S.</b><div class="muted xs">₹1,500 · confirmed</div></div></div>
+        <div class="col"><div class="col-h"><span>Attended</span><span>0</span></div>
+          <div class="empty xs">Nothing here yet</div></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Assets</div>
+<div class="path">/client/[id]/assets</div>
+<p class="desc">"Photos live here. Videos live in Drive." Photos in named sets, originals never recompressed. Clients can drop their own.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <nav class="tabs" data-tabs data-active="Assets"></nav>
+    <div class="canvas">
+      <div class="row" style="margin-bottom:6px"><b style="font-size:17px">Assets</b><span class="btn">+ Upload</span></div>
+      <div class="muted s" style="margin-bottom:14px">Photos live here. Videos live in Drive.</div>
+      <div class="g4" style="margin-bottom:14px">
+        <div class="card" style="margin:0;padding:0;overflow:hidden">
+          <div style="height:96px;background:linear-gradient(135deg,#e7e5e4,#d6d3d1)"></div>
+          <div style="padding:9px 11px"><b class="s">July shoot</b><div class="muted xs">24 photos</div></div></div>
+        <div class="card" style="margin:0;padding:0;overflow:hidden">
+          <div style="height:96px;background:linear-gradient(135deg,#fde68a,#fbbf24)"></div>
+          <div style="padding:9px 11px"><b class="s">Product flats</b><div class="muted xs">11 photos</div></div></div>
+        <div class="card" style="margin:0;padding:0;overflow:hidden">
+          <div style="height:96px;background:linear-gradient(135deg,#bfdbfe,#93c5fd)"></div>
+          <div style="padding:9px 11px"><b class="s">Studio interior</b><div class="muted xs">8 photos</div></div></div>
+        <div class="card" style="margin:0;display:flex;align-items:center;justify-content:center;
+          border-style:dashed;color:#a8a29e;min-height:130px">+ New set</div>
+      </div>
+      <div class="card" style="margin:0;display:flex;align-items:center;gap:12px">
+        <div style="width:38px;height:38px;border-radius:10px;background:#f5f4f2;display:flex;
+          align-items:center;justify-content:center">▶</div>
+        <div><b class="s">Videos</b><div class="muted xs">Opens the Drive folder in the Drive app</div></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">References · Brand · Previews</div>
+<p class="desc">Three lighter tabs. References: saved links and inspiration, pinnable and searchable. Brand: the brand kit — colours, fonts, logo, tagline, audience, goals. Previews: an Instagram-accurate mockup plus the public share link.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="canvas" style="background:#fbfaf9">
+      <div class="g3">
+        <div>
+          <div class="muted xs" style="margin-bottom:7px">REFERENCES</div>
+          <div class="card" style="padding:12px">
+            <div class="input" style="margin-bottom:9px">🔍 Search references…</div>
+            <div style="border:1px solid #eceae8;border-radius:10px;padding:9px;margin-bottom:7px">
+              <span class="pill o">Pinned</span><div class="s" style="margin-top:5px"><b>Carousel that opens with a claim</b></div>
+              <div class="muted xs">instagram.com/p/… · tap to read full note</div></div>
+            <div style="border:1px solid #eceae8;border-radius:10px;padding:9px">
+              <div class="s"><b>Colour direction — muted premium</b></div><div class="muted xs">Image</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="muted xs" style="margin-bottom:7px">BRAND</div>
+          <div class="card" style="padding:12px">
+            <div class="muted xs">BRAND TAGLINE</div>
+            <div class="s" style="margin-bottom:10px">Your career, in one connected place.</div>
+            <div class="muted xs">COLORS</div>
+            <div style="display:flex;gap:6px;margin:6px 0 10px">
+              <div style="width:30px;height:30px;border-radius:8px;background:#1c1917"></div>
+              <div style="width:30px;height:30px;border-radius:8px;background:#ea4711"></div>
+              <div style="width:30px;height:30px;border-radius:8px;background:#f7f7f5;border:1px solid #e7e5e4"></div></div>
+            <div class="muted xs">FONTS</div>
+            <div class="s">Garet Bold · Inter Extra Light</div>
+          </div>
+        </div>
+        <div>
+          <div class="muted xs" style="margin-bottom:7px">PREVIEWS</div>
+          <div class="card" style="padding:12px">
+            <div style="border:1px solid #eceae8;border-radius:10px;overflow:hidden;margin-bottom:9px">
+              <div style="padding:7px 9px;font-size:11px;border-bottom:1px solid #f0efed;display:flex;align-items:center;gap:6px">
+                <span style="width:18px;height:18px;border-radius:50%;background:#e7e5e4;display:inline-block"></span>@resumeguru.ai</div>
+              <div style="height:104px;background:linear-gradient(135deg,#f5f4f2,#e7e5e4)"></div>
+              <div style="padding:7px 9px;font-size:11px" class="muted">♡ 💬 ➤ &nbsp; caption preview…</div>
+            </div>
+            <div class="muted xs">Public link</div>
+            <div class="s" style="font-family:ui-monospace,Menlo,monospace;font-size:11px">/p/4aa6a2ad98…</div>
+            <div style="margin-top:8px"><span class="btn g" style="padding:6px 12px">Copy link</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════ 3. THE FOUR NEW TABS ══════════ -->
+<div class="sec">3 · The four new tabs — where the heaviness came from</div>
+<div class="note"><b>These four were added last week</b>, onto the end of an already-full tab bar. They are the most valuable tools in the system and the least reachable — tabs 10 to 13.</div>
+
+<div class="name">Intake</div>
+<div class="path">/client/[id]/intake</div>
+<p class="desc">Question rounds sent to a client. Their raw answers come back and are never edited. 52 possible questions, sent in subsets.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <nav class="tabs" data-tabs data-active="Intake"></nav>
+    <div class="canvas">
+      <div class="row" style="margin-bottom:14px">
+        <div><b style="font-size:17px">Intake</b><div class="muted s">Round 1 · sent 28 July · 9 of 14 answered</div></div>
+        <span class="btn">Open a new round</span>
+      </div>
+      <div class="card">
+        <div class="muted xs" style="margin-bottom:9px">WHAT THEY SAID</div>
+        <div style="border-left:2px solid #e7e5e4;padding-left:12px;margin-bottom:12px">
+          <div class="s"><b>What do you sell, and which one thing pays the bills?</b></div>
+          <div class="muted s" style="margin-top:4px">"Mostly 1:1 coaching. The group program is newer but growing."</div></div>
+        <div style="border-left:2px solid #e7e5e4;padding-left:12px;margin-bottom:12px">
+          <div class="s"><b>Describe your best customer ever. Not the ideal one — a real one.</b></div>
+          <div class="muted s" style="margin-top:4px">"A woman in her 30s who had been stuck for two years…"</div></div>
+        <div style="border-left:2px solid #e7e5e4;padding-left:12px">
+          <div class="s"><b>Will you show your face? How often, honestly?</b></div>
+          <div class="empty xs">They chose not to answer this.</div></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Curation</div>
+<div class="path">/client/[id]/curation</div>
+<p class="desc">Two columns: what they said (raw, read-only, forever) and what we know (her curated value). She writes the right side from the left.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <nav class="tabs" data-tabs data-active="Curation"></nav>
+    <div class="canvas">
+      <div class="card">
+        <div class="card-t"><b>Offers · hero offer</b><span class="pill">needs you</span></div>
+        <div class="g2" style="gap:18px">
+          <div>
+            <div class="muted xs" style="margin-bottom:6px">WHAT THEY SAID</div>
+            <div class="s muted" style="background:#f8f7f6;border-radius:10px;padding:11px">
+              "Mostly 1:1 coaching. The group program is newer but growing."</div>
+          </div>
+          <div>
+            <div class="muted xs" style="margin-bottom:6px">WHAT WE KNOW</div>
+            <div class="input" style="min-height:64px">Write the value in your words</div>
+            <div style="display:flex;gap:7px;margin-top:8px"><span class="btn">Save it</span>
+              <span class="pill">confirmed ▾</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-t"><b>Audience · their words</b><span class="pill g">curated</span></div>
+        <div class="g2" style="gap:18px">
+          <div><div class="s muted" style="background:#f8f7f6;border-radius:10px;padding:11px">"They say 'I feel invisible at work'…"</div></div>
+          <div><div class="s" style="border:1px solid #eceae8;border-radius:10px;padding:11px">Mid-career women who feel unseen despite doing the work.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Strategy — step 1, Decide it</div>
+<div class="path">/client/[id]/strategy</div>
+<p class="desc">Fourteen parameters that make the brand book. Each shows its sources, her decision, and a required one-line reason. Nothing saves without the reason.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <nav class="tabs" data-tabs data-active="Strategy"></nav>
+    <div class="canvas">
+      <div style="display:flex;gap:7px;margin-bottom:16px">
+        <span class="btn" style="padding:6px 14px">Decide it</span>
+        <span class="btn g" style="padding:6px 14px">Gates</span>
+        <span class="btn g" style="padding:6px 14px">Switches</span>
+        <span class="btn g" style="padding:6px 14px">Lock</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <b style="font-size:17px">◎ The strategy</b></div>
+      <div class="muted s" style="margin-bottom:14px">This is the brand book. It is not collected, you decide it from what they told you. 3 of 14 decided.</div>
+      <div class="card" style="padding:14px 18px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center">
+        <span><b class="s">Positioning</b><div class="muted xs">The connected career home. Not another resume tool…</div></span>
+        <span style="color:#16a34a">✓</span></div>
+      <div class="card" style="padding:14px 18px;margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between"><b class="s">Platforms</b><span class="muted xs">close</span></div>
+        <div class="g2" style="gap:18px;margin-top:12px">
+          <div><div class="muted xs" style="margin-bottom:6px">WHAT THIS COMES FROM</div>
+            <div class="empty xs">Existing accounts: we never got this<br>Where they are: we never got this<br>Who shoots, how fast: we never got this</div></div>
+          <div><div class="muted xs" style="margin-bottom:6px">YOUR DECISION</div>
+            <div class="input" style="min-height:52px">What are we doing here</div>
+            <div class="input">Why, in one line</div>
+            <div class="xs muted" style="margin:8px 0"><input type="checkbox" disabled> not used for this client &nbsp;
+              <input type="checkbox" checked disabled> deciding ahead of the answers</div>
+            <span class="btn">Decide it</span></div>
+        </div>
+      </div>
+      <div class="card" style="padding:14px 18px;margin:0;display:flex;justify-content:space-between">
+        <span><b class="s">Pillars</b><div class="muted xs">0 of 5 sources ready</div></span><span class="muted xs">open</span></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Strategy — steps 2, 3, 4</div>
+<p class="desc">Gates: five brand checks derived from voice and positioning, plus two fixed. Switches: <b>78</b> on/off rows in one flat list — a known low point. Lock: one button, refuses until everything is clean.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="canvas" style="background:#fbfaf9">
+      <div class="g3">
+        <div>
+          <div class="muted xs" style="margin-bottom:7px">GATES</div>
+          <div class="card" style="padding:13px">
+            <div class="muted xs">WHAT THEY COME FROM</div>
+            <div class="xs muted" style="margin:5px 0 10px">Voice: honest, direct, spoken over chai…</div>
+            <div class="input" style="margin-bottom:6px;color:#1c1917">Coach</div>
+            <div class="input" style="margin-bottom:9px;font-size:12px">Could a coach with no product have written this?</div>
+            <div class="muted xs">ALWAYS ON, FOR EVERY BRAND</div>
+            <div class="xs" style="margin-top:5px">Accuracy · Format</div>
+          </div>
+        </div>
+        <div>
+          <div class="muted xs" style="margin-bottom:7px">SWITCHES — 78 ROWS</div>
+          <div class="card" style="padding:13px">
+            <div class="muted xs" style="margin-bottom:8px">78 still need a position from you.</div>
+            <div style="border:1px solid #eceae8;border-radius:9px;padding:9px;margin-bottom:6px">
+              <div class="s"><b>client_access.login</b></div>
+              <div class="muted xs">the client feels this one</div>
+              <div style="margin-top:6px"><span class="pill o">on</span><span class="pill">off, not for this client</span></div>
+              <div class="xs" style="color:#b45309;margin-top:5px">Only a suggestion. It does not count until you pick it.</div></div>
+            <div style="border:1px solid #eceae8;border-radius:9px;padding:9px">
+              <div class="s"><b>creation.engine</b></div>
+              <div style="margin-top:6px"><span class="pill o">on</span><span class="pill">off, keep history</span><span class="pill">off</span></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="muted xs" style="margin-bottom:7px">LOCK</div>
+          <div class="card" style="padding:13px">
+            <div class="s"><b>🔒 Lock the strategy</b></div>
+            <div class="muted xs" style="margin:6px 0 12px">One action. It is the line between working out who this client is and making things for them. Until it happens, nothing can be written into creation.</div>
+            <div style="border:1px solid #eceae8;border-radius:9px;padding:10px;margin-bottom:11px">
+              <div class="xs" style="color:#b45309">creation.taste_rules: requires "owner.taste_rules", which is hidden</div>
+              <div class="xs" style="color:#b45309;margin-top:5px">assets.client_upload: requires "client_access.login"</div></div>
+            <span class="btn d">Lock it</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">The Engine Room</div>
+<div class="path">/client/[id]/engine</div>
+<p class="desc">The newest screen and the point of the whole rebuild. One thought talked out once becomes a <b>seed</b>; a seed wears many costumes and becomes many posts.</p>
+<div class="frame"><div class="app">
+  <aside class="sb" data-sb data-on="ResumeGuru"></aside>
+  <div class="main rel">
+    <div class="hdr"><span class="dot" style="background:#22c55e;width:13px;height:13px"></span>ResumeGuru</div>
+    <nav class="tabs" data-tabs data-active="Engine"></nav>
+    <div class="canvas">
+      <div style="display:flex;gap:18px">
+        <div style="flex:1.5">
+          <div style="font-size:19px;font-weight:600;margin-bottom:9px">What are we talking about today?</div>
+          <div class="input" style="min-height:120px">Paste anything. Transcripts, client messages, your own rambling. Length is welcome.</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:11px">
+            <span class="btn">Find the seeds in this</span>
+            <span class="muted s">or write a seed myself</span></div>
+          <div class="card" style="margin-top:18px;border-color:#fed7aa;background:#fffbf7">
+            <div class="muted xs" style="margin-bottom:9px">THE ENGINE PROPOSED THESE</div>
+            <div style="border:1px solid #fed7aa;border-radius:10px;padding:11px;background:#fff">
+              <b class="s">Tailoring is a strategy problem</b>
+              <div class="muted xs" style="margin:5px 0 8px">"People say tailoring takes too long. The real problem is they have to remember their own career again…"</div>
+              <span class="btn" style="padding:5px 11px">Pick this up</span>
+              <span class="btn g" style="padding:5px 11px">Not this one</span>
+              <span class="pill" style="float:right">Below the bar</span></div>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div class="input" style="margin-bottom:10px">🔍 Search what you actually said</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px"><span class="pill">All pillars ▾</span><span class="pill">Locked</span></div>
+          <div class="card" style="padding:11px;margin-bottom:7px">
+            <div style="display:flex;justify-content:space-between"><b class="s">The career has no home</b><span class="dot" style="background:#16a34a"></span></div>
+            <div class="muted xs" style="margin-top:4px">4 pieces · 2 posted</div>
+            <div style="margin-top:6px"><span class="pill o">Career OS</span><span class="pill b">Value</span></div></div>
+          <div class="card" style="padding:11px;margin-bottom:7px">
+            <div style="display:flex;justify-content:space-between"><b class="s">AI can't replace judgment</b><span class="dot" style="background:#16a34a"></span></div>
+            <div class="muted xs" style="margin-top:4px">3 pieces</div></div>
+          <div class="card" style="padding:11px;margin:0;opacity:.75">
+            <div style="display:flex;justify-content:space-between"><b class="s">Cover letters</b><span class="dot" style="background:#d6d3d1"></span></div>
+            <div class="xs" style="color:#b45309;margin-top:4px">Not a seed yet — talk it out.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="chat">💬</div>
+  </div>
+</div></div>
+
+<div class="name">Seed sheet &amp; the costume builder</div>
+<p class="desc">Left: everything one seed holds — her raw words are kept verbatim forever and can never be edited. Right: dressing that seed. Picking several values shows every combination; each one she confirms becomes a separate post.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="canvas" style="background:#fbfaf9">
+      <div class="g2" style="gap:16px">
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>The career has no home</b><span class="pill g">locked</span></div>
+          <div class="muted xs">WHAT YOU ACTUALLY SAID</div>
+          <div style="background:#f8f7f6;border-left:3px solid #d6d3d1;border-radius:0 8px 8px 0;
+            padding:10px 12px;font-size:12.5px;margin:6px 0 12px">
+            "Job search feels scattered because a person's career information lives in scattered tools…"</div>
+          <div class="muted xs">THE ONE THING THIS SAYS</div>
+          <div class="s" style="margin-bottom:9px">Their career has no connected home.</div>
+          <div class="muted xs">WHAT YOU SAY INSTEAD</div>
+          <div class="s" style="margin-bottom:9px">They don't need one more resume tool.</div>
+          <div class="muted xs">WHAT THIS MUST NEVER BE READ AS</div>
+          <div class="s" style="margin-bottom:9px">Never say the market is easy, never blame the job seeker.</div>
+          <div class="muted xs">PILLARS THIS COULD SERVE</div>
+          <div style="margin-top:5px"><span class="pill o">Career OS</span><span class="pill b">Value</span></div>
+          <div class="muted xs" style="margin-top:12px">ITS PIECES</div>
+          <div class="s">4 made · 2 posted</div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>Dress this seed</b><span class="muted s">12 pieces</span></div>
+          <div class="g2" style="gap:8px">
+            <div><div class="muted xs">PILLAR</div><div class="input" style="padding:8px">Career OS ▾</div></div>
+            <div><div class="muted xs">OBJECTIVE</div><div class="input" style="padding:8px">trust, reach ▾</div></div>
+            <div><div class="muted xs">PLATFORM</div><div class="input" style="padding:8px">Instagram ▾</div></div>
+            <div><div class="muted xs">FORMAT</div><div class="input" style="padding:8px">carousel, reel ▾</div></div>
+            <div><div class="muted xs">ANGLE</div><div class="input" style="padding:8px">contrarian ▾</div></div>
+            <div><div class="muted xs">HOOK</div><div class="input" style="padding:8px">3 selected ▾</div></div>
+          </div>
+          <div class="muted xs" style="margin:12px 0 6px">THE COMBINATIONS</div>
+          <div style="border:1px solid #eceae8;border-radius:9px;padding:8px;font-size:12px">
+            <div style="padding:4px 0;border-bottom:1px solid #f5f4f2">☑ carousel · trust · contrarian · direct claim</div>
+            <div style="padding:4px 0;border-bottom:1px solid #f5f4f2">☑ carousel · reach · contrarian · question</div>
+            <div style="padding:4px 0">☐ reel · trust · contrarian · confession</div>
+          </div>
+          <div style="margin-top:11px"><span class="btn">Send 2 to build</span>
+            <span class="btn g">Brief them all · ~$0.32</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════ 4. OWNER SCREENS ══════════ -->
+<div class="sec">4 · Her own screens, outside any profile</div>
+
+<div class="name">My Day</div>
+<div class="path">/me</div>
+<p class="desc">Everything due today across every profile, plus personal tasks. Add box on top, then "Going live" and "Today", then This Week / Later / Done.</p>
+<div class="frame"><div class="app">
+  <aside class="sb" data-sb data-on=""></aside>
+  <div class="main">
+    <div class="hdr">My Day</div>
+    <div class="canvas">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <div class="input">Add a task…</div>
+        <div class="input" style="flex:0 0 130px">Content ▾</div>
+        <div class="input" style="flex:0 0 130px">Divine Studio ▾</div>
+        <span class="btn">Add</span></div>
+      <div class="g2">
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>Going live</b><span class="muted s">today</span></div>
+          <div class="ccard">Yoga reel · Divine Studio<div class="muted xs">9:00 · scheduled</div></div>
+          <div class="ccard">Carousel · ResumeGuru<div class="muted xs">18:00</div></div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>Today</b><span class="pill">3</span></div>
+          <div class="ccard" style="border-color:#fecaca">☐ Send Merushri the invoice <span class="pill">overdue</span></div>
+          <div class="ccard">☐ Find ideation for yoga reel <span class="pill">Divine</span></div>
+          <div class="ccard">☐ Reply to Shiva</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="card-t"><b>This week</b></div>
+        <div class="ccard">☐ Plan August for Career Bubble</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Observations · Connections</div>
+<p class="desc">Observations: private notes filed by subject — one topic accumulates notes over months. Connections: Instagram accounts and their tokens, linked to profiles.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="canvas" style="background:#fbfaf9">
+      <div class="g2" style="gap:16px">
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>👁 Observations</b></div>
+          <div class="input" style="margin-bottom:9px">What did you notice?</div>
+          <div style="display:flex;gap:5px;margin-bottom:12px">
+            <span class="pill o">Shivansh</span><span class="pill">Divine</span><span class="pill">Inbox</span><span class="pill">+ topic</span></div>
+          <div style="border-left:2px solid #e7e5e4;padding-left:11px;margin-bottom:9px">
+            <div class="s">Prefers voice notes over long messages.</div>
+            <div class="muted xs">Shivansh · 28 July</div></div>
+          <div style="border-left:2px solid #e7e5e4;padding-left:11px">
+            <div class="s">Said the page feels wholesome — that word keeps coming back.</div>
+            <div class="muted xs">Divine · 21 July</div></div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>📷 Connections</b></div>
+          <div class="muted xs" style="margin-bottom:8px">CONNECTED ACCOUNTS</div>
+          <div style="border:1px solid #eceae8;border-radius:10px;padding:11px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between"><b class="s">@resumeguru.ai</b><span class="pill g">linked</span></div>
+            <div class="muted xs">ResumeGuru · collecting daily</div></div>
+          <div style="border:1px solid #eceae8;border-radius:10px;padding:11px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between"><b class="s">@divinestudio.in</b><span class="pill">Not linked yet</span></div></div>
+          <div class="muted xs">CONNECT A NEW ACCOUNT</div>
+          <div class="input" style="margin-top:6px">Paste the access token here</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Client-specific tabs</div>
+<p class="desc">Four screens that exist for one client each, sitting in the same tab bar as the universal ones. Orders and Catalogue (Sonia), Cold Calls and Answers (Divine).</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="canvas" style="background:#fbfaf9">
+      <div class="g2" style="gap:16px;margin-bottom:16px">
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>🛍 Orders</b><span class="btn" style="padding:5px 11px">+ Add Order</span></div>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr .8fr .8fr;gap:8px;font-size:11.5px;
+            color:#78716c;border-bottom:1px solid #eceae8;padding-bottom:7px">
+            <span>Customer</span><span>Items</span><span>Amount</span><span>Status</span></div>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr .8fr .8fr;gap:8px;font-size:12.5px;padding:8px 0;border-bottom:1px solid #f5f4f2">
+            <span>Meera J.</span><span class="muted">2 tops</span><span>₹2,400</span><span class="pill g">paid</span></div>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr .8fr .8fr;gap:8px;font-size:12.5px;padding:8px 0">
+            <span>Riya S.</span><span class="muted">1 bag</span><span>₹950</span><span class="pill o">pending</span></div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>🖼 Catalogue</b><span class="pill">3 picked</span></div>
+          <div class="g3" style="gap:7px">
+            <div style="height:64px;border-radius:8px;background:linear-gradient(135deg,#fbcfe8,#f9a8d4);position:relative"><span style="position:absolute;top:4px;right:4px">✓</span></div>
+            <div style="height:64px;border-radius:8px;background:linear-gradient(135deg,#ddd6fe,#c4b5fd)"></div>
+            <div style="height:64px;border-radius:8px;background:linear-gradient(135deg,#bfdbfe,#93c5fd);position:relative"><span style="position:absolute;top:4px;right:4px">✓</span></div>
+          </div>
+          <div style="margin-top:10px"><span class="btn">Make PDF</span> <span class="muted xs">shares straight to WhatsApp</span></div>
+        </div>
+      </div>
+      <div class="g2" style="gap:16px">
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>📞 Cold Calls</b><span class="pill">Import Leads</span></div>
+          <div class="input" style="margin-bottom:8px">🔍 Search leads…</div>
+          <div style="border:1px solid #eceae8;border-radius:9px;padding:9px;margin-bottom:6px">
+            <div class="s"><b>Anjali Fitness</b> <span class="pill">follow up</span></div>
+            <div class="muted xs">Kharar · 98xxx xxxxx · asked for trial timings</div></div>
+          <div style="border:1px solid #eceae8;border-radius:9px;padding:9px">
+            <div class="s"><b>Yoga With Priya</b> <span class="pill g">interested</span></div></div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-t"><b>💬 Lead Answers</b></div>
+          <div class="muted xs" style="margin-bottom:8px">Ready replies for DMs. Search, copy, send.</div>
+          <div class="input" style="margin-bottom:8px">Search: trial, couple, yoga price…</div>
+          <div style="border:1px solid #eceae8;border-radius:9px;padding:9px">
+            <div class="s"><b>What are the timings?</b></div>
+            <div class="muted xs" style="margin:4px 0 7px">Morning batches 6–9am, evening 5–8pm…</div>
+            <span class="btn g" style="padding:5px 11px">Copy the reply</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══════════ 5. CLIENT SIDE ══════════ -->
+<div class="sec">5 · What a client sees</div>
+
+<div class="name">A client login</div>
+<p class="desc">Same app, filtered on the server. Shiva and Merushri get one profile and a reduced tab set: Content, Analytics, Assets, References, Brand, Previews. No sidebar list of other clients. Sonia gets References, Orders, Catalogue only.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="hdr"><span class="dot" style="background:#6366f1;width:13px;height:13px"></span>Shiva Mam</div>
+    <nav class="tabs">
+      <span class="tab on">▤ Content</span><span class="tab">📊 Analytics</span><span class="tab">📁 Assets</span>
+      <span class="tab">🔖 References</span><span class="tab">🎨 Brand</span><span class="tab">◎ Previews</span>
+    </nav>
+    <div class="canvas">
+      <div class="cols">
+        <div class="col"><div class="col-h">Ready for you</div>
+          <div class="ccard"><b>August carousel</b><div class="muted xs">waiting for your yes</div></div></div>
+        <div class="col"><div class="col-h">Approved</div><div class="ccard">Reel · Aug 4</div></div>
+        <div class="col"><div class="col-h">Scheduled</div><div class="ccard">Post · Aug 9</div></div>
+        <div class="col"><div class="col-h">Posted</div><div class="ccard muted">5 posts</div></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">The public preview — the only screen an outsider ever sees</div>
+<div class="path">/p/[shareId]</div>
+<p class="desc">Sent on WhatsApp. No login. Renders the post exactly as Instagram will.</p>
+<div class="frame"><div style="background:#f5f4f2;padding:26px;display:flex;justify-content:center">
+  <div style="width:340px;background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden">
+    <div style="padding:11px 13px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #f0efed">
+      <span style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ec4899);display:inline-block"></span>
+      <b style="font-size:13.5px">resumeguru.ai</b></div>
+    <div style="height:300px;background:linear-gradient(135deg,#f5f4f2,#e7e5e4);position:relative">
+      <span style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,.6);color:#fff;
+        border-radius:99px;padding:2px 9px;font-size:11px">1/8</span></div>
+    <div style="padding:11px 13px;font-size:15px">♡ &nbsp; 💬 &nbsp; ➤</div>
+    <div style="padding:0 13px 15px;font-size:12.5px;line-height:1.5">
+      <b>resumeguru.ai</b> Tailoring your resume is taking so long because you are doing more than tailoring…</div>
+  </div>
+</div></div>
+
+<!-- ══════════ 6. MOBILE ══════════ -->
+<div class="sec">6 · On a phone — where she works most</div>
+<div class="name">The same screens, narrow</div>
+<p class="desc">Sidebar collapses to a hamburger. The tab bar scrolls sideways — with 13 tabs, most are off-screen. Board columns stack full-width instead of scrolling sideways.</p>
+<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:8px">
+  <div class="phone">
+    <div style="background:#fff;padding:11px 13px;display:flex;align-items:center;gap:9px;font-weight:600;font-size:14px">
+      ☰ <span class="dot" style="background:#4f46e5"></span> Career Bubble</div>
+    <div style="background:#fff;border-bottom:1px solid #e7e5e4;padding:0 10px;display:flex;gap:3px;overflow:hidden;white-space:nowrap;font-size:12px">
+      <span style="padding:9px 7px;color:#4f46e5;border-bottom:2px solid #4f46e5">Dashboard</span>
+      <span style="padding:9px 7px;color:#57534e">Content</span>
+      <span style="padding:9px 7px;color:#57534e">Journey</span>
+      <span style="padding:9px 7px;color:#c2bdb8">Ana…</span></div>
+    <div style="padding:14px">
+      <div style="font-size:19px;font-weight:600">August 2026</div>
+      <div class="muted xs" style="margin-bottom:12px">Monthly overview</div>
+      <div class="card" style="padding:13px;margin-bottom:10px">
+        <div class="xs muted">MONTHLY POST TARGET</div>
+        <div style="font-size:28px;font-weight:600">0 <span class="muted" style="font-size:13px">of 15</span></div>
+        <div class="bar"><i style="width:0"></i></div></div>
+      <div class="card" style="padding:13px;margin:0">
+        <div class="xs muted">AGENDA</div><div class="empty xs">No agenda items yet</div></div>
+    </div>
+    <div class="phonebar"><span>Clients</span><span>My Day</span><span>Chat</span></div>
+  </div>
+  <div class="phone">
+    <div style="background:#fff;padding:11px 13px;display:flex;align-items:center;gap:9px;font-weight:600;font-size:14px">
+      ☰ <span class="dot" style="background:#22c55e"></span> ResumeGuru</div>
+    <div style="padding:14px">
+      <div style="font-size:16px;font-weight:600;margin-bottom:9px">What are we talking about today?</div>
+      <div class="input" style="min-height:90px;font-size:12px">Paste anything. Transcripts, client messages, your own rambling.</div>
+      <div style="margin-top:10px"><span class="btn" style="font-size:12px">Find the seeds in this</span></div>
+      <div class="muted xs" style="margin:14px 0 7px">SEED BANK</div>
+      <div class="card" style="padding:10px;margin-bottom:6px"><b class="s">The career has no home</b><div class="muted xs">4 pieces · 2 posted</div></div>
+      <div class="card" style="padding:10px;margin:0"><b class="s">AI can't replace judgment</b><div class="muted xs">3 pieces</div></div>
+    </div>
+    <div class="phonebar"><span>Clients</span><span>My Day</span><span>Chat</span></div>
+  </div>
+  <div class="phone">
+    <div style="background:#fff;padding:11px 13px;font-weight:600;font-size:14px">☰ Content · Board</div>
+    <div style="padding:12px">
+      <div class="col" style="margin-bottom:9px"><div class="col-h"><span>Idea</span><span>4</span></div>
+        <div class="ccard">Salary question carousel</div>
+        <div class="ccard">Why tailoring takes long</div></div>
+      <div class="col" style="margin-bottom:9px"><div class="col-h"><span>Making</span><span>2</span></div>
+        <div class="ccard">Career OS walkthrough</div></div>
+      <div class="col"><div class="col-h"><span>Ready</span><span>1</span></div>
+        <div class="ccard">Review pattern post</div></div>
+    </div>
+    <div class="phonebar"><span>Clients</span><span>My Day</span><span>Chat</span></div>
+  </div>
+</div>
+<p class="desc">The floating chat button sits on every screen, both layouts. It takes a typed sentence and files it — "add a task for Divine…" — into the right place.</p>
+
+<!-- ══════════ 7. THE NEW SHELL ══════════ -->
+<div class="sec">7 · The second navigation system — built, barely inhabited</div>
+<div class="note"><b>This is the half that makes the app feel doubled.</b> It is deployed and working, but only ResumeGuru has been switched into it. Every other profile still opens section 2's tab bar. A redesign has to choose one of these two worlds, or invent a third.</div>
+
+<div class="name">The shelf — the new home</div>
+<div class="path">/shelf</div>
+<p class="desc">Profile cards showing status only, never content. One cross-profile strip of what is due today. A weekly read below.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="hdr">Your profiles <span class="muted" style="font-size:13px;font-weight:400">· 3 due today</span></div>
+    <div class="canvas">
+      <div class="g3" style="margin-bottom:16px">
+        <div class="card" style="margin:0;border-left:3px solid #22c55e">
+          <b>ResumeGuru</b><div class="muted s" style="margin-top:5px">2 in review · 4 scheduled</div></div>
+        <div class="card" style="margin:0;border-left:3px solid #0ea5e9">
+          <b>Divine Studio</b><div class="muted s" style="margin-top:5px">6 scheduled</div>
+          <div class="xs" style="color:#b45309;margin-top:4px">Strategy not locked</div></div>
+        <div class="card" style="margin:0;border-left:3px solid #ec4899">
+          <b>Sonia's Crochet</b><div class="muted s" style="margin-top:5px">6 orders open</div></div>
+        <div class="card" style="margin:0;border-left:3px solid #4f46e5">
+          <b>Career Bubble</b><div class="muted s" style="margin-top:5px">0 of 15 this month</div>
+          <div class="xs" style="color:#b45309;margin-top:4px">Not collecting since 12 July</div></div>
+        <div class="card" style="margin:0;border-left:3px solid #f97316">
+          <b>KRNL Studio</b><div class="muted s" style="margin-top:5px">quiet</div></div>
+        <div class="card" style="margin:0;border-style:dashed;display:flex;align-items:center;
+          justify-content:center;color:#a8a29e">+ New profile</div>
+      </div>
+      <div class="card">
+        <div class="card-t"><b>Today</b><span class="pill">3</span></div>
+        <div class="ccard">☐ Finish Divine's reel <span class="pill">Divine Studio</span></div>
+        <div class="ccard">☐ Send Merushri the invoice <span class="pill">Merushri</span></div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-t"><b>This week</b></div>
+        <div class="empty">Your weekly read will appear here once there is enough collected.</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">Inside a profile — three apps instead of thirteen tabs</div>
+<div class="path">/profile/[id]/creation/engine</div>
+<p class="desc">Enter one profile and you are in one world: Intake, Creation, Analysis. Strategy and Switches move into a corner control. Creation holds five sub-tabs.</p>
+<div class="frame"><div class="app">
+  <aside style="width:186px;flex-shrink:0;background:#fff;border-right:1px solid #e7e5e4;padding:16px 12px;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:9px;font-weight:600;margin-bottom:18px">
+      <span class="dot" style="background:#22c55e;width:11px;height:11px"></span>ResumeGuru</div>
+    <div style="background:#f5f4f2;border-radius:10px;padding:9px 11px;margin-bottom:5px;font-size:13.5px;color:#a8a29e">Intake · done</div>
+    <div style="background:#1c1917;color:#fff;border-radius:10px;padding:9px 11px;margin-bottom:5px;font-size:13.5px;font-weight:500">Creation</div>
+    <div style="padding:9px 11px;font-size:13.5px;color:#57534e">Analysis</div>
+    <div style="margin-top:auto;border-top:1px solid #f0efed;padding-top:11px">
+      <div style="padding:7px 11px;font-size:12.5px;color:#78716c">⚙ Strategy</div>
+      <div style="padding:7px 11px;font-size:12.5px;color:#78716c">◉ Switches</div>
+      <div style="padding:7px 11px;font-size:12.5px;color:#78716c">← All profiles</div></div>
+  </aside>
+  <div class="main">
+    <div class="tabs" style="padding-left:20px">
+      <span class="tab on">Engine</span><span class="tab">Board</span><span class="tab">Assets</span>
+      <span class="tab">References</span><span class="tab">Logs</span></div>
+    <div class="canvas">
+      <div style="font-size:19px;font-weight:600;margin-bottom:9px">What are we talking about today?</div>
+      <div class="input" style="min-height:96px">Paste anything. Transcripts, client messages, your own rambling.</div>
+      <div style="margin-top:11px"><span class="btn">Find the seeds in this</span>
+        <span class="muted s" style="margin-left:10px">or write a seed myself</span></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="name">The Analysis app — eight tabs</div>
+<div class="path">/profile/[id]/analysis/[tab]</div>
+<p class="desc">Now · Slices · Scorecard · Funnel · Compare · Goals · Verdicts · Health. Coverage is always the first thing on screen — missing data must read as missing, never as a bad month.</p>
+<div class="frame"><div class="app">
+  <div class="main">
+    <div class="tabs" style="padding-left:20px">
+      <span class="tab on">Now</span><span class="tab">Slices</span><span class="tab">Scorecard</span>
+      <span class="tab">Funnel</span><span class="tab">Compare</span><span class="tab">Goals</span>
+      <span class="tab">Verdicts</span><span class="tab">Health</span></div>
+    <div class="canvas">
+      <div class="card" style="border-color:#fed7aa;background:#fffbf7">
+        <b class="s">Not collecting since 12 July.</b>
+        <div class="muted s">20 days missing. These numbers stop there.</div></div>
+      <div class="g3" style="margin-bottom:14px">
+        <div class="card" style="margin:0"><div class="muted xs">AI LANE · reach</div>
+          <div style="font-size:20px;font-weight:600">earning</div>
+          <div class="muted xs">typical 3.1% · baseline 2.2% · n=7</div></div>
+        <div class="card" style="margin:0"><div class="muted xs">VALUE · trust</div>
+          <div style="font-size:20px;font-weight:600">steady</div></div>
+        <div class="card" style="margin:0"><div class="muted xs">CAREER OS · convert</div>
+          <div style="font-size:20px;font-weight:600;color:#a8a29e">too early to judge</div>
+          <div class="muted xs">2 more posts, or 4 more days</div></div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-t"><b>The last verdict</b><span class="muted s">30 days · 1 August</span></div>
+        <div class="s">Founder-observation carousels are the only thing clearing baseline, and they clear it by a lot. The convert lane is starving because nothing entered it this month.</div>
+        <div style="margin-top:9px"><span class="btn g" style="padding:5px 11px">Show my working</span>
+          <span class="btn g" style="padding:5px 11px">Make more of this</span></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="sec">Screen count</div>
+<p class="desc" style="max-width:none">
+<b>36 routes.</b> 9 core tabs + 4 new tabs + 4 client-specific tabs, per profile · 8 profiles · 5 logins ·
+2 navigation systems · 1 floating chat on every screen.
+</p>
+
+<script>
+// The sidebar and tab bar are identical on every screen, so they are written once
+// and cloned into each frame. Both are the real ones from the live app.
+const CLIENTS = [
+  ['Career Bubble','#4f46e5'], ['Divine Studio','#0ea5e9'], ["Sonia's Crochet",'#ec4899'],
+  ['ResumeGuru','#22c55e'], ['KRNL Studio','#f97316'], ['Freelance Projects','#e879f9'],
+  ['Shiva Mam','#6366f1'], ["Manmeet's LinkedIn",'#2dd4bf']
+];
+const TABS = [
+  ['▦','Dashboard'],['▤','Content'],['⚑','Journey'],['◫','Analytics'],['≔','Lists'],
+  ['📁','Assets'],['🔖','References'],['🎨','Brand'],['◎','Previews'],
+  ['📋','Intake'],['📖','Curation'],['◈','Strategy'],['✦','Engine']
+];
+document.querySelectorAll('[data-sb]').forEach(sb => {
+  const on = sb.dataset.on || '';
+  sb.innerHTML =
+    '<div class="sb-top"><span class="sb-ico">▣</span>My Clients</div>' +
+    '<div class="sb-btn"><span>✦ My Day</span><span>→</span></div>' +
+    '<div class="sb-btn"><span>◉ Connections</span><span>→</span></div>' +
+    '<div class="sb-btn"><span>👁 Observations</span><span>→</span></div>' +
+    '<div class="sb-lbl">CLIENTS</div>' +
+    CLIENTS.map(([n,c]) =>
+      `<div class="sb-c${n===on?' on':''}"><span class="dot" style="background:${c}"></span>${n}</div>`
+    ).join('') +
+    '<div class="sb-add">+ Add Client</div>';
+});
+document.querySelectorAll('[data-tabs]').forEach(t => {
+  const on = t.dataset.active;
+  t.innerHTML = TABS.map(([i,n]) =>
+    `<span class="tab${n===on?' on':''}${['Intake','Curation','Strategy','Engine'].includes(n)&&n!==on?' new':''}"><i>${i}</i>${n}</span>`
+  ).join('');
+});
+</script>
+</div>
+</body>
+</html>

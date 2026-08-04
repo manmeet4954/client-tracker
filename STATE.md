@@ -1,5 +1,44 @@
 # STATE - Client Dashboard
 
+## 2026-08-01 — WHERE THINGS STAND (read this first)
+
+**Live and working:** the whole spec 21–28 batch is built, tested (398 green) and
+deployed. ResumeGuru is migrated, its strategy is LOCKED (version 1), and it is
+the first profile rendering in the new shell (`/shelf` → profile → three apps).
+The other seven profiles still open the legacy tab bar, by design, until each is
+migrated and locked.
+
+**The open thread — the UI, not the system.** Her verdict 2026-08-01: the
+dashboard feels heavy and chaotic, and the new shell "still looks the same".
+The diagnosis, accepted: spec 28 built the shell as PLUMBING (routes, nav logic,
+permission rules) and mounted the OLD view components inside it. No screen was
+ever redesigned. Two navigation systems are live at once, and the desk is eight
+equal cards that answer "what exists" instead of "what needs me".
+
+**The division of labour, restated from PLAN §2:** the structure is hers and is
+sound; the LOOK was delegated to Claude on 2026-07-25 and never delivered. She
+should not be asked to specify the interface. Claude designs screens, shows them
+as pictures, she reacts.
+
+**Three documents were produced for the redesign** (in `dashboard/docs/`):
+- `Dashboard Screens.html` — 25 screen views drawn as they look today
+- `Dashboard UI Teardown.html` — the written teardown, why it feels chaotic
+- `UI Structure.md` — the flow map: desk → profile → app, and where every
+  current screen lands. Structure only, no design.
+
+**Next step, agreed in principle:** design three screens, one at a time, as
+pictures she reacts to — (1) the desk, sorted by what needs her rather than a
+grid of eight equal cards (first draft shown and well received), (2) the profile
+home, (3) the Board. Nothing is built until she says yes to a drawing.
+
+**Still owed by her** (unchanged, all parked safely): the setup day + the IG
+collection stall (losing a day of data per day since 2026-07-12) · the intake
+vocabulary pass · engine spend ceiling · cross-profile playbook · staff & Sonia
+audiences · the small suggested values · walking the other seven profiles
+through migrate → strategy → lock.
+
+---
+
 ## 2026-07-27 — SPEC 28 (THE PROFILE INTERFACE) IS BUILT, NOT DEPLOYED
 
 The last spec in the 22–28 batch. Built in §16.2's order: the frame unreachable,

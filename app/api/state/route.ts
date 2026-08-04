@@ -118,8 +118,13 @@ export async function GET() {
 // everything else comes from what is stored. An undeclared path is refused
 // outright (law 4).
 //
-// `paths` missing = a client bundle from before this shipped: it falls back to
-// the old whole-blob behavior rather than losing her work mid-deploy.
+// `paths` MISSING IS REFUSED (2026-08-01). It used to fall back to the old
+// whole-blob behavior "rather than lose her work mid-deploy", and that fallback
+// is what ate two of her previews the day after the shell shipped: a tab still
+// open from before the deploy runs the old bundle, auto-saves its stale snapshot
+// with no paths, and the server dutifully replaces everything newer with it.
+// A stale tab reloading loses nothing; a stale tab SAVING loses everything since
+// it loaded. So the door now says no, and says why, and the tab reloads itself.
 export async function POST(req: Request) {
   const role = currentRole();
   if (!role) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -129,11 +134,16 @@ export async function POST(req: Request) {
   const paths: string[] | undefined = Array.isArray(body?.paths) ? body.paths : undefined;
   if (!incoming) return NextResponse.json({ error: 'bad-request' }, { status: 400 });
 
-  if (paths) {
-    const rejected = checkScopes(paths);
-    if (rejected.length) {
-      return NextResponse.json({ error: 'undeclared-path', rejected }, { status: 400 });
-    }
+  if (!paths) {
+    return NextResponse.json({
+      error: 'stale-tab',
+      detail: 'This tab is running an old version of the dashboard. Reload the page and your next save will land.',
+    }, { status: 409 });
+  }
+
+  const rejected = checkScopes(paths);
+  if (rejected.length) {
+    return NextResponse.json({ error: 'undeclared-path', rejected }, { status: 400 });
   }
 
   try {
@@ -151,7 +161,7 @@ export async function POST(req: Request) {
     // its own bound profiles (CLAUDE.md rule 2), and only then is it narrowed
     // to the paths this save declared.
     const merged = role === 'owner' ? normalizeState(incoming) : mergeRoleWrite(base, incoming, role);
-    const next = paths ? applyScopes(base, merged, paths) : merged;
+    const next = applyScopes(base, merged, paths);
 
     const refused = creationRefusals(base, next);
     if (refused.length) {
