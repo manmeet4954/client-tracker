@@ -165,6 +165,18 @@ export const DECLARATIONS: PathDeclaration[] = [
     audience: 'both', client_door: 'see:strategy',
   }),
   D({
+    // Spec 35. The mockup she shows a client at onboarding: this is what your
+    // profile will look like. It sits in strategy because the bio she writes
+    // here IS positioning and the look IS visual branding, so it should not
+    // have to be typed twice. Versioned, because she does this again later and
+    // before-and-after is the point of the exercise.
+    path: 'context/content-strategy/profile-mockup', zone: 'tree', kind: 'variable',
+    entry_type: 'profile_mockup',
+    fed_by: ['owner'], read_by: ['context/content-strategy/positioning', 'client'],
+    switch: 'strategy.profile_mockup', states: ['active', 'history'], history: 'versioned',
+    audience: 'both', client_door: 'see:strategy',
+  }),
+  D({
     path: 'context/content-strategy/goals', zone: 'tree', kind: 'variable', entry_type: 'goal',
     fed_by: ['owner', 'engine:analysis'],
     read_by: ['work-log/analysis/goal-tracking', 'work-log/creation/scheduling'],

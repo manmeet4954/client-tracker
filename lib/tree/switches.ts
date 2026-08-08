@@ -108,6 +108,15 @@ export const SWITCHES: SwitchDeclaration[] = [
     note: 'The recorded meeting route. Same fields, different door.',
   }),
   S({
+    // Spec 35. Not a give-point: the mockup is part of the strategy summary a
+    // client is shown, so it rides the see:strategy door that already exists.
+    id: 'strategy.profile_mockup', owns: ['context/content-strategy/profile-mockup'],
+    requires: [], dependents: [], audience: 'both',
+    allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
+    derived_from: 'profile optimisation is part of the onboarding deliverable',
+    note: 'The editable Instagram profile mockup she shows a client at onboarding.',
+  }),
+  S({
     // Spec 33 §2. The third route: a document is another way the same answers
     // travel, so it sits beside the questionnaire and the meeting rather than
     // opening a door of its own. It is give-point 1, which already exists — no
@@ -927,6 +936,7 @@ export const SWITCH_DOOR: Record<string, ClientDoor> = {
   // Spec 33 §2: handing over a document is give-point 1, the door the client
   // already holds. A third ROUTE in, never a fifth door (S19).
   'intake.documents': 'give:intake',
+  'strategy.profile_mockup': 'see:strategy',
   'intake.reminders': 'give:intake',
   'creation.seed_input_client': 'give:intake',
   'assets.client_upload': 'give:assets',

@@ -32,6 +32,7 @@ import Gates from '@/components/strategy/Gates';
 import Switches from '@/components/strategy/Switches';
 import Lock from '@/components/strategy/Lock';
 import BrandKit from '@/components/strategy/BrandKit';
+import MockupScreen from '@/components/mockup/MockupScreen';
 import Channels from '@/components/strategy/Channels';
 
 export interface StrategyTab { id: string; label: string }
@@ -113,6 +114,8 @@ export function StrategyBody(
       return <Channels profileId={profileId} />;
     case 'brand':
       return <BrandKit profileId={profileId} />;
+    case 'profile-mockup':
+      return <MockupScreen profileId={profileId} />;
     case 'intake-history':
       return <IntakeHistory profileId={profileId} />;
     case 'lifecycle':

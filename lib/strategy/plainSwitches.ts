@@ -105,6 +105,8 @@ export const PLAIN_SWITCHES: Record<string, PlainSwitch> = {
   // Strategy.
   'strategy.visual_branding': P('Their brand kit',
     'Colours, type and logos live with this profile.', 'gets'),
+  'strategy.profile_mockup': P('Their profile mockup',
+    'The Instagram profile you build to show them how theirs will look.', 'gets'),
   'strategy.derivation': P('Deciding the strategy',
     'The decisions on the Decide screen.', 'we-do'),
   'strategy.gate_set': P('The checks',

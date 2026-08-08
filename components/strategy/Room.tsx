@@ -16,21 +16,26 @@ import Link from 'next/link';
 import { ChevronLeft, Lock, LockOpen } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { renderProfile } from '@/lib/shell/profile';
+import { CORNER_PANELS } from '@/lib/shell/nav';
 import { StrategyBody } from '@/components/shell/StrategyPanel';
 import Decide from './Decide';
 
-/** The sections, in the order she works through them. Ids are the registered
- *  panel ids, so every deep link that worked before still lands. */
-export const ROOM_SECTIONS: { id: string; label: string }[] = [
-  { id: 'derivation', label: 'Decide' },
-  { id: 'gates', label: 'Gates' },
-  { id: 'switches', label: 'Switches' },
-  { id: 'lock', label: 'Lock' },
-  { id: 'channels', label: 'Channels' },
-  { id: 'brand', label: 'Brand kit' },
-  { id: 'intake-history', label: 'Intake history' },
-  { id: 'lifecycle', label: 'Lifecycle' },
-];
+/**
+ * The sections, taken FROM the navigation map rather than listed again here.
+ *
+ * This used to be a second hardcoded list, and it did exactly what a second
+ * list of anything always does: spec 35 registered a Profile mockup panel in
+ * `CORNER_PANELS`, and the room silently did not draw it, because the room was
+ * reading its own copy. One list, one place, and a new panel appears by being
+ * registered rather than by being remembered twice.
+ *
+ * `Decide it` is shortened to `Decide` because the room has the space to be
+ * plain; that relabelling is the only thing this adds to the map.
+ */
+export const ROOM_SECTIONS: { id: string; label: string }[] = CORNER_PANELS.map(p => ({
+  id: p.id,
+  label: p.id === 'derivation' ? 'Decide' : p.label,
+}));
 
 export const DEFAULT_SECTION = 'derivation';
 

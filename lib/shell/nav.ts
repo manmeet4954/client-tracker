@@ -77,6 +77,9 @@ export const CORNER_PANELS: NavNode[] = [
   { id: 'lock', label: 'Lock', switches: ['strategy.lock'] },
   { id: 'channels', label: 'Channels', switches: ['creation.channels'] },
   { id: 'brand', label: 'Brand book', switches: ['strategy.visual_branding'] },
+  // Spec 35: profile optimisation. It sits beside the brand book because the
+  // bio she writes here IS positioning and the look IS visual branding.
+  { id: 'profile-mockup', label: 'Profile mockup', switches: ['strategy.profile_mockup'] },
   { id: 'intake-history', label: 'Intake history', switches: ['intake.rounds_reopen'] },
   { id: 'lifecycle', label: 'Lifecycle', switches: ['strategy.switchboard'] },
 ];

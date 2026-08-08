@@ -4,8 +4,9 @@
 
 Branch `main`. **855 tests green**, typecheck clean, production build green.
 
-**DEPLOYED on her go: `eccc216` on `client-tracker/main`, Vercel SUCCESS
-2026-08-08 11:33.** All three DEPLOY.md gates passed, including the drift check
+**DEPLOYED on her go, twice. Latest: `9cbcf81` (pause and archive from the
+desk), Vercel SUCCESS. Before it: `eccc216` (the Strategy room, the intake form,
+documents, the kept thread), Vercel SUCCESS 2026-08-08 11:33.** All three DEPLOY.md gates passed, including the drift check
 showing nothing live the vault did not already have. Previous head was
 `f585b3c`, if it ever needs backing out; no stored data changed in this deploy.
 
@@ -85,8 +86,23 @@ chat widget and any shell module calling the brain behind the desk's back.
 
 ### Specs written today
 
-31 (pausing a profile) and 32 (resources) are WRITTEN AND NOT BUILT. 33 (intake)
-and 34 (the Strategy room) are built.
+**31 (pausing a profile) is built and LIVE.** Setting a lifecycle already
+worked, buried in the Strategy corner, and changed nothing on screen. Pause and
+Archive are now on the profile row, and resting profiles leave the list for a
+folded "Resting (n)" row. Nothing is deleted.
+
+**32 (resources) is WRITTEN AND NOT BUILT.** 33 (intake) and 34 (the Strategy
+room) are built and live.
+
+### How she wants this reported, from here (her 2026-08-08 frustration)
+
+She lost track of what had changed across two hours of batched work, and said
+so. Two changes to how this is run, and they are not optional:
+
+1. **One thing at a time, deployed, then reported in about three lines.** Not
+   "here are six things I did".
+2. **This file carries the plain running list**, so "what changed?" is always
+   answerable from the repo rather than from anyone's memory of a chat.
 
 ---
 

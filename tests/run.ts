@@ -39,5 +39,7 @@ import './intake.curation.test.ts';
 import './strategy.inputs.test.ts';
 import './strategy.plain.test.ts';
 import './strategy.reading.test.ts';
+// spec 35 — the profile mockup
+import './mockup.test.ts';
 
 process.exit(await run());
