@@ -9,7 +9,8 @@ import { PARAMETERS, findParameter } from '../lib/intake/parameters.ts';
 import {
   DERIVATION_MAP, LOCKABLE_STRATEGY_PATHS, derivationRow, derivationViolations,
   buildGateSet, gateSetViolations, lockStrategy, lockViolations, mayWriteStrategy,
-  readGateSet, readStrategy, refusedCreationWrites, setSwitchPosition, sourcesFor,
+  readGateSet, readStrategy, refusedCreationWrites, refusedLegacyCreationWrites,
+  LEGACY_CREATION_SLICES, setSwitchPosition, sourcesFor,
   strategyLocked, switchConfigFromBody, switchesNeedingPosition, unsetSwitches,
   writeGateSet, writeStrategy, type GateDraft, type StrategyValue,
 } from '../lib/strategy/derivation.ts';
@@ -289,6 +290,69 @@ test('16. a write under work-log/creation is refused until the lock, and the leg
     data: { name: 'A new seed', raw_thought: 'x', raw_material: [], status: 'draft' },
   }, { writer: 'owner', now: NOW });
   eq(refusedCreationWrites(lockedBody, afterLock), [], 'after the lock the same write is allowed');
+});
+
+suite('the restructure, phase 3 — the lock gates the board she actually uses');
+
+test('the legacy slices are refused too, so the banner stops lying', () => {
+  const state = fixtureState();
+  const before = state.clientData['resumeguru'];
+  ok(!strategyLocked(before.body), 'the fixture profile has not locked');
+
+  // A piece she makes on the board today.
+  const after = {
+    ...before,
+    contentCards: [...before.contentCards, {
+      ...before.contentCards[0], id: 'card-new', title: 'A new piece', stage: 'idea' as const,
+    }],
+  };
+  const refused = refusedLegacyCreationWrites(before, after);
+  eq(refused.map(r => r.slice), ['contentCards'], 'the door refuses it, and names the slice');
+  eq(refused[0].path, 'work-log/creation', 'addressed in the tree, not invented');
+  ok(refused[0].why.includes('until Strategy is locked'), 'and it says why in her words');
+
+  eq(refusedLegacyCreationWrites(before, before), [],
+    'an unchanged save writes nothing and is refused nothing');
+
+  // Reading is never what this touches: the cards are all still there.
+  eq(after.contentCards.length, before.contentCards.length + 1,
+    'the guard reports; it never edits what came in');
+});
+
+test('the one-time content migration is not a write, so it still passes (gotcha 3)', () => {
+  const state = fixtureState();
+  const base = state.clientData['resumeguru'];
+  // The pre-migration shape: legacy cards present, contentCards absent.
+  const before = { ...base, contentCards: undefined as never, cards: [
+    { id: 'legacy-1', title: 'An old kanban card' } as never,
+  ] };
+  const migrated = { ...before, contentCards: [{ ...base.contentCards[0], id: 'legacy-1' }] };
+  eq(refusedLegacyCreationWrites(before, migrated), [],
+    'folding the old cards into the unified board is not something she typed');
+
+  const andOneMore = { ...before, contentCards: [
+    { ...base.contentCards[0], id: 'legacy-1' }, { ...base.contentCards[0], id: 'card-new' },
+  ] };
+  eq(refusedLegacyCreationWrites(before, andOneMore).map(r => r.slice), ['contentCards'],
+    'but a new id riding in with the migration is a write, and is refused');
+});
+
+test('after the lock the same write lands, and every creation slice is covered', () => {
+  const state = fixtureState();
+  const before = { ...state.clientData['resumeguru'], body: { ...readyToLock(), strategy_version: 1 } };
+  const after = {
+    ...before,
+    contentCards: [...before.contentCards, {
+      ...before.contentCards[0], id: 'card-new', title: 'A new piece', stage: 'idea' as const,
+    }],
+  };
+  eq(refusedLegacyCreationWrites(before, after), [], 'a locked profile is not affected at all');
+
+  // The list is the whole of what the address map files under creation. If a
+  // later spec adds a creation slice and forgets this guard, this fails.
+  eq(LEGACY_CREATION_SLICES.slice().sort(), [
+    'contentCards', 'evergreenIdeas', 'instagram', 'leadAnswers', 'previewPosts', 'topics',
+  ], 'every legacy slice that lives under work-log/creation is guarded');
 });
 
 suite('spec 22 §14.20 — nothing regressed');

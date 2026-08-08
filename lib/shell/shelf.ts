@@ -20,6 +20,7 @@ import type { Lifecycle } from '../tree/objects.ts';
 import type { RenderProfile } from '../tree/render.ts';
 import { renderState } from '../tree/render.ts';
 import { accentFor, isCutOver, renderProfile, shelfGroupOf, staysOnLegacy } from './profile.ts';
+import { resolvePiece } from '../engine/resolve.ts';
 
 const PIECES = 'work-log/creation';
 const TASKS = 'work-log/logs/tasks';
@@ -70,16 +71,96 @@ const STAGE_WORDS: [string, string][] = [
   ['posted', 'posted'],
 ];
 
-/** Counts by stage, over this profile's own pieces, reduced before they travel. */
+/**
+ * Counts by stage, over this profile's own pieces, reduced before they travel.
+ *
+ * It reads each stage through `resolvePiece`, NOT off `entry.data.stage`, and
+ * that distinction is the whole correctness of this function. `work-log/creation`
+ * is append-only: a piece's birth record is never rewritten, so moving a piece
+ * writes a dated AMENDMENT beside it. Reading `data.stage` therefore answers
+ * where the piece was BORN, not where it is now.
+ *
+ * While the only thing that moved a piece was a drag on the board, which rewrote
+ * the legacy card, nobody could see the difference. The desk chat moves pieces
+ * through the tree, so from the day it ships "8 posted, 4 left" would have been
+ * answering from birth records and quietly going stale. Her standing rule is
+ * that a number she is shown is one she does not have to check.
+ */
 export function stageCounts(data: ClientData | undefined, before?: string | null): Record<string, number> {
   const out: Record<string, number> = {};
   for (const e of data?.body?.paths?.[PIECES] ?? []) {
     if (before && e.updated_at > before) continue;
-    const stage = String((e.data as { stage?: unknown })?.stage ?? '');
+    const stage = String(resolvePiece(e).stage ?? '');
     if (!stage) continue;
     out[stage] = (out[stage] ?? 0) + 1;
   }
   return out;
+}
+
+/**
+ * The same array `stageCounts` walks, read for its DATES instead of its stages —
+ * the restructure, phase 6. The desk asks three date questions ("what goes live
+ * this week", "what has no date", "who has not posted for the longest") and this
+ * is the one place any of them is counted. Nothing recounts a stage here, and no
+ * second reduction of the pieces exists anywhere else.
+ *
+ * Counts and dates only. A piece's own words never leave this function.
+ */
+export interface PieceClock {
+  /** Not posted, dated, and that date falls inside the next seven days. */
+  soon: number;
+  /** The first of those dates, so a row can say when it starts. */
+  next: string | null;
+  /** Not posted and carrying no date at all. */
+  undated: number;
+  /** The latest date on a posted piece. Null is MISSING, never a zero. */
+  last_posted: string | null;
+}
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** yyyy-mm-dd plus n days, in UTC, so no timezone ever moves a date. */
+export function addDays(day: string, n: number): string {
+  const t = Date.parse(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(t)) return day;
+  return new Date(t + n * 86400000).toISOString().slice(0, 10);
+}
+
+/** Whole days from `from` to `to`. Negative when `to` is earlier. */
+export function daysBetween(from: string, to: string): number {
+  const a = Date.parse(`${from}T00:00:00.000Z`);
+  const b = Date.parse(`${to}T00:00:00.000Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
+  return Math.round((b - a) / 86400000);
+}
+
+export function pieceClock(
+  data: ClientData | undefined, today: string, before?: string | null,
+): PieceClock {
+  const horizon = addDays(today, 7);
+  let soon = 0;
+  let next: string | null = null;
+  let undated = 0;
+  let last: string | null = null;
+
+  for (const e of data?.body?.paths?.[PIECES] ?? []) {
+    if (before && e.updated_at > before) continue;
+    const d = (e.data ?? {}) as { stage?: unknown; scheduled_date?: unknown };
+    const stage = String(d.stage ?? '');
+    if (!stage) continue;
+    const day = String(d.scheduled_date ?? '').slice(0, 10);
+    const dated = DAY.test(day);
+    if (stage === 'posted') {
+      if (dated && (!last || day > last)) last = day;
+      continue;
+    }
+    if (!dated) { undated++; continue; }
+    if (day >= today && day < horizon) {
+      soon++;
+      if (!next || day < next) next = day;
+    }
+  }
+  return { soon, next, undated, last_posted: last };
 }
 
 function statusLine(counts: Record<string, number>): string {
@@ -143,7 +224,12 @@ function attentionFor(client: Client, data: ClientData | undefined): Attention |
     return since ? `Not collecting since ${since}` : 'Not collecting';
   }
 
-  if (body && typeof body.strategy_version !== 'number') return 'Strategy not locked';
+  // Not "migrated but unlocked" — UNLOCKED, full stop. Before the gate was
+  // dropped an unmigrated profile was not in this shell at all, so it was
+  // deliberately silent here. Now every profile is in the shell and an unlocked
+  // one has a read-only Creation, so staying silent would have the desk saying
+  // "Creation is open everywhere" while nothing anywhere could be written.
+  if (typeof body?.strategy_version !== 'number') return 'Strategy not locked';
   return null;
 }
 

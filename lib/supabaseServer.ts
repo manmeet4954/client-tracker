@@ -9,9 +9,23 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUP
 const DB_ROW_ID = 'manmeet';
 const CANVA_ROW_ID = 'canva_oauth';
 
-const supabase = createClient(url, key);
+/**
+ * Local dev with no database.
+ *
+ * `createClient(undefined, undefined)` throws while the MODULE loads, so every
+ * route that imports this file answers 500 and the app cannot draw a single
+ * screen on a machine without the env file. CLAUDE.md already says the app runs
+ * open as the owner in local dev; this is what makes that true.
+ *
+ * With no credentials the state reads as empty and writes go nowhere, so the
+ * app runs on whatever is in memory. On Vercel the variables are always set and
+ * nothing about this changes.
+ */
+const configured = Boolean(url && key);
+const supabase = createClient(url || 'http://localhost:54321', key || 'local-dev-no-key');
 
 export async function readState(): Promise<AppState | null> {
+  if (!configured) return null;
   const { data, error } = await supabase
     .from('app_state')
     .select('data')
@@ -23,6 +37,7 @@ export async function readState(): Promise<AppState | null> {
 }
 
 export async function writeState(state: AppState): Promise<void> {
+  if (!configured) return;   // local dev with no database: memory is the store
   const { error } = await supabase
     .from('app_state')
     .upsert({ id: DB_ROW_ID, data: state, updated_at: new Date().toISOString() });

@@ -489,3 +489,92 @@ phone recording is in v1. Video upload to Supabase is a NEW storage pattern and
 needs a decision recorded in STATE.md before it is built (CLAUDE.md rule 5).
 
 ---
+
+## [2026-08-01] DECISION — the separate Content Engine (Codex Seed Bank)
+
+A review compared the dashboard's Content Engine (specs 23–25) against the
+Codex-built "Seed Bank / Client Intelligence OS" at
+`~/Documents/Codex/2026-07-31/do-you-remember-the-seed-to/outputs/`.
+Review only; nothing was integrated, copied, or built.
+
+**VERDICT: partially reuse.** Do not integrate that repository. Do not adopt
+its file layout, entity model, or vocabulary. Adopt four ideas as amendments.
+Its CLAUDE.md and its gate structure are NOT authoritative here; PLAN.md and
+these specs are.
+
+**Why not integrate.** The two systems answer the same question with
+incompatible storage and vocabulary. The dashboard is built, deployed, tested
+against real data and governed by a locked plan; the Codex system is a
+prototype with a fictional fixture. Adopting its architecture would introduce a
+second storage pattern (CLAUDE.md rule 5), a second vocabulary (PLAN §5.3), and
+a second copy of content (S1/S2).
+
+**What the dashboard already does better:** one canonical piece identity;
+enforcement at the write door rather than after-the-fact validation; a tested
+multi-role security model with four client doors; per-client switches with a
+cascade; measurement discipline (matched comparisons, age windows, coverage
+honesty); birth snapshots; rights; and the fact that it exists and is deployed.
+
+**What the Codex package explains better, and is worth taking:**
+
+1. Its philosophy, stated outright: *the chat is where rich thinking happens;
+   the records are the durable memory.* The dashboard structurally assumes the
+   opposite and has no way to hand its context to a chat.
+2. Evidence separated from approval on every record. The dashboard has this on
+   curated Context parameters only — seeds carry no evidence status.
+3. A client-AI extraction protocol: the client's own AI produces a consented,
+   structured packet with temporary IDs, instead of anyone pasting a private
+   history into a 52-question form.
+4. A typed, idempotent, review-gated harvest packet as a general capture door.
+5. A portable export pack, plus a fresh-AI portability test as an acceptance
+   criterion. The dashboard assembles a context packet on every model call and
+   it never leaves the building.
+6. Owner-facing success metrics (time-to-brief, correction rate, portability),
+   which prove the product is worth using rather than that the code works.
+
+**ADOPT — one new spec:**
+
+- **`29 — Context Export & the Harvest Door`.** In priority order: (a) THE
+  EXPORT — one action per profile producing a portable pack of approved,
+  portable-visible Context and locked seeds, attachable or pasteable into any
+  chat, reusing `assemblePacket` in `lib/engine/packet.ts` rather than writing a
+  second assembler; (b) a `visibility` flag (private / internal / portable) on
+  Context parameters and seeds, which the export filters on; (c) the harvest
+  door — a typed, idempotent, review-gated capture packet (operation_id,
+  base_revision, candidates, temp IDs only, review queue) generalising spec 23's
+  capture box. **The export is the hinge and is shippable alone.** If scope must
+  be cut, ship the export and defer the harvest door — the dashboard already
+  feels too heavy to her, and adding machinery is the wrong direction.
+
+**ADOPT — three small amendments, not new specs:**
+
+- spec 23 §6.4 — `evidence_status` (confirmed / inferred / hypothesis) on the
+  Seed, as its fourth justified field, distinct from the lock ladder.
+- spec 22 §5.4 — the client-AI extraction protocol as a third intake delivery
+  mode alongside the questionnaire and the finding session.
+- PLAN §5.1 — owner-facing success metrics added to the intelligence bar.
+
+**PARKED, deliberately:** a persistent Hook Bank. A good idea that overlaps the
+costume's `hook_type` dimension; it needs a decision about which is
+authoritative before either is built.
+
+**MUST NOT be introduced:** a second storage pattern · `content_idea` +
+`content_piece` as two entities (violates S1/S2) · normalized relationship edges
+· vocabulary that bypasses PLAN §5.3's dictionary · any fixture or fictional
+client data in this vault · the OPUS5 six-agent plan, which describes building
+from scratch what specs 21–28 already built.
+
+**WRITTEN 2026-08-04, NOT BUILT:** `29 — Context Export & the Harvest Door.md`.
+The export as a fifth content profile on the one existing assembler, rendering
+one markdown pack of approved Context plus locked seeds, with a manifest that
+names every exclusion; a `visibility` flag (private / internal / portable) with
+the absence of a flag reading as portable, so there is no migration; and the
+harvest door as a typed, idempotent, review-gated packet whose idempotency is
+`id = operation_id` on an append-only path. Two law-4 additions for the control
+room: `work-log/logs/exports/` and `work-log/logs/harvests/`. Two switches:
+`context.export` (fixed active — PLAN §11 Q5 makes deletion legal only after an
+export, and S22 declares `export_package` at closing and archived) and
+`context.harvest` (suggested hidden). §12 names step 3 as the shippable
+stopping point: the export alone, one row in the owner corner, no new tab. One
+open question, hers: does the pack carry the founder's raw thought verbatim on
+a client profile (§14).

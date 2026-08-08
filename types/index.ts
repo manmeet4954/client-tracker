@@ -211,6 +211,12 @@ export interface InstagramProfile {
 export interface PreviewPost {
   id: string;
   shareId: string;            // long random token — the public link is /p/[shareId]
+  // The piece this preview shows. A preview is the REVIEW STATE of a piece, not
+  // a thing of its own (spec 21 §7.2, amendment S2: one canonical piece
+  // identity, owned by creation/). Optional because every preview made before
+  // this field existed has none; those are listed on the board as unattached
+  // rather than deleted, and the piece panel is where one gets attached.
+  cardId?: string;
   name: string;               // internal label, not shown to clients
   postType: PreviewPostType;
   images: string[];           // ordered slide URLs (1 for static, up to 20 for carousel)
@@ -404,13 +410,29 @@ export interface PillarCard {
 // Pillars (by theme), Table. Legacy `cards`/`pillarCards` are migrated into
 // this on first load and kept dormant as a safety copy.
 
-export type ContentStage = 'idea' | 'writing' | 'ready' | 'scheduled' | 'posted';
+// SIX stages, not five (the restructure, phase 2). Review was always a real step
+// of the work — the client saying yes — but it lived on its own Previews screen,
+// which made the preview a SECOND copy of a piece that was already on the board.
+// It is a stage now, so review is a state of the one piece (spec 21 §7.2, S2).
+//
+// The ids of the five that already existed are UNCHANGED, deliberately. Spec 21
+// §8.5 maps `writing`→Build and `ready`→Approved, and those are the labels here;
+// renaming the stored ids would mean migrating every card on every board to buy
+// nothing but tidier spelling. The precedent is the line this replaces: `writing`
+// has been labelled "Making" since 2026-07-10 without ever being renamed.
+//
+// `review` is the one genuinely new id, and it has no legacy data by definition:
+// nothing before today ever recorded a client verdict.
+
+export type ContentStage = 'idea' | 'writing' | 'review' | 'ready' | 'scheduled' | 'posted';
 
 export const CONTENT_STAGES: { id: ContentStage; label: string; color: string; bg: string }[] = [
   { id: 'idea',      label: 'Idea',      color: '#7c3aed', bg: '#ede9fe' },
-  // id stays 'writing' (no migration); label is "Making" — covers get-content + creation.
-  { id: 'writing',   label: 'Making',    color: '#d97706', bg: '#fef3c7' },
-  { id: 'ready',     label: 'Ready',     color: '#0284c7', bg: '#e0f2fe' },
+  // id stays 'writing' (no migration); label is "Build" — covers get-content + creation.
+  { id: 'writing',   label: 'Build',     color: '#d97706', bg: '#fef3c7' },
+  { id: 'review',    label: 'Review',    color: '#b8551f', bg: '#fdece4' },
+  // id stays 'ready'; "Approved" is what it has always meant — she is done with it.
+  { id: 'ready',     label: 'Approved',  color: '#0284c7', bg: '#e0f2fe' },
   { id: 'scheduled', label: 'Scheduled', color: '#0891b2', bg: '#cffafe' },
   { id: 'posted',    label: 'Posted',    color: '#059669', bg: '#d1fae5' },
 ];

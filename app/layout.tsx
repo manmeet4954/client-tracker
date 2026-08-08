@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppProvider } from '@/contexts/AppContext';
-import ChatWidget from '@/components/ChatWidget';
+import ChatMount from '@/components/ChatMount';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -33,7 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AppProvider>
           {children}
-          <ChatWidget />
+          {/* The ChatWidget, mounted above every route except the desk, which
+              is itself a chat. See components/ChatMount.tsx. */}
+          <ChatMount />
         </AppProvider>
       </body>
     </html>

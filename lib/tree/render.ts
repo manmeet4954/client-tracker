@@ -89,9 +89,30 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
     return 'hidden';
   }
 
-  // 4 — spec 22 §8.7: before the strategy locks there are no positions she set,
-  //     and a shell driven by unset switches would be guessing at what to render.
-  if (!profile.strategy_locked && AFTER_LOCK_FAMILIES.includes(fam)) return 'hidden';
+  // 4 — the lock (spec 22 §8.7), as the restructure handoff has it.
+  //
+  //     Shipped behaviour was: before the lock, every after-lock family is
+  //     HIDDEN. Combined with dropping the cutover gate that would have put
+  //     seven profiles into a shell with nothing in it, which is worse than the
+  //     tab bar it replaced.
+  //
+  //     Her design says what happens instead, and it says it precisely: an
+  //     unlocked profile's board RENDERS and does not move. "Strategy is not
+  //     locked yet, so nothing can be written here. Read the board, but the
+  //     pieces cannot move." So before the lock these families resolve to
+  //     `history` — visible, read-only — for her and for staff.
+  //
+  //     The client keeps the old answer, `hidden`. A client has no business
+  //     seeing a profile's content before its strategy exists, and the workshop
+  //     rule only ever gets stronger (CLAUDE.md rule 2).
+  //
+  //     Writes are untouched: `refusedCreationWrites` still refuses every write
+  //     under `work-log/creation/` until the lock, server side. The lock gates
+  //     what can be WRITTEN, not which shell she is looking at.
+  if (!profile.strategy_locked && AFTER_LOCK_FAMILIES.includes(fam)) {
+    if (role === 'client') return 'hidden';
+    state = minState(state, 'history');
+  }
 
   // 5 — the audience and the door (S19, PLAN §4).
   if (role === 'owner') return state;

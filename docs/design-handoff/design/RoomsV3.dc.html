@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }}; font-family:'Plus Jakarta Sans', system-ui, sans-serif; color:#17151a">
+
+  <sc-if value="{{ isIntake }}" hint-placeholder-val="{{ false }}">
+    <section data-screen-label="Intake" style="display:flex; flex-direction:column; gap:18px">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap">
+        <div>
+          <h2 style="{{ h2 }}">Intake</h2>
+          <p style="margin:4px 0 0; font-size:14px; color:#6b6570">{{ intakeLine }}</p>
+        </div>
+        <div style="{{ segWrap }}">
+          <sc-for list="{{ intakeTabs }}" as="t" hint-placeholder-count="2">
+            <button data-tab="{{ t.key }}" onClick="{{ onTab }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{ isRounds }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="3">
+            <div style="{{ card }}">
+              <div style="display:flex; align-items:center; gap:12px; padding:16px 18px">
+                <span style="{{ r.mark }}"></span>
+                <span style="flex:1; font-size:16px; font-weight:600">{{ r.name }}</span>
+                <span style="{{ r.pill }}">{{ r.state }}</span>
+              </div>
+              <sc-for list="{{ r.questions }}" as="q" hint-placeholder-count="2">
+                <div style="display:flex; gap:12px; padding:12px 18px; border-top:1px solid rgba(23,21,26,.07); font-size:14px">
+                  <span style="flex:1">{{ q.q }}</span>
+                  <span style="color:#9b95a1; font-size:12.5px; white-space:nowrap">{{ q.a }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="display:flex; gap:10px; flex-wrap:wrap">
+            <button style="{{ btnDark }}">Send a new round</button>
+            <button style="{{ btnGhost }}">Copy the client link</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isCuration }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <p style="margin:0; font-size:13.5px; color:#6b6570">Their words are kept exactly as they arrived and can never be edited. Curating is the only way an answer becomes something the system uses.</p>
+          <sc-for list="{{ curation }}" as="c" hint-placeholder-count="3">
+            <div style="{{ card }}; padding:18px">
+              <div style="{{ kicker }}; margin-bottom:12px">{{ c.param }}</div>
+              <div style="display:flex; flex-wrap:wrap; gap:16px">
+                <div style="flex:1; min-width:210px; background:#f4f1ee; border-radius:14px; padding:14px">
+                  <div style="font-size:11.5px; font-weight:600; color:#9b95a1; margin-bottom:6px">What they said, kept</div>
+                  <p style="margin:0; font-size:14px; line-height:1.6; color:#6b6570">{{ c.raw }}</p>
+                </div>
+                <div style="flex:1; min-width:210px; border-radius:14px; padding:14px; background:rgba(234,71,17,.07)">
+                  <div style="font-size:11.5px; font-weight:600; color:#b8551f; margin-bottom:6px">What it means, curated</div>
+                  <p style="margin:0; font-size:14px; line-height:1.6">{{ c.curated }}</p>
+                </div>
+              </div>
+              <div style="font-size:12.5px; color:#9b95a1; margin-top:12px">Feeds <strong style="color:#17151a">Strategy, {{ c.feeds }}</strong></div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ isCreation }}" hint-placeholder-val="{{ true }}">
+    <section data-screen-label="Creation" style="display:flex; flex-direction:column; gap:16px">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap">
+        <h2 style="{{ h2 }}">Creation</h2>
+        <div style="{{ segWrap }}">
+          <sc-for list="{{ creationTabs }}" as="t" hint-placeholder-count="5">
+            <button data-tab="{{ t.key }}" onClick="{{ onTab }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{ notLocked }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:center; gap:13px; background:#fff; border:1px solid rgba(234,71,17,.3); border-radius:16px; padding:15px 18px">
+          <span style="display:flex; color:#ea4711"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+          <span style="flex:1; font-size:14px; line-height:1.5">Strategy is not locked yet, so nothing can be written here. Read the board, but the pieces cannot move.</span>
+          <button onClick="{{ openStrategy }}" style="{{ btnDark }}">Go and lock it</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <div style="{{ card }}; overflow:hidden">
+            <button onClick="{{ toggleNeeds }}" style="all:unset; cursor:pointer; display:flex; align-items:center; gap:11px; width:100%; box-sizing:border-box; padding:14px 18px">
+              <span style="{{ needsCaret }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+              <span style="flex:1; text-align:left; font-size:15px; font-weight:600">Needs you today</span>
+              <span style="{{ needsPill }}">{{ needsCount }}</span>
+            </button>
+            <sc-for list="{{ needs }}" as="n" hint-placeholder-count="0">
+              <div style="display:flex; align-items:center; gap:12px; padding:13px 18px; border-top:1px solid rgba(23,21,26,.07)">
+                <button data-id="{{ n.id }}" onClick="{{ onCheck }}" style="{{ n.box }}"></button>
+                <span style="flex:1; font-size:14.5px; font-weight:600">{{ n.title }}</span>
+                <span style="{{ n.when }}">{{ n.whenText }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="{{ segWrap }}">
+              <sc-for list="{{ boardViews }}" as="v" hint-placeholder-count="4">
+                <button data-view="{{ v.key }}" onClick="{{ onView }}" style="{{ v.style }}">{{ v.label }}</button>
+              </sc-for>
+            </div>
+            <span style="font-size:12.5px; color:#9b95a1">{{ boardNote }}</span>
+          </div>
+
+          <sc-if value="{{ isColumns }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; gap:11px; overflow-x:auto; padding-bottom:8px; align-items:flex-start">
+              <sc-for list="{{ stages }}" as="st" hint-placeholder-count="6">
+                <div data-stage="{{ st.key }}" onDragOver="{{ onDragOver }}" onDrop="{{ onDrop }}" style="{{ st.colStyle }}">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:11px">
+                    <span style="{{ kicker }}">{{ st.label }}</span>
+                    <span style="font-size:11.5px; font-weight:600; color:#9b95a1; background:#fff; border-radius:999px; padding:1px 8px; font-variant-numeric:tabular-nums">{{ st.count }}</span>
+                  </div>
+                  <sc-for list="{{ st.items }}" as="c" hint-placeholder-count="2">
+                    <button draggable="{{ canDrag }}" data-id="{{ c.id }}" onDragStart="{{ onDragStart }}" onDragEnd="{{ onDragEnd }}" onClick="{{ onPiece }}" style="{{ c.cardStyle }}">
+                      <span style="display:block; font-size:14px; font-weight:600; line-height:1.35; text-align:left">{{ c.title }}</span>
+                      <span style="display:flex; flex-wrap:wrap; gap:5px; margin-top:9px">
+                        <sc-for list="{{ c.tags }}" as="tg" hint-placeholder-count="2">
+                          <span style="font-size:11px; font-weight:600; color:#6b6570; background:#f4f1ee; border-radius:999px; padding:2px 9px">{{ tg }}</span>
+                        </sc-for>
+                      </span>
+                      <span style="display:block; font-size:11.5px; color:#9b95a1; margin-top:8px; text-align:left; font-variant-numeric:tabular-nums">{{ c.meta }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isRows }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:12px">
+              <sc-for list="{{ stages }}" as="st" hint-placeholder-count="6">
+                <div data-stage="{{ st.key }}" onDragOver="{{ onDragOver }}" onDrop="{{ onDrop }}" style="{{ card }}; overflow:hidden">
+                  <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px">
+                    <span style="{{ kicker }}">{{ st.label }}</span>
+                    <span style="font-size:11.5px; font-weight:600; color:#9b95a1; font-variant-numeric:tabular-nums">{{ st.count }}</span>
+                  </div>
+                  <sc-for list="{{ st.items }}" as="c" hint-placeholder-count="2">
+                    <button draggable="{{ canDrag }}" data-id="{{ c.id }}" onDragStart="{{ onDragStart }}" onDragEnd="{{ onDragEnd }}" onClick="{{ onPiece }}" style="{{ c.rowStyle }}">
+                      <span style="flex:1; font-size:15px; font-weight:600; text-align:left">{{ c.title }}</span>
+                      <span style="font-size:12px; color:#9b95a1; white-space:nowrap">{{ c.meta }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isPillars }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ pillarsWrap }}">
+              <sc-for list="{{ pillars }}" as="p" hint-placeholder-count="4">
+                <div style="{{ p.colStyle }}">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:11px">
+                    <span style="{{ kicker }}">{{ p.label }}</span>
+                    <span style="font-size:11.5px; color:#9b95a1">{{ p.mix }}</span>
+                  </div>
+                  <sc-for list="{{ p.items }}" as="c" hint-placeholder-count="2">
+                    <button data-id="{{ c.id }}" onClick="{{ onPiece }}" style="{{ c.cardStyle }}">
+                      <span style="display:block; font-size:14px; font-weight:600; text-align:left">{{ c.title }}</span>
+                      <span style="display:block; font-size:11.5px; color:#9b95a1; margin-top:7px; text-align:left">{{ c.meta }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isAgenda }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ card }}; overflow:hidden">
+              <sc-for list="{{ agenda }}" as="a" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid rgba(23,21,26,.07)">
+                  <span style="{{ a.dot }}"></span>
+                  <span style="flex:1; font-size:15px; font-weight:600">{{ a.title }}</span>
+                  <span style="font-size:12.5px; color:#9b95a1; white-space:nowrap; font-variant-numeric:tabular-nums">{{ a.day }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isMonth }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ card }}; padding:16px">
+              <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:6px">
+                <sc-for list="{{ monthCells }}" as="d" hint-placeholder-count="35">
+                  <div style="{{ d.style }}">
+                    <span style="font-size:11px; color:#9b95a1; font-variant-numeric:tabular-nums">{{ d.n }}</span>
+                    <sc-for list="{{ d.items }}" as="i" hint-placeholder-count="0">
+                      <span style="{{ i.style }}">{{ i.title }}</span>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isEngine }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start">
+          <div style="flex:1.5; min-width:290px; {{ card }}; padding:20px">
+            <h3 style="font-family:'Bricolage Grotesque', system-ui, sans-serif; font-weight:700; font-size:23px; letter-spacing:-.015em; margin:0 0 4px">What are we talking about today?</h3>
+            <p style="margin:0 0 14px; font-size:13.5px; color:#6b6570">Paste anything. Transcripts, client messages, your own rambling. Length is welcome.</p>
+            <textarea rows="5" placeholder="Say it once. It gets kept." style="width:100%; box-sizing:border-box; font-family:inherit; font-size:14.5px; line-height:1.6; padding:14px; border:1px solid rgba(23,21,26,.12); border-radius:14px; background:#faf8f6; resize:vertical; outline:none"></textarea>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:12px">
+              <button style="{{ btnDark }}">Find the seeds in this</button>
+              <button style="{{ btnGhost }}">Write one myself</button>
+            </div>
+            <div style="margin-top:22px; padding-top:18px; border-top:1px solid rgba(23,21,26,.09)">
+              <div style="{{ kicker }}; margin-bottom:4px">Dress it</div>
+              <p style="margin:0 0 14px; font-size:13.5px; color:#6b6570">Dressing <strong style="color:#17151a">{{ costumeSeed }}</strong>. A dressed seed lands on the board as a piece in Idea.</p>
+              <div style="display:flex; flex-wrap:wrap; gap:16px">
+                <sc-for list="{{ costume }}" as="c" hint-placeholder-count="4">
+                  <div style="flex:1; min-width:132px">
+                    <div style="font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9b95a1; margin-bottom:7px">{{ c.label }}</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px">
+                      <sc-for list="{{ c.options }}" as="o" hint-placeholder-count="3">
+                        <button data-group="{{ c.label }}" data-value="{{ o.value }}" onClick="{{ onCostume }}" style="{{ o.style }}">{{ o.value }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <button style="{{ btnDark }}; margin-top:18px">Send it to the board</button>
+            </div>
+          </div>
+          <div style="flex:1; min-width:250px">
+            <div style="{{ kicker }}; margin-bottom:10px">Seed bank</div>
+            <sc-for list="{{ seeds }}" as="s" hint-placeholder-count="3">
+              <button data-id="{{ s.id }}" onClick="{{ onSeed }}" style="{{ s.style }}">
+                <span style="display:block; font-size:15.5px; font-weight:600; line-height:1.3; text-align:left">{{ s.title }}</span>
+                <span style="display:block; font-size:12px; color:#9b95a1; margin-top:5px; text-align:left">{{ s.meta }}</span>
+                <span style="display:block; font-size:13px; color:#6b6570; margin-top:8px; line-height:1.55; text-align:left">{{ s.quote }}</span>
+              </button>
+            </sc-for>
+            <div style="{{ card }}; padding:14px 15px; margin-top:6px">
+              <div style="{{ kicker }}; margin-bottom:6px">Back from Analysis</div>
+              <p style="margin:0; font-size:13.5px; line-height:1.55; color:#6b6570">Salary question carousel was saved twice as often as anything else. Make more of this.</p>
+              <button style="{{ btnGhost }}; margin-top:10px">Turn it into a seed</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isAssets }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <sc-if value="{{ hasCatalogue }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ segWrap }}; align-self:flex-start">
+              <sc-for list="{{ assetModes }}" as="m" hint-placeholder-count="2">
+                <button data-mode="{{ m.key }}" onClick="{{ onAssetMode }}" style="{{ m.style }}">{{ m.label }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(178px, 1fr)); gap:13px">
+            <sc-for list="{{ assetSets }}" as="a" hint-placeholder-count="4">
+              <div style="{{ card }}; overflow:hidden">
+                <div style="aspect-ratio:4/3; background:linear-gradient(150deg,#f4f1ee,#e7e2dd); display:flex; align-items:center; justify-content:center; color:#9b95a1; font-size:11.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase">{{ a.kind }}</div>
+                <div style="padding:12px 14px">
+                  <div style="font-size:14.5px; font-weight:600">{{ a.name }}</div>
+                  <div style="font-size:12px; color:#9b95a1; margin-top:3px">{{ a.meta }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isRefs }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <sc-for list="{{ refGroups }}" as="g" hint-placeholder-count="2">
+            <div style="{{ card }}; overflow:hidden">
+              <div style="padding:14px 18px 12px; {{ kicker }}">{{ g.label }}</div>
+              <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; gap:14px; padding:14px 18px; border-top:1px solid rgba(23,21,26,.07)">
+                  <span style="flex:1; font-size:15px; font-weight:600">{{ r.title }}</span>
+                  <span style="font-size:12.5px; color:#6b6570">{{ r.source }}</span>
+                  <span style="font-size:12px; color:#9b95a1; font-variant-numeric:tabular-nums">{{ r.date }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLogs }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <div style="{{ segWrap }}; align-self:flex-start">
+            <sc-for list="{{ logTabs }}" as="t" hint-placeholder-count="5">
+              <button data-log="{{ t.key }}" onClick="{{ onLog }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+          <div style="{{ card }}; overflow:hidden">
+            <sc-for list="{{ logRows }}" as="l" hint-placeholder-count="5">
+              <div style="display:flex; align-items:flex-start; gap:14px; padding:15px 18px; border-bottom:1px solid rgba(23,21,26,.07)">
+                <span style="{{ l.dot }}"></span>
+                <span style="flex:1">
+                  <span style="display:block; font-size:15px; font-weight:600">{{ l.title }}</span>
+                  <span style="display:block; font-size:12.5px; color:#9b95a1; margin-top:3px">{{ l.sub }}</span>
+                </span>
+                <span style="font-size:12px; color:#9b95a1; white-space:nowrap; font-variant-numeric:tabular-nums">{{ l.when }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin:0; font-size:12.5px; color:#9b95a1">{{ logNote }}</p>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ isAnalysis }}" hint-placeholder-val="{{ false }}">
+    <section data-screen-label="Analysis" style="display:flex; flex-direction:column; gap:16px">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap">
+        <h2 style="{{ h2 }}">Analysis</h2>
+        <div style="{{ segWrap }}">
+          <sc-for list="{{ analysisTabs }}" as="t" hint-placeholder-count="3">
+            <button data-tab="{{ t.key }}" onClick="{{ onTab }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{ isWhereWeAre }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <div style="{{ card }}; padding:18px 20px">
+            <div style="{{ kicker }}; margin-bottom:12px">Coverage, first</div>
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap">
+              <div style="flex:1; min-width:200px">
+                <div style="height:12px; border-radius:999px; overflow:hidden; display:flex; background:#efece9">
+                  <span style="width:75%; background:#1c1a21"></span>
+                  <span style="width:25%; background:repeating-linear-gradient(135deg,#e0dbd6 0 6px,#f4f1ee 6px 12px)"></span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:12.5px; color:#6b6570">
+                  <span>23 of 31 days collected</span>
+                  <span style="color:#c2410c; font-weight:600">not collecting since 12 July</span>
+                </div>
+              </div>
+              <button style="{{ btnGhost }}">Fix the connection</button>
+            </div>
+            <p style="margin:12px 0 0; font-size:13px; color:#6b6570; line-height:1.55">Everything below is read against 23 days, not 31. Gaps are drawn as gaps and never as a zero.</p>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(148px, 1fr)); gap:12px">
+            <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="4">
+              <div style="{{ card }}; padding:16px 18px">
+                <div style="font-size:11.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9b95a1">{{ m.label }}</div>
+                <div style="font-family:'Bricolage Grotesque', system-ui, sans-serif; font-weight:700; font-size:32px; letter-spacing:-.02em; line-height:1.15; margin-top:6px; font-variant-numeric:tabular-nums">{{ m.value }}</div>
+                <div style="font-size:12.5px; color:{{ m.tone }}; font-weight:600">{{ m.delta }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="{{ card }}; padding:18px 20px">
+            <div style="{{ kicker }}; margin-bottom:14px">Against the target, this month</div>
+            <sc-for list="{{ goals }}" as="g" hint-placeholder-count="3">
+              <div style="padding:10px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px">
+                  <span style="font-weight:600">{{ g.label }}</span><span style="color:#9b95a1; font-variant-numeric:tabular-nums">{{ g.value }}</span>
+                </div>
+                <div style="height:7px; border-radius:999px; background:#efece9; overflow:hidden"><span style="{{ g.bar }}"></span></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isWhatHappened }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <div style="{{ card }}; padding:18px 20px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap">
+              <span style="{{ kicker }}">Slice by</span>
+              <div style="display:flex; gap:6px; flex-wrap:wrap">
+                <sc-for list="{{ slices }}" as="s" hint-placeholder-count="5">
+                  <button data-slice="{{ s.key }}" onClick="{{ onSlice }}" style="{{ s.style }}">{{ s.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <sc-for list="{{ sliceRows }}" as="r" hint-placeholder-count="4">
+              <div style="padding:11px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px">
+                  <span style="font-weight:600">{{ r.label }}</span>
+                  <span style="color:#9b95a1; font-variant-numeric:tabular-nums">{{ r.value }}</span>
+                </div>
+                <div style="height:7px; border-radius:999px; background:#efece9; overflow:hidden"><span style="{{ r.bar }}"></span></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="{{ card }}; overflow:hidden">
+            <div style="padding:14px 18px 12px; {{ kicker }}">Each pillar, on its own job</div>
+            <sc-for list="{{ scorecard }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex; align-items:center; gap:14px; padding:14px 18px; border-top:1px solid rgba(23,21,26,.07)">
+                <span style="flex:1; font-size:15px; font-weight:600">{{ s.pillar }}</span>
+                <span style="font-size:13px; color:#6b6570">{{ s.job }}</span>
+                <span style="{{ s.pill }}">{{ s.read }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isWhatItMeans }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; gap:14px">
+          <div style="display:flex; gap:12px; flex-wrap:wrap">
+            <sc-for list="{{ compare }}" as="c" hint-placeholder-count="2">
+              <div style="flex:1; min-width:230px; {{ card }}; padding:18px">
+                <div style="font-size:15.5px; font-weight:600; line-height:1.3">{{ c.title }}</div>
+                <div style="font-size:12.5px; color:#9b95a1; margin-top:4px">{{ c.born }}</div>
+                <div style="margin-top:14px; display:flex; flex-direction:column; gap:9px">
+                  <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="3">
+                    <div style="display:flex; justify-content:space-between; font-size:13.5px; border-bottom:1px solid rgba(23,21,26,.07); padding-bottom:7px">
+                      <span style="color:#6b6570">{{ r.k }}</span><span style="font-weight:600; font-variant-numeric:tabular-nums">{{ r.v }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="{{ card }}; padding:18px 20px">
+            <div style="{{ kicker }}; margin-bottom:10px">The 30-day call, in words</div>
+            <p style="margin:0; font-size:15px; line-height:1.65">The two pieces that came from the same seed both landed, and the one dressed as a correction did twice the saving. The lane is not the variable. The angle is. Keep the seed, keep dressing it as a correction, and stop spending reels on it.</p>
+            <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap">
+              <button onClick="{{ toEngine }}" style="{{ btnDark }}">Send this back to Engine</button>
+              <button style="{{ btnGhost }}">Keep as a verdict</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:940,&quot;height&quot;:760}}">
+class Component extends DCLogic {
+  state = {
+    costume: { Pillar: 'AI Lane', Platform: 'Instagram', Format: 'Carousel', Angle: 'Correction' },
+    seed: 's1', view: 'board', log: 'tasks', slice: 'pillar', assetMode: 'sets', needsOpen: true, done: {}
+  };
+
+  seg(on) {
+    return 'all:unset; cursor:pointer; font-size:13px; font-weight:600; padding:7px 14px; border-radius:10px; ' +
+      (on ? 'background:#fff; color:#17151a; box-shadow:0 1px 2px rgba(23,21,26,.10);' : 'color:#6b6570;');
+  }
+
+  renderVals() {
+    const p = this.props, r = p.route || {}, d = p.data || {}, h = p.handlers || {};
+    const S = this.state;
+    const app = r.app || 'creation';
+    const narrow = !!p.narrow;
+    const prof = (d.profiles || []).find(x => x.id === r.pid) || {};
+    const hue = prof.hue || '#ea4711';
+    const locked = prof.locked !== false;
+
+    const card = 'background:#fff; border:1px solid rgba(23,21,26,.09); border-radius:18px; box-shadow:0 1px 2px rgba(23,21,26,.04)';
+    const kicker = 'font-size:11.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#6b6570';
+    const h2 = "font-family:'Bricolage Grotesque', system-ui, sans-serif; font-weight:700; font-size:30px; letter-spacing:-.02em; margin:0; line-height:1.05";
+    const btnDark = 'all:unset; cursor:pointer; background:#1c1a21; color:#fff; font-size:13.5px; font-weight:600; padding:10px 18px; border-radius:12px; white-space:nowrap';
+    const btnGhost = 'all:unset; cursor:pointer; border:1px solid rgba(23,21,26,.14); font-size:13.5px; font-weight:600; padding:9px 17px; border-radius:12px; white-space:nowrap';
+    const segWrap = 'display:flex; gap:4px; background:#efece9; padding:4px; border-radius:13px; ' +
+      (narrow ? 'flex-wrap:nowrap; overflow-x:auto; max-width:100%;' : 'flex-wrap:wrap;');
+    const mk = (defs, cur, key) => defs.map(t => Object.assign({}, t, { style: this.seg(t.key === cur) }));
+
+    const cTab = r.tab || 'board';
+    const iTab = r.tab || 'rounds';
+    const aTab = r.tab || 'where';
+
+    // ---- board
+    const stageDefs = [['idea', 'Idea'], ['build', 'Build'], ['review', 'Review'], ['approved', 'Approved'], ['scheduled', 'Scheduled'], ['posted', 'Posted']];
+    const mine = (d.posts || []).filter(x => x.pid === r.pid);
+    const stages = stageDefs.map(([key, label]) => {
+      const items = mine.filter(x => x.stage === key).map(c => Object.assign({}, c, {
+        cardStyle: 'all:unset; cursor:pointer; box-sizing:border-box; display:block; width:100%; background:#fff; border:1px solid rgba(23,21,26,.09); border-radius:14px; padding:12px 13px; margin-bottom:9px; box-shadow:0 1px 2px rgba(23,21,26,.05); border-left:3px solid ' + hue + ';',
+        rowStyle: 'all:unset; cursor:pointer; box-sizing:border-box; display:flex; align-items:center; gap:12px; width:100%; padding:13px 16px; border-top:1px solid rgba(23,21,26,.07);'
+      }));
+      return {
+        key, label, items, count: String(items.length),
+        colStyle: 'width:206px; flex:none; background:' + (key === 'posted' ? '#f1eeeb' : '#f6f3f0') + '; border-radius:18px; padding:14px 12px; min-height:170px;'
+      };
+    });
+
+    const pillarDefs = [['AI Lane', '35%'], ['Value', '30%'], ['Proof', '20%'], ['Product', '15%']];
+    const pillars = pillarDefs.map(([label, mix]) => ({
+      label, mix,
+      items: mine.filter(x => (x.tags || []).indexOf(label) > -1).map(c => Object.assign({}, c, {
+        cardStyle: 'all:unset; cursor:pointer; box-sizing:border-box; display:block; width:100%; background:#fff; border:1px solid rgba(23,21,26,.09); border-radius:14px; padding:12px 13px; margin-bottom:9px;'
+      })),
+      colStyle: (narrow ? 'width:100%;' : 'width:206px; flex:none;') + ' background:#f6f3f0; border-radius:18px; padding:14px 12px; min-height:' + (narrow ? '0' : '170px') + ';'
+    }));
+
+    const dated = {};
+    mine.forEach(x => { if (x.day) { (dated[x.day] = dated[x.day] || []).push(x); } });
+    const monthCells = [];
+    for (let i = 1; i <= 35; i++) {
+      const n = i - 5;
+      monthCells.push({
+        n: n > 0 && n <= 31 ? String(n) : '',
+        style: 'min-height:62px; border-radius:10px; padding:6px; display:flex; flex-direction:column; gap:4px; ' +
+          (n > 0 && n <= 31 ? 'background:#f6f3f0;' : 'background:transparent;'),
+        items: (dated[n] || []).map(x => ({ title: x.title, style: 'font-size:10px; font-weight:600; line-height:1.25; border-radius:5px; padding:2px 4px; color:#fff; background:' + hue + ';' }))
+      });
+    }
+
+    const needsRaw = (d.todayItems || []).filter(i => i.pid === r.pid && i.group !== 'waiting');
+    const needs = S.needsOpen ? needsRaw.map(i => Object.assign({}, i, {
+      whenText: i.when,
+      when: 'font-size:12.5px; font-weight:600; white-space:nowrap; color:' + (i.group === 'overdue' ? '#c2410c' : '#9b95a1') + ';',
+      box: 'all:unset; cursor:pointer; width:18px; height:18px; flex:none; border-radius:50%; box-sizing:border-box; ' +
+        (S.done[i.id] ? 'background:' + hue + '; border:2px solid ' + hue + ';' : 'border:2px solid #cfc9c4;')
+    })) : [];
+
+    // ---- logs
+    const logSets = {
+      tasks: [
+        { title: 'Send August invoice', sub: 'client task', when: 'due 6 Aug', tone: '#ea4711' },
+        { title: 'Ask for the new logo file', sub: 'request, open 4 days', when: 'no date', tone: '#9b95a1' },
+        { title: 'Book the shoot studio', sub: 'client task', when: 'done 1 Aug', tone: '#1a7f4b' },
+      ],
+      decisions: [
+        { title: 'Reels drop to one a week', sub: 'agreed on the call, 28 Jul', when: '28 Jul', tone: '#1c1a21' },
+        { title: 'No festive posts this year', sub: 'her call', when: '19 Jul', tone: '#1c1a21' },
+      ],
+      requests: [
+        { title: 'Three testimonial screenshots', sub: 'asked twice, still open', when: 'since 24 Jul', tone: '#c2410c' },
+        { title: 'Founder photo, plain background', sub: 'received', when: '30 Jul', tone: '#1a7f4b' },
+      ],
+      pipelines: (prof.pipelines || []).map(x => ({ title: x.name, sub: x.sub, when: x.when, tone: hue })),
+      notes: [
+        { title: 'Answers fastest on Tuesday evenings', sub: 'about the client', when: '2 Aug', tone: '#9b95a1' },
+        { title: 'Says yes to anything with a real photograph', sub: 'about the client', when: '21 Jul', tone: '#9b95a1' },
+      ],
+    };
+    const logRows = (logSets[S.log] || []).map(x => Object.assign({}, x, {
+      dot: 'width:8px; height:8px; border-radius:50%; flex:none; margin-top:7px; background:' + x.tone + ';'
+    }));
+    const logNotes = {
+      tasks: 'Everything that is not a post. Written as you work, never asked for twice.',
+      decisions: 'What was agreed, and when. The profile remembers so you do not have to.',
+      requests: 'What you are waiting on from them. Ageing is shown, chasing is not automatic.',
+      pipelines: 'Any list with its own stages. Switched on only where it is used.',
+      notes: 'Private to you. A client login never reaches this.',
+    };
+
+    // ---- analysis
+    const sliceSets = {
+      pillar: [['AI Lane', '6.2k avg reach', 100], ['Value', '4.8k', 77], ['Proof', '3.1k', 50], ['Product', '2.4k', 39]],
+      format: [['Carousel', '5.9k avg reach', 100], ['Single', '3.4k', 58], ['Reel', '2.2k', 37]],
+      hook: [['Correction', '7.1k avg reach', 100], ['Story', '4.2k', 59], ['Teach', '3.3k', 46]],
+      seed: [['The career has no home', '6.6k avg reach', 100], ['AI cannot replace judgment', '4.1k', 62]],
+      platform: [['Instagram', '4.9k avg reach', 100], ['LinkedIn', 'not collecting', 0]],
+    };
+    const sliceRows = (sliceSets[S.slice] || []).map(x => ({
+      label: x[0], value: x[1],
+      bar: 'display:block; height:100%; width:' + x[2] + '%; border-radius:999px; background:' + (x[2] ? '#1c1a21' : 'repeating-linear-gradient(135deg,#e0dbd6 0 6px,#f4f1ee 6px 12px)') + ';'
+    }));
+
+    return {
+      pad: narrow ? '16px 16px 26px' : '24px 28px 40px',
+      card, kicker, h2, btnDark, btnGhost, segWrap,
+      isIntake: app === 'intake', isCreation: app === 'creation', isAnalysis: app === 'analysis',
+      onTab: (e) => h.nav({ tab: e.currentTarget.dataset.tab }),
+
+      intakeLine: prof.intakeOpen ? prof.intakeOpen + ' questions still open from round 2.' : 'All rounds answered and curated.',
+      intakeTabs: mk([{ key: 'rounds', label: 'Rounds' }, { key: 'curation', label: 'Curation' }], iTab),
+      isRounds: iTab === 'rounds', isCuration: iTab === 'curation',
+      rounds: [
+        {
+          name: 'Round 1, who they are', state: 'answered 4 Jun', done: true,
+          questions: [{ q: 'Who is this for, in your words?', a: 'answered' }, { q: 'What must never be said?', a: 'answered' }, { q: 'Who else does this well?', a: 'answered' }]
+        },
+        {
+          name: 'Round 2, proof and money', state: (prof.intakeOpen ? prof.intakeOpen + ' still open' : 'answered 18 Jul'), done: !prof.intakeOpen,
+          questions: [{ q: 'What results can we actually show?', a: 'answered' }, { q: 'What does a client pay you, honestly?', a: prof.intakeOpen ? 'waiting' : 'answered' }]
+        },
+      ].map(x => Object.assign({}, x, {
+        mark: 'width:9px; height:9px; border-radius:50%; flex:none; background:' + (x.done ? '#1a7f4b' : '#ea4711') + ';',
+        pill: 'font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px; white-space:nowrap; ' +
+          (x.done ? 'color:#1a7f4b; background:#e6f5ec;' : 'color:#b8551f; background:rgba(234,71,17,.10);')
+      })),
+      curation: [
+        { param: 'Who it is for', feeds: 'Audience', raw: 'Honestly anyone who wants a better job, but mostly people 2 to 6 years in who feel stuck and are scared of applying.', curated: 'Mid-career, two to six years in. Stuck rather than jobless. The fear is of being judged, not of the work.' },
+        { param: 'What must never be said', feeds: 'Voice', raw: 'Do not make it sound like a hack thing. And no fake urgency, I hate that.', curated: 'No hacks, no countdowns, no scarcity. Claims stay checkable.' },
+        { param: 'Proof we can show', feeds: 'Proof', raw: 'We have around 400 people who got interviews, some really good screenshots.', curated: 'Interview outcomes, shown as their words. Numbers only where we can name the source.' },
+      ],
+
+      creationTabs: mk([{ key: 'board', label: 'Board' }, { key: 'engine', label: 'Engine' }, { key: 'assets', label: 'Assets' }, { key: 'refs', label: 'References' }, { key: 'logs', label: 'Logs' }], cTab),
+      isBoard: cTab === 'board', isEngine: cTab === 'engine', isAssets: cTab === 'assets', isRefs: cTab === 'refs', isLogs: cTab === 'logs',
+      notLocked: !locked, canDrag: locked,
+      openStrategy: () => h.strategy(true),
+
+      needs, needsCount: String(needsRaw.length),
+      needsOpen: S.needsOpen,
+      needsCaret: 'display:flex; color:#9b95a1; transform:rotate(' + (S.needsOpen ? '0deg' : '-90deg') + ');',
+      needsPill: 'font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px; color:#b8551f; background:rgba(234,71,17,.10); font-variant-numeric:tabular-nums;',
+      toggleNeeds: () => this.setState(s => ({ needsOpen: !s.needsOpen })),
+      onCheck: (e) => { const id = e.currentTarget.dataset.id; this.setState(s => ({ done: Object.assign({}, s.done, { [id]: !s.done[id] }) })); },
+
+      boardViews: [{ key: 'board', label: 'Board' }, { key: 'pillars', label: 'Pillars' }, { key: 'table', label: 'Table' }, { key: 'month', label: 'Month' }]
+        .map(v => Object.assign({}, v, { style: this.seg(v.key === S.view) })),
+      onView: (e) => this.setState({ view: e.currentTarget.dataset.view }),
+      isColumns: S.view === 'board' && !narrow,
+      isRows: (S.view === 'board' && narrow) || S.view === 'table',
+      isPillars: S.view === 'pillars',
+      pillarsWrap: narrow ? 'display:flex; flex-direction:column; gap:11px;' : 'display:flex; gap:11px; overflow-x:auto; align-items:flex-start;',
+      isMonth: S.view === 'month' && !narrow,
+      isAgenda: S.view === 'month' && narrow,
+      agenda: mine.filter(x => x.day).sort((a, b) => a.day - b.day).map(x => ({
+        title: x.title, day: 'Aug ' + x.day, stage: x.stage,
+        dot: 'width:8px; height:8px; border-radius:50%; flex:none; background:' + hue + ';'
+      })),
+      boardNote: locked ? 'Drag a piece to move it. Review and scheduling are states, not screens.' : 'Read only until Strategy is locked.',
+      stages, pillars, monthCells,
+      onDragStart: (e) => { if (!locked) { e.preventDefault(); return; } this.dragId = e.currentTarget.dataset.id; e.dataTransfer.effectAllowed = 'move'; e.currentTarget.style.opacity = '.45'; },
+      onDragEnd: (e) => { e.currentTarget.style.opacity = '1'; },
+      onDragOver: (e) => { if (locked) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } },
+      onDrop: (e) => { e.preventDefault(); if (this.dragId) h.moveCard(this.dragId, e.currentTarget.dataset.stage); this.dragId = null; },
+      onPiece: (e) => h.openPiece(e.currentTarget.dataset.id),
+
+      costume: [
+        { label: 'Pillar', options: ['AI Lane', 'Value', 'Proof', 'Product'] },
+        { label: 'Platform', options: ['Instagram', 'LinkedIn'] },
+        { label: 'Format', options: ['Carousel', 'Reel', 'Single'] },
+        { label: 'Angle', options: ['Correction', 'Story', 'Teach'] },
+      ].map(c => ({
+        label: c.label,
+        options: c.options.map(v => ({
+          value: v,
+          style: 'all:unset; cursor:pointer; font-size:12.5px; font-weight:600; padding:5px 12px; border-radius:999px; ' +
+            (S.costume[c.label] === v ? 'background:#1c1a21; color:#fff;' : 'background:#f4f1ee; color:#6b6570;')
+        }))
+      })),
+      onCostume: (e) => { const g = e.currentTarget.dataset.group, v = e.currentTarget.dataset.value; this.setState(s => ({ costume: Object.assign({}, s.costume, { [g]: v }) })); },
+      seeds: [
+        { id: 's1', title: 'The career has no home', meta: 'locked · 4 pieces · 2 posted', quote: 'People keep their whole working life in twelve places and then wonder why it feels thin.' },
+        { id: 's2', title: 'AI cannot replace judgment', meta: 'locked · 3 pieces', quote: 'The machine writes the sentence. You still decide whether it is true.' },
+        { id: 's3', title: 'Cover letters add judgment', meta: 'draft, cannot make pieces yet', quote: 'Nobody reads them. Everyone notices when one is good.' },
+      ].map(s => Object.assign({}, s, {
+        style: 'all:unset; cursor:pointer; display:block; width:100%; box-sizing:border-box; padding:14px 15px; margin-bottom:10px; border-radius:16px; background:#fff; ' +
+          (S.seed === s.id ? 'border:1px solid rgba(234,71,17,.35); box-shadow:0 2px 10px rgba(234,71,17,.10);' : 'border:1px solid rgba(23,21,26,.09);')
+      })),
+      costumeSeed: ['The career has no home', 'AI cannot replace judgment', 'Cover letters add judgment'][['s1', 's2', 's3'].indexOf(S.seed)] || '',
+      onSeed: (e) => this.setState({ seed: e.currentTarget.dataset.id }),
+
+      hasCatalogue: !!prof.catalogue,
+      assetModes: [{ key: 'sets', label: 'Sets' }, { key: 'catalogue', label: 'Catalogue' }].map(m => Object.assign({}, m, { style: this.seg(m.key === S.assetMode) })),
+      onAssetMode: (e) => this.setState({ assetMode: e.currentTarget.dataset.mode }),
+      assetSets: (S.assetMode === 'catalogue' && prof.catalogue)
+        ? [{ name: 'Cardigans', kind: 'Catalogue', meta: '9 pieces · ₹1,400 to 2,600' }, { name: 'Blankets', kind: 'Catalogue', meta: '4 pieces · ₹2,200 to 3,800' }, { name: 'Small things', kind: 'Catalogue', meta: '11 pieces · ₹150 to 600' }]
+        : [{ name: 'August shoot', kind: 'From her', meta: '34 originals kept' }, { name: 'Product flatlays', kind: 'From the client', meta: '12 originals kept' }, { name: 'Reel B-roll', kind: 'Video', meta: 'opens in Drive' }, { name: 'Testimonial screens', kind: 'From the client', meta: '9 originals kept' }],
+
+      refGroups: [
+        { label: 'What they shared', items: [{ title: 'A competitor carousel they liked', source: 'instagram.com', date: '28 Jul' }, { title: 'Their old deck', source: 'drive', date: '4 Jun' }] },
+        { label: 'What we want for them', items: [{ title: 'The way she opens with a wrong belief', source: 'instagram.com', date: '2 Aug' }, { title: 'Pricing page that reads like a letter', source: 'basecamp.com', date: '28 Jul' }] },
+      ],
+
+      logTabs: [{ key: 'tasks', label: 'Tasks' }, { key: 'decisions', label: 'Decisions' }, { key: 'requests', label: 'Requests' }, { key: 'pipelines', label: 'Pipelines' }, { key: 'notes', label: 'Notes' }]
+        .map(t => Object.assign({}, t, { style: this.seg(t.key === S.log) })),
+      onLog: (e) => this.setState({ log: e.currentTarget.dataset.log }),
+      logRows, logNote: logNotes[S.log],
+
+      analysisTabs: mk([{ key: 'where', label: 'Where we are' }, { key: 'what', label: 'What happened' }, { key: 'means', label: 'What it means' }], aTab),
+      isWhereWeAre: aTab === 'where', isWhatHappened: aTab === 'what', isWhatItMeans: aTab === 'means',
+      metrics: [
+        { label: 'Reach', value: '18.4k', delta: 'over 23 collected days', tone: '#6b6570' },
+        { label: 'Saves', value: '412', delta: '+64 on last month', tone: '#1a7f4b' },
+        { label: 'Posted', value: '7 of 16', delta: 'nine to go', tone: '#6b6570' },
+        { label: 'Followers', value: '—', delta: 'not collected since 12 Jul', tone: '#c2410c' },
+      ],
+      goals: [
+        { label: 'Pieces out', value: '7 of 16', pct: 44 },
+        { label: 'AI Lane share of the mix', value: '38% of a 35% target', pct: 100 },
+        { label: 'Saves per piece', value: '59 against 45', pct: 100 },
+      ].map(g => Object.assign({}, g, { bar: 'display:block; height:100%; width:' + g.pct + '%; border-radius:999px; background:#1c1a21;' })),
+      slices: [{ key: 'pillar', label: 'Pillar' }, { key: 'format', label: 'Format' }, { key: 'hook', label: 'Hook' }, { key: 'seed', label: 'Seed' }, { key: 'platform', label: 'Platform' }]
+        .map(s => Object.assign({}, s, {
+          style: 'all:unset; cursor:pointer; font-size:12.5px; font-weight:600; padding:5px 12px; border-radius:999px; ' +
+            (s.key === S.slice ? 'background:#1c1a21; color:#fff;' : 'background:#f4f1ee; color:#6b6570;')
+        })),
+      onSlice: (e) => this.setState({ slice: e.currentTarget.dataset.slice }),
+      sliceRows,
+      scorecard: [
+        { pillar: 'AI Lane', job: 'get reach', read: 'doing its job', ok: true },
+        { pillar: 'Value', job: 'get saves', read: 'doing its job', ok: true },
+        { pillar: 'Proof', job: 'get replies', read: 'thin, 2 pieces', ok: false },
+        { pillar: 'Product', job: 'get clicks', read: 'not collecting', ok: false },
+      ].map(s => Object.assign({}, s, {
+        pill: 'font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px; white-space:nowrap; ' +
+          (s.ok ? 'color:#1a7f4b; background:#e6f5ec;' : 'color:#b8551f; background:rgba(234,71,17,.10);')
+      })),
+      compare: [
+        { title: 'Salary question carousel', born: 'seed: the career has no home · correction · carousel', rows: [{ k: 'Reach', v: '7.4k' }, { k: 'Saves', v: '186' }, { k: 'Replies', v: '31' }] },
+        { title: 'Career OS walkthrough', born: 'seed: the career has no home · teach · reel', rows: [{ k: 'Reach', v: '6.9k' }, { k: 'Saves', v: '42' }, { k: 'Replies', v: '4' }] },
+      ],
+      toEngine: () => h.nav({ app: 'creation', tab: 'engine' }),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

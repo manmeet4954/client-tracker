@@ -1,26 +1,33 @@
 'use client';
 
-// The Analysis app — spec 28 §5.3. Spec 27's eight tabs, unchanged. This spec
-// adds nothing to them and changes nothing about them; it supplies the frame:
-// a tab row on desktop, a bottom-sheet picker on mobile, and the resolver that
-// decides which of the eight exist.
+// The Analysis app — spec 28 §5.3, regrouped by phase 4 of the restructure.
 //
-// The Now tab's first block is always coverage (spec 27 §5). The shell may not
-// move it, collapse it, or put a badge in a corner instead — and it does not.
+// The eight screens are not gone: each is still its own switch, its own read and
+// its own payload. What changed is what the NAVIGATION addresses. They present
+// as three groups — Where we are, What happened, What it means — and AnalysisApp
+// draws that title and that control itself.
+//
+// So this page draws no heading, no tab row and no phone picker. It used to draw
+// all three; leaving them would give two "Analysis" titles and two navigations.
+//
+// The route segment is still `[tab]`, one of the eight, deliberately: every link
+// and bookmark that exists keeps working, and AnalysisApp resolves an old
+// address to the group that screen now lives in. Renaming it to `[group]` is a
+// tidy-up for later, not a thing to do on the way past.
+//
+// Coverage is still the first block on screen, and the shell still may not move
+// it, collapse it, or trade it for a badge in a corner.
 
-import { useState } from 'react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronUp } from 'lucide-react';
-import { useApp, useClient } from '@/contexts/AppContext';
+import { useApp } from '@/contexts/AppContext';
 import { ANALYSIS_TABS, rendered } from '@/lib/shell/nav';
-import { accentFor, renderProfile, shellRole } from '@/lib/shell/profile';
+import { renderProfile, shellRole } from '@/lib/shell/profile';
 import AnalysisApp from '@/components/analysis/AnalysisApp';
+import { ANALYSIS_GROUPS } from '@/lib/analysis/groups';
+import { Screen } from '@/components/shell/Screen';
 
 export default function AnalysisTabPage({ params }: { params: { id: string; tab: string } }) {
   const { state, role } = useApp();
-  const { client, data } = useClient(params.id);
-  const [sheet, setSheet] = useState(false);
 
   const known = ANALYSIS_TABS.find(t => t.id === params.tab);
   if (!known) notFound();
@@ -28,50 +35,28 @@ export default function AnalysisTabPage({ params }: { params: { id: string; tab:
   const kind = shellRole(state, role, params.id);
   if (kind !== 'owner') notFound();   // a client's analysis is the Results window
 
-  const accent = accentFor(client, data);
-  const tabs = rendered(ANALYSIS_TABS, renderProfile(state, params.id, role), kind);
-  const current = tabs.find(t => t.id === params.tab);
+  const tabs = rendered(ANALYSIS_TABS, renderProfile(state, params.id, role), kind)
+    .map(t => ({ id: t.id, label: t.label, state: t.state }));
+
+  // A group's address is the first of its screens that this profile actually
+  // renders. A group whose screens are all switched off has no href, and the
+  // control simply does not offer it.
+  function hrefForGroup(groupId: string): string {
+    const group = ANALYSIS_GROUPS.find(g => g.id === groupId);
+    const first = group?.screens.find(s => tabs.some(t => t.id === s));
+    return `/profile/${params.id}/analysis/${first ?? params.tab}`;
+  }
 
   return (
-    <div>
-      {/* Desktop: a tab row. */}
-      <nav className="no-scrollbar hidden gap-1 overflow-x-auto border-b border-stone-200 bg-white px-3 md:flex">
-        {tabs.map(t => {
-          const on = t.id === params.tab;
-          return (
-            <Link key={t.id} href={`/profile/${params.id}/analysis/${t.id}`}
-              className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm ${
-                on ? 'font-semibold' : 'border-transparent text-stone-500'
-              }`}
-              style={on ? { borderColor: accent, color: accent } : undefined}>
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Mobile: a bottom-sheet picker, not a second row of eight. */}
-      <button type="button" onClick={() => setSheet(true)}
-        className="flex w-full items-center justify-between border-b border-stone-200 bg-white px-4 py-2.5 text-sm md:hidden">
-        <span className="font-semibold" style={{ color: accent }}>{current?.label ?? params.tab}</span>
-        <ChevronUp size={16} className="text-stone-400" />
-      </button>
-      {sheet && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/30 md:hidden"
-          onClick={() => setSheet(false)}>
-          <div className="rounded-t-2xl bg-white p-2" onClick={e => e.stopPropagation()}>
-            {tabs.map(t => (
-              <Link key={t.id} href={`/profile/${params.id}/analysis/${t.id}`}
-                onClick={() => setSheet(false)}
-                className="block rounded-xl px-4 py-3 text-sm text-stone-800">
-                {t.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <AnalysisApp clientId={params.id} accent={accent} tab={params.tab} />
-    </div>
+    <Screen>
+      <div className="-mx-4 md:-mx-7">
+        <AnalysisApp
+          clientId={params.id}
+          tabs={tabs}
+          tab={params.tab}
+          hrefForGroup={hrefForGroup}
+        />
+      </div>
+    </Screen>
   );
 }

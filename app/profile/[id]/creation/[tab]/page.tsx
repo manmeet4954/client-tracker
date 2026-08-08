@@ -9,24 +9,24 @@
 // through `renderState`, never read directly.
 
 import { useState } from 'react';
-import { notFound, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { useApp, useClient } from '@/contexts/AppContext';
+import { HistoryLine, LockBanner, Screen, ScreenHeader, Segmented } from '@/components/shell/Screen';
 import { CREATION_TABS, rendered } from '@/lib/shell/nav';
 import { accentFor, renderProfile, shellRole } from '@/lib/shell/profile';
 import { renderState } from '@/lib/tree/render';
-import ContentView from '@/components/ContentView';
 import PreviewsView from '@/components/PreviewsView';
-import AnswersView from '@/components/AnswersView';
 import AssetsView from '@/components/AssetsView';
-import CatalogueView from '@/components/CatalogueView';
-import ReferencesView from '@/components/ReferencesView';
-import DashboardView from '@/components/DashboardView';
-import ListsView from '@/components/ListsView';
-import ColdCallsView from '@/components/ColdCallsView';
-import OrdersView from '@/components/OrdersView';
 import MomentumMeter from '@/components/MomentumMeter';
 import EngineRoomView from '@/components/EngineRoomView';
+// The restructure, phase 2. Each of these replaces a screen that used to be its
+// own tab; the old components stay where the legacy /client/[id] routes mount
+// them, and are not deleted while those routes still answer.
+import Board from '@/components/creation/Board';
+import PiecePanel from '@/components/creation/PiecePanel';
+import Logs from '@/components/creation/Logs';
+import AssetsScreen from '@/components/creation/AssetsScreen';
+import ReferencesScreen from '@/components/creation/ReferencesScreen';
 import CostumeView from '@/components/CostumeView';
 import { ContentWindow } from '@/components/shell/ClientWindows';
 
@@ -36,6 +36,8 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
   const { state, role } = useApp();
   const { client, data } = useClient(params.id);
   const search = useSearchParams();
+  const router = useRouter();
+  const path = `/profile/${params.id}/creation/${params.tab}`;
   const [section, setSection] = useState<string | null>(null);
 
   const tabDef = CREATION_TABS.find(t => t.id === params.tab);
@@ -54,70 +56,107 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
     notFound();
   }
 
-  const sections: Section[] = SECTIONS[params.tab]?.(params.id, accent, seedId) ?? [];
+  // Before the lock, the whole app reads and nothing moves. One banner says so
+  // once, at the top, rather than a hundred disabled controls (handoff rule 3).
+  const beforeLockNow = !profile.strategy_locked;
+
+  // A piece opens as a PANEL over whatever screen you are on, never as a place
+  // you navigate to — review and scheduling are states of a piece, not screens
+  // (handoff, "Review and scheduling are states of a piece"). The card id rides
+  // in the query string so the panel survives a reload and a shared link.
+  function openPiece(cardId: string) {
+    const next = new URLSearchParams(search?.toString() ?? '');
+    next.set('piece', cardId);
+    router.replace(`${path}?${next.toString()}`, { scroll: false });
+  }
+
+  function closePiece() {
+    const next = new URLSearchParams(search?.toString() ?? '');
+    next.delete('piece');
+    const q = next.toString();
+    router.replace(q ? `${path}?${q}` : path, { scroll: false });
+  }
+
+  const piece = pieceId ? <PiecePanel cardId={pieceId} onClose={closePiece} /> : null;
+
+  const sections: Section[] = SECTIONS[params.tab]?.({
+    id: params.id, accent, seedId, readOnly: beforeLockNow, openPiece,
+  }) ?? [];
   const live = sections
     .map(s => ({ ...s, state: renderState(profile, s.switch, kind) }))
     .filter(s => s.state !== 'hidden');
 
   const subTabs = rendered(CREATION_TABS, profile, kind);
   const current = live.find(s => s.id === section) ?? live[0];
+  const beforeLock = beforeLockNow;
+
+  const header = (
+    <ScreenHeader
+      title="Creation"
+      segments={subTabs.map(t => ({
+        id: t.id, label: t.label, href: `/profile/${params.id}/creation/${t.id}`,
+      }))}
+      active={params.tab}
+    />
+  );
+
+  // Logs is the one tab that brings its own five-tab strip, so it is not a set
+  // of sections with a strip drawn above it — that would be two strips stacked.
+  if (params.tab === 'logs') {
+    // PLAN §7 is a rule, not a preference: the effort and money meters exist in
+    // her own profiles and nowhere else. On a client profile this resolves
+    // hidden for everyone, her included, and nothing is drawn.
+    const effort = renderState(profile, 'logs.effort_meter', kind) !== 'hidden';
+    return (
+      <Screen>
+        {header}
+        {beforeLock && <LockBanner />}
+        <div className="-mx-4 md:-mx-7">
+          <Logs profileId={params.id} readOnly={beforeLock} />
+          {effort && <MomentumMeter clientId={params.id} accent={accent} />}
+        </div>
+        {piece}
+      </Screen>
+    );
+  }
 
   return (
-    <div>
-      {/* The five sub-tabs: a horizontally scrollable row under the header, never
-          a second bottom bar (§8). */}
-      <nav className="no-scrollbar flex gap-1 overflow-x-auto border-b border-stone-200 bg-white px-3">
-        {subTabs.map(t => {
-          const on = t.id === params.tab;
-          return (
-            <Link key={t.id} href={`/profile/${params.id}/creation/${t.id}`}
-              className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm ${
-                on ? 'font-semibold' : 'border-transparent text-stone-500'
-              }`}
-              style={on ? { borderColor: accent, color: accent } : undefined}>
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
+    <Screen>
+      {header}
+
+      {beforeLock && <LockBanner />}
 
       {live.length > 1 && (
-        <nav className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 pt-3">
-          {live.map(s => {
-            const on = s.id === current?.id;
-            return (
-              <button key={s.id} type="button" onClick={() => setSection(s.id)}
-                className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
-                  on ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 text-stone-600'
-                }`}>
-                {s.label}
-              </button>
-            );
-          })}
-        </nav>
+        <Segmented segments={live.map(s => ({ id: s.id, label: s.label }))}
+          active={current?.id ?? ''} onSelect={setSection} />
       )}
 
-      {current?.state === 'history' && <ReadOnlyLine />}
-      {current ? current.render() : <Nothing />}
-    </div>
-  );
-}
+      {!beforeLock && current?.state === 'history' && <HistoryLine />}
 
-function ReadOnlyLine() {
-  return (
-    <div className="border-b border-stone-200 bg-stone-100 px-4 py-2 text-sm text-stone-700">
-      This one is switched off and kept. Everything below reads; nothing new is written.
-    </div>
+      <div className="-mx-4 md:-mx-7">
+        {current ? current.render() : <Nothing />}
+      </div>
+
+      {piece}
+    </Screen>
   );
 }
 
 function Nothing() {
-  return <p className="p-8 text-sm text-stone-400">Nothing here is switched on for this profile.</p>;
+  return <p className="p-8 text-sm text-faint">Nothing here is switched on for this profile.</p>;
+}
+
+interface SectionArgs {
+  id: string;
+  accent: string;
+  seedId: string;
+  readOnly: boolean;
+  openPiece: (cardId: string) => void;
 }
 
 /** Each sub-tab's sections, with the switch each one is governed by (§5.2). */
-const SECTIONS: Record<string, (id: string, accent: string, seedId: string) => Section[]> = {
-  engine: (id, _accent, seedId) => [
+const SECTIONS: Record<string, (a: SectionArgs) => Section[]> = {
+  engine: ({ id, seedId }) => [
     {
       id: 'room', label: 'The room', switch: 'creation.engine',
       render: () => (seedId
@@ -125,57 +164,31 @@ const SECTIONS: Record<string, (id: string, accent: string, seedId: string) => S
         : <EngineRoomView clientId={id} />),
     },
   ],
-  board: id => [
-    { id: 'stages', label: 'Stages', switch: 'creation.board', render: () => <ContentView clientId={id} /> },
-    { id: 'review', label: 'Review', switch: 'creation.review', render: () => <PreviewsView clientId={id} /> },
-    { id: 'funnel', label: 'Funnel', switch: 'creation.funnel_replies', render: () => <AnswersView clientId={id} /> },
+  // The board is ONE screen with four views inside it, not four sections. Review
+  // is not here at all: it is a state of a piece, read in the piece panel.
+  //
+  // "Slides" is the one honest exception, and it is temporary. The upload,
+  // reorder and Canva editor still live inside PreviewsView, so removing this
+  // would take away the only way to put pictures on a preview. It is labelled
+  // for what it is rather than called Review, so it does not read as a second
+  // place to approve things. It goes when that editor moves into the panel.
+  board: ({ id, accent, readOnly, openPiece }) => [
+    {
+      id: 'stages', label: 'Board', switch: 'creation.board',
+      render: () => (
+        <Board profileId={id} hue={accent} readOnly={readOnly}
+          lockBanner={false} onOpenPiece={openPiece} />
+      ),
+    },
+    { id: 'slides', label: 'Slides', switch: 'creation.review', render: () => <PreviewsView clientId={id} /> },
   ],
-  assets: id => [
-    { id: 'library', label: 'Library', switch: 'assets.library', render: () => <AssetsView clientId={id} /> },
-    { id: 'catalogue', label: 'Catalogue', switch: 'assets.catalogue_export', render: () => <CatalogueView clientId={id} /> },
+  // The catalogue is a MODE of Assets, not a second screen beside it.
+  assets: ({ id }) => [
+    { id: 'library', label: 'Library', switch: 'assets.library', render: () => <AssetsScreen profileId={id} /> },
   ],
-  references: id => [
-    { id: 'references', label: 'References', switch: 'references.our_vision', render: () => <ReferencesView clientId={id} /> },
+  references: ({ id }) => [
+    { id: 'references', label: 'References', switch: 'references.our_vision', render: () => <ReferencesScreen profileId={id} /> },
   ],
-  logs: (id, accent) => [
-    { id: 'tasks', label: 'Tasks', switch: 'logs.tasks', render: () => <DashboardView clientId={id} /> },
-    { id: 'lists', label: 'Pipelines', switch: 'logs.pipelines.lists', render: () => <ListsView clientId={id} /> },
-    { id: 'coldcalls', label: 'Cold calls', switch: 'logs.pipelines.cold_calls', render: () => <ColdCallsView clientId={id} /> },
-    { id: 'orders', label: 'Orders', switch: 'logs.pipelines.orders', render: () => <OrdersView clientId={id} /> },
-    { id: 'notes', label: 'Notes', switch: 'logs.observations', render: () => <ProfileNotes clientId={id} /> },
-    // PLAN §7, and it is a rule: the effort and money meters survive only inside
-    // her own profiles. On a client profile the switch resolves hidden for
-    // everyone, her included, so this section is simply not here.
-    { id: 'effort', label: 'Effort', switch: 'logs.effort_meter', render: () => <MomentumMeter clientId={id} accent={accent} /> },
-  ],
+  // Logs has no sections: it is special-cased in the component above, because it
+  // brings its own five-tab strip and a second strip over it would be two.
 };
-
-/**
- * Logs → Notes. THIS profile's own notes, read out of its own body, and never
- * the owner-level inbox: that one carries notes tagged to other profiles, and
- * nothing inside a profile may name another (§5.7). §9's named consequence
- * stands — a tagged note is readable here and in the frozen inbox until the
- * chat's own spec lands.
- */
-function ProfileNotes({ clientId }: { clientId: string }) {
-  const { data } = useClient(clientId);
-  const notes = (data.body?.paths?.['work-log/logs/observations'] ?? [])
-    .slice()
-    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  if (notes.length === 0) {
-    return <p className="p-8 text-sm text-stone-400">No notes on this profile yet.</p>;
-  }
-  return (
-    <div className="mx-auto max-w-3xl space-y-2 p-4 md:p-8">
-      {notes.map(n => (
-        <div key={n.id} className="rounded-xl border border-stone-200 bg-white p-4">
-          <p className="whitespace-pre-wrap text-sm text-stone-800">
-            {String((n.data as { text?: unknown; note?: unknown })?.text
-              ?? (n.data as { note?: unknown })?.note ?? '')}
-          </p>
-          <p className="mt-1 text-xs text-stone-400">{String(n.created_at).slice(0, 10)}</p>
-        </div>
-      ))}
-    </div>
-  );
-}

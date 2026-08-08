@@ -69,6 +69,14 @@ interface BrainAnswer {
   reply?: string;
 }
 
+/** What `/api/desk-chat` answers (spec 30). `did` is what actually landed. */
+interface DeskAnswer {
+  /** True when the desk cannot run at all, e.g. no key. The old rules take over. */
+  fallback?: boolean;
+  reply?: string;
+  did?: string[];
+}
+
 export default function ChatWidget() {
   // Public share pages render outside the app context — no widget there.
   const isPublic = usePathname()?.startsWith('/p/') ?? false;
@@ -257,6 +265,38 @@ function ChatWidgetInner() {
       if (tags.includes('task') || (sentPhoto && d.kind === 'photo')) {
         await legacyApply(d, raw, sentPhoto);
         return;
+      }
+
+      // Everything else goes to the DESK, spec 30: a tool loop that looks things
+      // up and does them server side, through the ordinary write door. It reads
+      // her real data itself, so nothing about her state is packed up and sent.
+      //
+      // The old brain below is kept as the fallback, unchanged. If the desk is
+      // unreachable or its key is missing, the chat still works exactly as it
+      // did yesterday rather than going dead.
+      if (!sentPhoto) {
+        const desk: DeskAnswer | null = await fetch('/api/desk-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: raw,
+            recent: recentBefore,
+            today: new Date().toISOString().slice(0, 10),
+          }),
+        }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+
+        if (desk?.reply && !desk.fallback) {
+          // It wrote to the stored state directly, so the tab has to catch up.
+          // Reading it back is also the honest confirmation: what she sees next
+          // is what actually landed, not what the chat believes it did.
+          if (desk.did?.length) {
+            const fresh = await fetch('/api/state')
+              .then(r => (r.ok ? r.json() : null)).catch(() => null);
+            if (fresh?.state) dispatch({ type: 'LOAD', payload: fresh.state });
+          }
+          say('dash', desk.reply);
+          return;
+        }
       }
 
       // Everything else: the brain reads it with full context.

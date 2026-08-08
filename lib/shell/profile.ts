@@ -21,18 +21,27 @@ import { BODY_VERSION } from '../tree/body.ts';
 export const CUTOVER_BODY_VERSION = BODY_VERSION;
 
 /**
- * §16.3 — when a profile renders in the new shell. BOTH, or neither:
- *  - its body is migrated for real (`body_version >= 21`, from `apply: true`), and
- *  - its strategy has locked (`strategy_version != null`).
+ * §16.3 shipped this as a GATE: a profile entered the new shell only once its
+ * body was migrated AND its strategy had locked. Seven of the eight failed it,
+ * so seven profiles kept opening the old tab bar and the app carried two whole
+ * navigations at once. That was the single biggest complaint about the product.
  *
- * Until then its shelf card opens the LEGACY workspace, which keeps working
- * exactly as it does today. One shelf, two destinations, for as long as it takes.
+ * **Her decision, 2026-08-04 (the restructure handoff, phase 1): the gate is
+ * dropped.** Every profile enters the new shell now, with the screens that
+ * already exist mounted inside it, exactly as the handoff's phase 1 asks.
+ *
+ * Nothing about the LOCK changed. A write under `work-log/creation/` is still
+ * refused server side until strategy locks (spec 22 §8.7), and an unlocked
+ * profile's Creation renders READ-ONLY rather than disappearing — see
+ * `renderState` step 4. The lock still gates; it no longer decides which shell
+ * she is looking at.
+ *
+ * Kept as a function, and kept honest, so the one place this is decided stays
+ * one place. `staysOnLegacy` is untouched: §19's open question about the intern
+ * and Sonia is hers, and it is the only legacy door left.
  */
-export function isCutOver(data: ClientData | undefined): boolean {
-  const body = data?.body;
-  if (!body) return false;
-  if ((body.body_version ?? 0) < CUTOVER_BODY_VERSION) return false;
-  return typeof body.strategy_version === 'number';
+export function isCutOver(_data: ClientData | undefined): boolean {
+  return true;
 }
 
 /**
@@ -97,6 +106,23 @@ export function pickAccent(
 
 export function accentFor(client: Client | undefined, data: ClientData | undefined): string {
   return pickAccent(data?.brandKit?.colors, client?.color ?? DEFAULT_ACCENT);
+}
+
+/**
+ * The profile's HUE — its identity colour, and nothing else.
+ *
+ * Her decision, 2026-08-04: chrome is ink everywhere, and a profile's colour is
+ * identity only. It draws the dot beside the name, the avatar square, the left
+ * edge of a card, a chip on the month grid. It never paints a rail, a tab, a
+ * button or a header band. Eight profiles used to mean eight coloured chromes,
+ * which is most of why the app read as noise.
+ *
+ * The hue is the profile's own stored colour, not the brand kit's primary:
+ * identity should not move when a client changes their palette. `accentFor`
+ * stays for the legacy screens that still paint with the brand kit.
+ */
+export function hueFor(client: Client | undefined): string {
+  return client?.color ?? DEFAULT_ACCENT;
 }
 
 /** Her own profiles first, then clients, then archived — the shelf's grouping. */

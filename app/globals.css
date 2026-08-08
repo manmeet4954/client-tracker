@@ -1,33 +1,99 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── The restructure's design tokens, as variables ──────────────────────────
+   Named exactly as the handoff names them, so a value in the design maps to a
+   value here without translation. Tailwind carries the same set (see
+   tailwind.config.js); these exist for the inline styles a hue or a computed
+   colour needs. */
+:root {
+  --ink: #1c1a21;
+  --text: #17151a;
+  --paper: #faf8f6;
+  --surface: #ffffff;
+  --sunken: #f6f3f0;
+  --sunken-muted: #f1eeeb;
+  --chip: #efece9;
+  --control: #f4f1ee;
+  --hairline: rgba(23, 21, 26, .09);
+  --divider: rgba(23, 21, 26, .07);
+  --muted: #6b6570;
+  --faint: #9b95a1;
+  --accent: #ea4711;
+  --accent-text: #b8551f;
+  --overdue: #c2410c;
+  --positive: #1a7f4b;
+  --positive-bg: #e6f5ec;
+
+  --shadow-card: 0 1px 2px rgba(23, 21, 26, .04);
+  --shadow-seed: 0 2px 10px rgba(234, 71, 17, .10);
+  --shadow-panel: -16px 0 40px rgba(23, 21, 26, .22);
+  --shadow-drawer: 16px 0 40px rgba(23, 21, 26, .3);
+}
 
 * {
   box-sizing: border-box;
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background-color: #F7F7F5;
-  color: #1C1917;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background-color: var(--paper);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 
+/* Display face. Weight ceiling is 700; nothing goes to 800. */
+.font-display,
+h1.font-display,
+.display {
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  letter-spacing: -.02em;
+}
+
+/* Every figure that stands as a number. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The floating chat, lifted clear of the phone bottom bar inside a profile.
+   One rule, so `components/ChatWidget.tsx` stays frozen (see ChatMount.tsx). */
+@media (max-width: 767px) {
+  .chat-lifted > button.fixed {
+    bottom: 5.5rem;
+  }
+}
+
+/* Focus is never the browser default. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(234, 71, 17, .18);
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 9px;
+  height: 9px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D6D3D1;
-  border-radius: 3px;
+  background: rgba(23, 21, 26, .18);
+  border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #A8A29E;
+  background: rgba(23, 21, 26, .3);
 }
 
 .drag-over {

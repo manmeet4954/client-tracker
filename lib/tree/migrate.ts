@@ -57,10 +57,16 @@ function legacy(source: string, confidence: Confidence = 'legacy-unverified', at
 }
 
 /** Stage mapping (§8.5). `ready` → `approved` is honest: today "ready" means she
- *  is done, and no client verdict was ever recorded. `review` has no legacy data. */
+ *  is done, and no client verdict was ever recorded.
+ *
+ *  `review` became a board stage in phase 2 of the restructure, so it now maps
+ *  straight across. Cards written before that could not arrive holding it — the
+ *  stage did not exist to be set — so this stays a mapping and never a guess:
+ *  nothing is inferred INTO review from the old five. */
 const STAGE_MAP: Record<ContentCard['stage'], PieceStage> = {
   idea: 'idea',
   writing: 'build',
+  review: 'review',
   ready: 'approved',
   scheduled: 'scheduled',
   posted: 'posted',

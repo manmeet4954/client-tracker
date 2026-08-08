@@ -31,7 +31,7 @@ export const CREATION_TABS: NavNode[] = [
   {
     id: 'board', label: 'Board',
     switches: ['creation.board', 'creation.review', 'creation.scheduling',
-      'creation.publishing', 'creation.funnel', 'creation.funnel_replies'],
+      'creation.publishing', 'creation.funnel'],
   },
   {
     id: 'assets', label: 'Assets',
@@ -44,8 +44,12 @@ export const CREATION_TABS: NavNode[] = [
   },
   {
     id: 'logs', label: 'Logs',
+    // The saved replies moved here with phase 2: the handoff puts "every
+    // per-client one-off list - Orders, Cold calls, Saved replies, Leads" under
+    // Logs → Pipelines, so the switch is addressed where the screen now is.
     switches: ['logs.tasks', 'logs.decisions', 'logs.requests', 'logs.changes',
       'logs.pipelines.lists', 'logs.pipelines.cold_calls', 'logs.pipelines.orders',
+      'creation.funnel_replies',
       'logs.observations', 'logs.effort_meter', 'logs.effort_money'],
   },
 ];
@@ -67,6 +71,10 @@ export const CORNER_PANELS: NavNode[] = [
   { id: 'derivation', label: 'Decide it', switches: ['strategy.derivation'] },
   { id: 'gates', label: 'Gates', switches: ['strategy.gate_set'] },
   { id: 'switches', label: 'Switches', switches: ['strategy.switchboard'] },
+  // The lock has its own panel in the restructure design. It also keeps
+  // rendering under Decide, so the decision and the gate that closes it stay on
+  // one screen.
+  { id: 'lock', label: 'Lock', switches: ['strategy.lock'] },
   { id: 'channels', label: 'Channels', switches: ['creation.channels'] },
   { id: 'brand', label: 'Brand book', switches: ['strategy.visual_branding'] },
   { id: 'intake-history', label: 'Intake history', switches: ['intake.rounds_reopen'] },

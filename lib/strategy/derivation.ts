@@ -12,6 +12,7 @@
 //
 // Nothing here generates a strategy value. No AI writes strategy (§8.3, §15).
 
+import type { ClientData } from '../../types/index.ts';
 import type { PathState, SwitchConfig } from '../tree/contract.ts';
 import type { BodyEntry, Gate, GateSet, Lifecycle, Provenance } from '../tree/objects.ts';
 import { OPERATIONAL_GATES } from '../tree/objects.ts';
@@ -655,6 +656,111 @@ export function refusedCreationWrites(
     const a = JSON.stringify(current?.paths?.[p] ?? null);
     const b = JSON.stringify(incoming.paths?.[p] ?? null);
     if (a !== b) out.push(p);
+  }
+  return out;
+}
+
+// ── §8.7 part two: the legacy slices ARE creation ────────────────────────────
+//
+// `refusedCreationWrites` above guards the TREE, and the comment beside it was
+// honest about what it left out: "this binds NEW writes through the tree, never
+// the legacy slices spec 21 deliberately left rendering". The board she uses
+// every day renders from those legacy slices. So on an unlocked profile the
+// banner said "nothing can be written here" while every card, every move
+// between stages and every preview went straight through the door.
+//
+// That is closed here: at the same door, on the same condition, with the same
+// answer — refused, named, and told why. One address per slice, taken from the
+// same address map the write scopes use (`PROFILE_SCOPES` in lib/tree/scopes.ts).
+// Every slice below is one that map files under `work-log/creation`.
+//
+// Reading is never touched. History, analytics and every past piece stay fully
+// readable on an unlocked profile. This is the WRITE door only.
+
+export interface LegacyCreationRefusal {
+  /** The legacy slice the write touched. */
+  slice: string;
+  /** Its address in the tree — the same prefix `refusedCreationWrites` guards. */
+  path: string;
+  /** What was refused, and why. */
+  why: string;
+}
+
+interface LegacySliceAddress {
+  slice: keyof ClientData;
+  path: string;
+  what: string;
+}
+
+const LEGACY_CREATION: LegacySliceAddress[] = [
+  { slice: 'contentCards', path: CREATION_PREFIX, what: 'a piece on the board' },
+  { slice: 'topics', path: `${CREATION_PREFIX}/topics`, what: 'a seed' },
+  { slice: 'evergreenIdeas', path: `${CREATION_PREFIX}/topics`, what: 'an evergreen idea' },
+  { slice: 'previewPosts', path: `${CREATION_PREFIX}/review`, what: 'a preview' },
+  { slice: 'instagram', path: `${CREATION_PREFIX}/channels`, what: 'the account this profile posts from' },
+  { slice: 'leadAnswers', path: `${CREATION_PREFIX}/funnel/replies`, what: 'a saved reply' },
+];
+
+/** The slices this guard covers. Exported so a test can prove the list is the
+ *  whole of what the address map files under creation, and stays that way. */
+export const LEGACY_CREATION_SLICES: string[] = LEGACY_CREATION.map(r => r.slice as string);
+
+/** Absent, empty and blank all mean the same thing: nothing is recorded here. */
+function emptyish(v: unknown): boolean {
+  if (v == null) return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'string') return v.trim().length === 0;
+  if (typeof v === 'object') return Object.values(v as Record<string, unknown>).every(emptyish);
+  return false;
+}
+
+function sameSlice(a: unknown, b: unknown): boolean {
+  if (emptyish(a) && emptyish(b)) return true;
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+/**
+ * CLAUDE.md gotcha 3: `contentCards` is deliberately never defaulted, because
+ * the client's one-time LOAD migration keys off it being absent. That migration
+ * folds the legacy kanban and pillar cards into the unified board. It is not
+ * something she typed, so it is not a write.
+ *
+ * It passes on exactly one condition: every id arriving is the id of a card the
+ * profile ALREADY had. A piece she makes carries a new id, and it is refused
+ * like everything else.
+ */
+function dormantContentMigration(current: ClientData | undefined, incoming: unknown): boolean {
+  if (current?.contentCards !== undefined) return false;
+  if (!Array.isArray(incoming)) return false;
+  const known = new Set<string>([
+    ...(current?.cards ?? []).map(c => c.id),
+    ...(current?.pillarCards ?? []).map(c => c.id),
+  ]);
+  return incoming.every(c => known.has((c as { id?: string }).id ?? ''));
+}
+
+/**
+ * "Until a profile's Strategy is locked, Creation cannot be written to" — the
+ * legacy half. Same condition as `refusedCreationWrites`: a profile that has
+ * locked, now or before this save, is not affected at all.
+ */
+export function refusedLegacyCreationWrites(
+  current: ClientData | undefined, incoming: ClientData | undefined,
+): LegacyCreationRefusal[] {
+  if (!incoming) return [];
+  if (strategyLocked(incoming.body) || strategyLocked(current?.body)) return [];
+
+  const out: LegacyCreationRefusal[] = [];
+  for (const row of LEGACY_CREATION) {
+    const before = current?.[row.slice];
+    const after = incoming[row.slice];
+    if (sameSlice(before, after)) continue;
+    if (row.slice === 'contentCards' && dormantContentMigration(current, after)) continue;
+    out.push({
+      slice: row.slice as string,
+      path: row.path,
+      why: `${row.what} cannot be written until Strategy is locked on this profile`,
+    });
   }
   return out;
 }

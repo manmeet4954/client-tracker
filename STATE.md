@@ -1,5 +1,259 @@
 # STATE - Client Dashboard
 
+## 2026-08-05 — PHASES 2 TO 6 ARE BUILT, INCLUDING THE DESK CHAT. NOT DEPLOYED
+
+Branch `claude/restructure-phase-2`. **689 tests green**, typecheck clean, production build green.
+The demo seed is removed. Deployed on her go, 2026-08-05.
+
+### The desk chat is built (spec 30)
+
+Her answer on 2026-08-05 settled the handoff's open question: the chat ACTS and
+FINDS. A tool loop, not a form with a text box.
+
+- `lib/desk/read.ts` + `status.ts` — find a profile (ambiguity asks, never
+  guesses), the per-brand status answer, pieces, tasks, seeds, and the desk's
+  existing cross-profile questions REUSED rather than rewritten.
+- `lib/desk/write.ts` + `preview.ts` — add and update a task, add a piece, move
+  it including "I posted this today", schedule it, file a seed capture, add a
+  note, and make a preview attached to its piece with the shareable link back.
+- `lib/desk/loop.ts` — the tool registry and dispatcher. The list IS the surface:
+  no free-form escape hatch, no path parameter to bend.
+- `app/api/desk-chat/route.ts` — the loop, owner only, ceilinged at 12 tool calls
+  and 6 writes per message, saving once at the end through the same sequence
+  `app/api/state` uses. The chat gets no privilege: an unlocked profile refuses a
+  chat write exactly as it refuses a drag.
+
+**Both of her laws are structural, not prompt text.** Every write resolves to a
+declared address, so the chat cannot invent a field (her finance-tracker
+complaint). Every number is computed before the model sees it, so it never
+counts, totals or estimates (her "the calculative thing is something that
+matters").
+
+**The bug this caught, and it would have shipped silently:** `stageCounts` read
+`entry.data.stage` off the birth record, and `work-log/creation` is append-only,
+so a move is an amendment beside it. Dragging a card also rewrote the legacy
+card, which hid it. The chat moves pieces through the tree, so every
+"8 posted, 4 left" would have started answering from birth records and going
+stale. `stageCounts` now resolves. The test that recorded the gap asserts the fix.
+
+**Model:** Haiku, the same one the existing chat uses, so this adds no spend
+against a ceiling she has not set. `DESK_CHAT_MODEL` moves it without a deploy.
+
+**No key, no desk:** the route answers `fallback` and the widget drops through to
+its hashtag rules. `ANTHROPIC_API_KEY` is still unset in production, so without
+this the chat would have gone from working to apologising on the day it shipped.
+
+**Not built, on purpose:** topic and seed GENERATION stays with the Content
+Engine family. The chat's part is getting her narration into the bank correctly.
+
+---
+
+## 2026-08-05 — PHASES 2, 3, 4 AND 5 (earlier the same day)
+
+The screens. 593 tests at the time, walked in a browser at 1240 and at 375.
+
+### First, what was nearly lost
+
+The phase 2 agents from the night of 08-04 worked until 00:03 and **never
+committed**. Their ~1,600 lines sat loose in the working tree, unregistered and
+unwired, exactly like the 26 wiki pages that went missing on 08-03. The vault
+moved off iCloud at 23:23, mid-flight, which is almost certainly what killed the
+session that was running them. It is all in git now, twice: a snapshot at
+`rescue/phase-2-wip-2026-08-05` and as the first commit of this branch.
+
+**The standing lesson, again: work that is not committed does not exist.**
+Agents are now told to commit as they go, not once at the end.
+
+### What is now true
+
+1. **Six stages, not five.** Review is a stage of a piece. The five existing
+   stage ids are unchanged - `writing` is labelled Build, `ready` is Approved -
+   so no card on any board had to be migrated. `review` is the one new id.
+2. **A preview belongs to its piece.** `PreviewPost.cardId` closes the last
+   place in the product where the same post existed twice. Previews made before
+   it are listed as unattached rather than deleted, and get attached by hand.
+3. **The lock actually gates now (phase 3).** The guard existed and was
+   imported; it was never called. So an unlocked profile showed a banner saying
+   "nothing can be written here" while every card, every drag and every preview
+   went through the door. Six legacy slices are covered, and a test asserts the
+   list is the whole of what the address map files under `work-log/creation`.
+4. **Creation is the design.** Board with four views and six columns, the needs
+   strip, the piece panel over the screen, Logs with its five tabs absorbing
+   Lists, Cold calls, Orders, agenda and Observations, Assets with the catalogue
+   as a mode, References in two groups.
+5. **Analysis is three groups (phase 4)**, coverage first, an uncollected metric
+   drawn as an em dash and never a 0, a gap drawn as a hatch and never a
+   zero-length bar.
+6. **Intake is Rounds and Curation (phase 5)**, and a raw answer has no edit
+   control at all.
+
+### Phase 6 is HALF BUILT, and this is the honest state of it
+
+The desk agent was killed by a server error mid-response. It had written
+`components/shell/DeskChat.tsx` and `lib/shell/deskAnswers.ts` and committed
+nothing; both were rescued and are in the branch, **unverified**. The desk you
+see is still phase 1's `Shelf.tsx`, which already reads as the design: ink
+sidebar, profile rows with their hues, the opening answer, the prompt chips,
+the composer. `deskAnswers.ts` is wired in far enough to compile and pass, so
+nothing is broken - the new chat body is simply not mounted yet.
+
+**Her open question still gates the rest of it:** can the desk chat ACT (move a
+piece, send a preview, add a seed) or only FIND? The agent was told to build
+find only. The floating chat's existing ability to act was not touched.
+
+### Verified, and how
+
+- 593/593 via `npm test`, up from 401. Six new suites, one per screen.
+- Typecheck clean. Production build green.
+- In a browser at 1240 and 375: the desk, a profile shell, Creation → Board
+  (six columns on desktop, stacked stage sections on the phone, bottom bar of
+  exactly three), Creation → Logs (five tabs, one strip, not two), Analysis
+  (three groups, one title, no eight-tab row), Intake. No console errors.
+
+### Known and honest, not defects
+
+- **Nothing was seen with real data.** There is no `.env.local` on this machine,
+  so every screen above was checked against empty profiles. Cards, seeds,
+  previews and metrics have never been rendered by these screens.
+- **"Slides" is a temporary second surface.** `PreviewsView` survives as a
+  section under Board because the upload, reorder and Canva editor still live
+  inside it; deleting it would take away the only way to put pictures on a
+  preview. It is called Slides, not Review, so it does not read as a second
+  place to approve things. It goes when that editor moves into the piece panel.
+- **The analysis empty state repeats itself** three times on a profile with no
+  body. Right words, said too often.
+- **Sent and opened does not exist in the data model**, so the piece panel says
+  so rather than drawing a state it does not have.
+- The analysis route is still `[tab]`, not `[group]`, on purpose: every link
+  that exists keeps working and an old address resolves to its group.
+
+### THE ONE CONSEQUENCE SHE HAS TO TIME
+
+Only ResumeGuru is locked. When this deploys, **the other seven profiles' boards
+become read-only** until each is walked through migrate → strategy → lock. That
+is what the design asks for (rule 9, "the lock gates") and it is the right
+behaviour, but it lands on her daily work. Hers to time, and worth doing one
+profile at a time.
+
+### Next
+
+1. Her look at the screens, and the desk chat decision (act, or only find).
+2. Finish phase 6 against that answer.
+3. Move the slide editor into the piece panel, then delete Previews.
+4. Then deploy, on her go, per DEPLOY.md.
+
+Still owed by her, unchanged: the setup day and the IG collection stall (still
+losing a day of data per day since 2026-07-12), the intake vocabulary pass, the
+engine spend ceiling, staff and Sonia audiences, and walking the other seven
+profiles through migrate → strategy → lock.
+
+Per-screen build notes, including every gap each agent named, are in
+`dashboard/docs/phase-notes/`. The design handoff now lives in the repo at
+`dashboard/docs/design-handoff/` rather than only in her Downloads folder.
+
+---
+
+## 2026-08-04 — THE RESTRUCTURE, PHASE 1 (THE SHELL) IS BUILT, NOT DEPLOYED
+
+The redesign handoff she commissioned (`design_handoff_dashboard_restructure/`:
+a README design spec, her own `UI Structure.md`, and four HTML prototypes)
+is being built in six phases. **Phase 1, the shell, is done.** Tests green,
+production build green, both viewports checked in a browser. Nothing deployed.
+
+### Her three decisions, 2026-08-04
+
+1. **The cutover gate is DROPPED.** `isCutOver` now returns true for every
+   profile. All eight enter the new shell today, with the screens that already
+   exist mounted inside. This is what kills the double navigation, and it is
+   phase 1's whole point. The alternative, walking seven profiles through
+   migrate → strategy → lock first, was days of her decisions before anything
+   looked different.
+2. **The chat we already built becomes the desk chat.** The desk IS a
+   conversation now. `components/ChatWidget.tsx` and `app/api/chat-brain/route.ts`
+   were NOT touched — a new `components/ChatMount.tsx` stands the floating
+   widget down on `/shelf` and the desk calls the same `/api/chat-brain`.
+   Making the chat cleverer is phase 6; phase 1 gave it the right body.
+3. **Ink chrome, the profile hue as identity only.** Rails, tabs, buttons and
+   headers are ink everywhere. A profile's colour now paints exactly two
+   things: its avatar square and the dot beside its name. Eight profiles used
+   to mean eight coloured chromes, which was most of why the app read as noise.
+
+### What changed underneath, and why it is not just paint
+
+- **`renderState` step 4 changed.** Before the lock, Creation, Analysis,
+  Assets, References and Logs used to resolve `hidden`. With the gate dropped
+  that would have put seven profiles into an empty shell. They now resolve
+  `history` — visible, read-only — for her and for staff, and stay `hidden`
+  for a client. **Writes are untouched:** `refusedCreationWrites` still refuses
+  every write under `work-log/creation/` until the lock, server side. The lock
+  gates what can be written, not which shell she is looking at.
+- **The desk was lying and now is not.** `attentionFor` only said "Strategy not
+  locked" for a MIGRATED profile, because an unmigrated one used to be outside
+  this shell entirely. The desk was therefore answering "every profile is
+  locked, Creation is open everywhere" while Creation was read-only on all of
+  them. It now reads the lock itself, migrated or not.
+- **Local dev runs without a database.** `createClient(undefined, undefined)`
+  threw at MODULE LOAD, so every route answered 500 and no screen could be
+  drawn on a machine with no env file. `lib/supabase.ts` and
+  `lib/supabaseServer.ts` now fall back, reads return empty and writes go
+  nowhere. CLAUDE.md already claimed this worked; now it does. Vercel is
+  unaffected — the variables are always set there.
+
+### Files
+
+New: `components/ChatMount.tsx` · `components/shell/Screen.tsx` (the level-3
+furniture: display title, segmented control, lock banner) ·
+`components/shell/StrategyPanel.tsx` · `lib/shell/desk.ts` (the desk's answers,
+composed only from `shelf.ts`'s existing counters).
+
+Changed: `tailwind.config.js` and `app/globals.css` (the design tokens, both
+fonts) · `components/shell/Shelf.tsx` (the desk) · `components/shell/Frame.tsx`
+(the profile frame) · `lib/shell/profile.ts` (`isCutOver`, new `hueFor`) ·
+`lib/shell/shelf.ts` · `lib/shell/nav.ts` (a Lock panel) · `lib/tree/render.ts` ·
+the three level-3 pages · `app/layout.tsx` (one line: `ChatMount`) ·
+`lib/supabase.ts` · `lib/supabaseServer.ts` · `tests/shell.test.ts`.
+
+**No new route.** The route map in `lib/shell/routes.ts` is untouched and its
+completeness test still passes.
+
+### Verified, and how
+
+398/398 via `npm test`. Production build green (with dummy env, as always on
+this machine). In a browser at 1240 and at 392: the desk with its sidebar,
+drawer, thread, chips and composer; the chat answering from real data; the
+profile shell with the ink rail, the three apps, the read-only footer line and
+the lock banner; the Strategy corner sliding over the screen without leaving
+it; the phone bottom bar holding exactly three items.
+
+### Known and deliberate, not defects
+
+- **The screens inside the shell still look like the old screens.** That is
+  phase 1 as she specified it: route what exists into the new structure, even
+  where it looks wrong inside. The board still shows five stages, and Review is
+  still a section rather than a state of a piece. Phase 2 fixes both.
+- **The legacy board is still writable on an unlocked profile,** because it
+  writes `contentCards` and not tree paths. Making the lock gate that too is
+  phase 3.
+- **The intern's and Sonia's logins still open the legacy workspace**
+  (`staysOnLegacy`). Spec 28 §19's open question is hers and untouched. It is
+  the only legacy door left.
+- **Strategy has an eighth panel, Lifecycle.** The design lists seven because
+  the prototype had no lifecycle control. The real app has one and it is her
+  only way to pause or archive a profile, so it stayed. Say if it should go.
+
+### The phases still to come
+
+2. **Creation.** The board's four views, the piece panel with review as a
+   STATE, Logs absorbing Lists, Cold calls, Orders, agenda and Observations.
+   The only phase with data changes in it: five stages become six, and a
+   preview gets linked to its piece so review stops being a second copy.
+3. **The lock**, gating writes for real, including the legacy board.
+4. **Analysis**, eight tabs collapsed to three groups, coverage first.
+5. **Intake**, rounds and curation appearing and disappearing on open questions.
+6. **The desk chat**, after she answers whether it can act or only find.
+
+---
+
 ## 2026-08-01 — WHERE THINGS STAND (read this first)
 
 **Live and working:** the whole spec 21–28 batch is built, tested (398 green) and
@@ -25,6 +279,24 @@ as pictures, she reacts.
 - `Dashboard UI Teardown.html` — the written teardown, why it feels chaotic
 - `UI Structure.md` — the flow map: desk → profile → app, and where every
   current screen lands. Structure only, no design.
+
+**DECISION RECORDED 2026-08-01 — the separate Content Engine.** A review
+compared the dashboard's Content Engine (specs 23-25) with the Codex-built Seed
+Bank / Client Intelligence OS. Verdict: PARTIALLY REUSE. Do not integrate that
+repository, its file layout, entity model, or vocabulary; its CLAUDE.md is not
+authoritative here. Full decision, with what was adopted and what must never be
+introduced, is at the end of `specs/00 — Dashboard Backlog.md`.
+
+**SPEC 29 IS WRITTEN 2026-08-04, NOT BUILT:**
+`specs/29 — Context Export & the Harvest Door.md`. The export reuses the one
+existing assembler as a fifth content profile and renders a single markdown
+pack of approved Context plus locked seeds, with a manifest that names every
+exclusion; the `visibility` flag (private / internal / portable) defaults to
+portable, so there is no migration; the harvest door is idempotent because its
+id IS the operation id on an append-only path. §12 step 3 is the named
+shippable stopping point — the export alone, one row in the owner corner, no
+new tab. One open question is hers (§14): does the pack carry the founder's raw
+thought verbatim on a client profile.
 
 **Next step, agreed in principle:** design three screens, one at a time, as
 pictures she reacts to — (1) the desk, sorted by what needs her rather than a

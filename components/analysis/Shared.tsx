@@ -1,69 +1,254 @@
 'use client';
 
-// The three shared pieces every analysis surface uses — spec 27 §21.
+// The pieces every Analysis surface is built from — the restructure handoff,
+// "ANALYSIS", dressed in the design tokens.
 //
-// CoverageBanner exists because §4.4's rule is that coverage renders BEFORE
-// performance, on every surface, and a rule each screen has to remember is a rule
-// one screen will forget. TooEarly and ShowMyWorking exist for the same reason:
-// "too early to judge" and "here is the working" have one wording, in one place.
+// Nothing here computes. Every number, width, plural and day name arrives from
+// `lib/analysis/groups.ts`, which is tested on plain Node. These are windows.
+//
+// Coverage lives in ONE component, `CoverageFirst`, and it is the first block of
+// every group. The old per-tab `CoverageBanner` is gone: eight copies of a rule
+// is eight chances to forget it, and the group already renders it above
+// everything. A screen whose own coverage differs from the group's says so in a
+// line rather than drawing a second bar.
 
 import type { ReactNode } from 'react';
 import { useState } from 'react';
+import Link from 'next/link';
+import {
+  HATCH, NO_READING, coverageBar, coverageDiffersLine, formatNumber, metricCard, percentWords,
+} from '@/lib/analysis/groups';
+import type {
+  BarModel, Coverage, Measured, MetricCardModel, PillTone,
+} from '@/lib/analysis/groups';
 
-export interface Coverage {
-  complete: boolean;
-  days_expected: number;
-  days_covered: number;
-  words: string;
-  gaps: { from: string; to: string; reason: string }[];
-}
+export type { BarModel, Coverage, Measured, MetricCardModel, PillTone };
+export { HATCH, NO_READING, formatNumber, percentWords };
 
-/** Not a badge in a corner. If the pipe is stalled, this is the first thing on
- *  the screen, in her language (§5). */
-export function CoverageBanner({ coverage }: { coverage: Coverage | undefined }) {
-  if (!coverage) return null;
-  if (coverage.complete) {
-    return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-        Collecting normally. {coverage.days_covered} of {coverage.days_expected} days in this period.
-      </div>
-    );
-  }
+// ── Frames ───────────────────────────────────────────────────────────────────
+
+export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-      <div className="text-sm font-semibold text-amber-900">Not collecting</div>
-      <div className="mt-1 text-sm text-amber-900">{coverage.words}</div>
-      <div className="mt-2 text-xs text-amber-800">
-        {coverage.days_covered} of {coverage.days_expected} days collected. The numbers below stop where the collection stopped.
-      </div>
+    <div className={`rounded-card border border-hairline bg-surface shadow-card ${className}`}>
+      {children}
     </div>
   );
 }
 
-/** "Too early to judge", with exactly what is still owed (§7.3). */
+/** 11.5px / 700 / .09em, uppercase, muted. The label above a block. */
+export function Kicker({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-[11.5px] font-bold uppercase tracking-[.09em] text-muted">{children}</div>
+  );
+}
+
+/** One screen's heading inside a group. Bricolage 700, 21px. */
+export function ScreenTitle({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="font-display text-[21px] font-bold leading-[1.15] tracking-[-.02em] text-text">
+      {children}
+    </h3>
+  );
+}
+
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return <Kicker>{children}</Kicker>;
+}
+
+export function Empty({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-card border border-dashed border-hairline px-[18px] py-6 text-center text-sm text-faint">
+      {children}
+    </div>
+  );
+}
+
+export function GhostButton(
+  { href, onClick, children }: { href?: string; onClick?: () => void; children: ReactNode },
+) {
+  const className = 'inline-block whitespace-nowrap rounded-xl border border-[rgba(23,21,26,.14)] px-[17px] py-[9px] text-[13.5px] font-semibold text-text';
+  if (href) return <Link href={href} className={className}>{children}</Link>;
+  return <button type="button" onClick={onClick} className={className}>{children}</button>;
+}
+
+export function DarkButton(
+  { href, onClick, children }: { href?: string; onClick?: () => void; children: ReactNode },
+) {
+  const className = 'inline-block whitespace-nowrap rounded-xl bg-ink px-[18px] py-2.5 text-[13.5px] font-semibold text-white';
+  if (href) return <Link href={href} className={className}>{children}</Link>;
+  return <button type="button" onClick={onClick} className={className}>{children}</button>;
+}
+
+// ── Coverage, the first thing on screen ─────────────────────────────────────
+
+const TONE_CLASS: Record<PillTone, string> = {
+  positive: 'bg-positive-bg text-positive',
+  attention: 'bg-[rgba(234,71,17,.10)] text-accent-text',
+  neutral: 'bg-control text-muted',
+};
+
+export function Pill({ tone, children }: { tone: PillTone; children: ReactNode }) {
+  return (
+    <span className={`whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11.5px] font-semibold ${TONE_CLASS[tone]}`}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The 12px bar of collected against uncollected days, and the two lines under
+ * it. Absent when the API sent no coverage: an empty coverage card would be a
+ * claim about days nobody counted.
+ */
+export function CoverageFirst({ coverage, fixHref }: { coverage?: Coverage; fixHref?: string }) {
+  const bar = coverageBar(coverage);
+  if (!bar) return null;
+  return (
+    <Card className="px-5 py-[18px]">
+      <Kicker>Coverage, first</Kicker>
+      <div className="mt-3 flex flex-wrap items-center gap-3.5">
+        <div className="min-w-[200px] flex-1">
+          <div className="flex h-3 overflow-hidden rounded-full bg-chip">
+            <span className="bg-ink" style={{ width: `${bar.collectedPct}%` }} />
+            <span style={{ width: `${bar.uncollectedPct}%`, background: HATCH }} />
+          </div>
+          <div className="mt-2 flex flex-wrap justify-between gap-2 text-[12.5px] text-muted">
+            <span>{bar.daysLine}</span>
+            {bar.sinceLine ? <span className="font-semibold text-overdue">{bar.sinceLine}</span> : null}
+          </div>
+        </div>
+        {fixHref && !bar.complete ? <GhostButton href={fixHref}>Fix the connection</GhostButton> : null}
+      </div>
+      <p className="mt-3 text-[13px] leading-[1.55] text-muted">
+        {bar.readAgainstLine
+          ? `${bar.readAgainstLine} Gaps are drawn as gaps and never as a zero.`
+          : 'Collecting normally. Everything below is read against the whole period.'}
+      </p>
+    </Card>
+  );
+}
+
+/** A screen inside a group reading a different stretch than the block above it. */
+export function CoverageDiffers({ screen, group }: { screen?: Coverage; group?: Coverage }) {
+  const line = coverageDiffersLine(screen, group);
+  if (!line) return null;
+  return (
+    <p className="rounded-card border border-hairline bg-surface px-[18px] py-3 text-[13px] text-overdue">
+      {line}
+    </p>
+  );
+}
+
+// ── Numbers ──────────────────────────────────────────────────────────────────
+
+const NOTE_CLASS = {
+  muted: 'text-muted',
+  faint: 'text-faint',
+  positive: 'text-positive',
+  overdue: 'text-overdue',
+} as const;
+
+/** Label, figure, one line under it. The figure is an em dash or a reading. */
+export function MetricCard({ model }: { model: MetricCardModel }) {
+  return (
+    <Card className="px-[18px] py-4">
+      <div className="text-[11.5px] font-bold uppercase tracking-[.09em] text-faint">{model.label}</div>
+      <div className="mt-1.5 font-display text-[32px] font-bold leading-[1.15] tracking-[-.02em] tabular-nums text-text">
+        {model.value}
+      </div>
+      {model.note ? (
+        <div className={`text-[12.5px] font-semibold ${NOTE_CLASS[model.tone]}`}>{model.note}</div>
+      ) : null}
+    </Card>
+  );
+}
+
+export function MetricGrid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-[repeat(auto-fit,minmax(148px,1fr))] gap-3">{children}</div>;
+}
+
+/** Convenience: label + Measured straight onto a card. */
+export function Metric(
+  { label, m, coverage }: { label: string; m?: Measured; coverage?: Coverage },
+) {
+  return <MetricCard model={metricCard(label, m, coverage)} />;
+}
+
+/**
+ * A bar. Hatched means "we were not looking" and fills the whole track, so a
+ * gap can never be mistaken for a low number.
+ */
+export function Meter({ bar, height = 7 }: { bar: BarModel; height?: number }) {
+  return (
+    <div className="overflow-hidden rounded-full bg-chip" style={{ height }}>
+      <span
+        className="block h-full rounded-full"
+        style={{ width: `${bar.pct}%`, background: bar.hatched ? HATCH : '#1c1a21' }}
+      />
+    </div>
+  );
+}
+
+/** A number, or the honest reason there is not one. Zero is never a stand-in. */
+export function Figure({ m, suffix }: { m: Measured | undefined; suffix?: string }) {
+  if (!m) return <span className="text-faint">{NO_READING}</span>;
+  switch (m.state) {
+    case 'value':
+      return (
+        <span className="font-semibold tabular-nums text-text">
+          {formatNumber(m.value)}{suffix ?? ''}
+          {m.n !== undefined ? <span className="ml-1 text-xs font-normal text-faint">n={m.n}</span> : null}
+        </span>
+      );
+    case 'no-coverage':
+      return <span className="text-overdue">we were not looking</span>;
+    case 'not-measurable':
+      return <span className="text-faint">{m.because ?? 'not measured for this profile'}</span>;
+    default:
+      return <span className="text-faint">too early{m.owed ? `: ${m.owed}` : ''}</span>;
+  }
+}
+
+export const BAND_STYLE: Record<string, { label: string; tone: PillTone }> = {
+  earning: { label: 'Earning', tone: 'positive' },
+  steady: { label: 'Steady', tone: 'positive' },
+  dragging: { label: 'Dragging', tone: 'attention' },
+  'too-early': { label: 'Too early to judge', tone: 'neutral' },
+  blocked: { label: 'Not measured yet', tone: 'neutral' },
+  'not-measurable': { label: 'Not measurable here', tone: 'neutral' },
+  'coverage-gap': { label: 'Collection gap', tone: 'attention' },
+};
+
+export function Band({ state }: { state: string }) {
+  const style = BAND_STYLE[state] ?? BAND_STYLE['too-early'];
+  return <Pill tone={style.tone}>{style.label}</Pill>;
+}
+
+/** "Too early to judge", with exactly what is still owed. */
 export function TooEarly({ owed }: { owed?: string }) {
   return (
-    <div className="rounded-md bg-stone-100 px-3 py-2 text-sm text-stone-600">
-      <span className="font-medium">Too early to judge.</span>
+    <div className="rounded-xl bg-control px-3.5 py-2.5 text-[13px] text-muted">
+      <span className="font-semibold text-text">Too early to judge.</span>
       {owed ? <span> {owed}.</span> : null}
     </div>
   );
 }
 
-/** One plain sentence, folded away until she asks for it (§7.2). */
+/** One plain sentence, folded away until she asks for it. */
 export function ShowMyWorking({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  if (!children) return null;
   return (
-    <div className="mt-2">
+    <div className="mt-2.5">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="text-xs font-medium text-stone-500 underline underline-offset-2 hover:text-stone-800"
+        className="text-[12.5px] font-semibold text-faint underline underline-offset-2 hover:text-text"
       >
         {open ? 'Hide my working' : 'Show my working'}
       </button>
       {open ? (
-        <p className="mt-2 rounded-md bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-600">
+        <p className="mt-2 rounded-xl bg-control px-3.5 py-2.5 text-[12.5px] leading-[1.6] text-muted">
           {children}
         </p>
       ) : null}
@@ -71,70 +256,11 @@ export function ShowMyWorking({ children }: { children: ReactNode }) {
   );
 }
 
-export interface Measured {
-  state: 'value' | 'too-early' | 'no-coverage' | 'not-measurable';
-  value?: number;
-  n?: number;
-  owed?: string;
-  because?: string;
-}
-
-/** A number, or the honest reason there is not one. Zero is never used for any
- *  of the last three states (§4.4). */
-export function Figure({ m, suffix }: { m: Measured | undefined; suffix?: string }) {
-  if (!m) return <span className="text-stone-400">no reading</span>;
-  switch (m.state) {
-    case 'value':
-      return (
-        <span className="font-semibold text-stone-900">
-          {formatNumber(m.value)}{suffix ?? ''}
-          {m.n ? <span className="ml-1 text-xs font-normal text-stone-500">n={m.n}</span> : null}
-        </span>
-      );
-    case 'no-coverage':
-      return <span className="text-amber-700">we were not looking</span>;
-    case 'not-measurable':
-      return <span className="text-stone-500">{m.because ?? 'not measured for this profile'}</span>;
-    default:
-      return <span className="text-stone-500">too early{m.owed ? `: ${m.owed}` : ''}</span>;
-  }
-}
-
-export function formatNumber(v: number | undefined): string {
-  if (v === undefined) return 'no reading';
-  if (Math.abs(v) < 1 && v !== 0) return v.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
-  return v.toLocaleString('en-US');
-}
-
-export function percentWords(v: number | undefined): string {
-  if (v === undefined) return 'no lift yet';
-  const pct = Math.round(v * 1000) / 10;
-  return `${pct > 0 ? '+' : ''}${pct}%`;
-}
-
-export const BAND_STYLE: Record<string, { label: string; className: string }> = {
-  earning: { label: 'Earning', className: 'bg-emerald-100 text-emerald-800' },
-  steady: { label: 'Steady', className: 'bg-sky-100 text-sky-800' },
-  dragging: { label: 'Dragging', className: 'bg-rose-100 text-rose-800' },
-  'too-early': { label: 'Too early to judge', className: 'bg-stone-100 text-stone-600' },
-  blocked: { label: 'Not measured yet', className: 'bg-stone-100 text-stone-600' },
-  'not-measurable': { label: 'Not measurable here', className: 'bg-stone-100 text-stone-600' },
-  'coverage-gap': { label: 'Collection gap', className: 'bg-amber-100 text-amber-800' },
-};
-
-export function Band({ state }: { state: string }) {
-  const style = BAND_STYLE[state] ?? BAND_STYLE['too-early'];
+/** One row in a list card: name on the left, reading on the right. */
+export function Row({ children }: { children: ReactNode }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${style.className}`}>
-      {style.label}
-    </span>
+    <div className="flex flex-wrap items-center gap-3.5 border-t border-divider px-[18px] py-3.5 first:border-t-0">
+      {children}
+    </div>
   );
-}
-
-export function Empty({ children }: { children: ReactNode }) {
-  return <div className="rounded-lg border border-dashed border-stone-300 px-4 py-6 text-center text-sm text-stone-500">{children}</div>;
-}
-
-export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">{children}</h3>;
 }

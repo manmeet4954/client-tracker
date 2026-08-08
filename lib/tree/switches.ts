@@ -96,10 +96,10 @@ export const SWITCHES: SwitchDeclaration[] = [
   S({
     id: 'intake.questionnaire',
     owns: ['context/intake', 'context/intake/questions', 'context/intake/answers'],
-    requires: [], dependents: ['intake.rounds_reopen'],
+    requires: [], dependents: [],
     audience: 'both', allowed_states: ['active', 'history', 'hidden'], suggested_default: 'active',
     derived_from: 'delivery mode chosen per client',
-    note: 'Retires from the client’s navigation once Context is curated; history stays (S10).',
+    note: 'Retires from the client’s navigation once Context is curated; history stays (S10). Curating the last parameter writes this to hidden, and reopening writes it back.',
   }),
   S({
     id: 'intake.finding_session', owns: ['context/intake/answers'], requires: ['intake.questionnaire'],
@@ -108,9 +108,13 @@ export const SWITCHES: SwitchDeclaration[] = [
     note: 'The recorded meeting route. Same fields, different door.',
   }),
   S({
-    id: 'intake.rounds_reopen', owns: ['context/intake'], requires: ['intake.questionnaire'],
+    id: 'intake.rounds_reopen', owns: ['context/intake'], requires: [],
     dependents: [], audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
-    note: 'Owner-triggered versioned reopen for selected parameters (S10).',
+    // It USED to require `intake.questionnaire`, which was backwards: retiring
+    // Intake would have hidden the one door that brings it back, at exactly the
+    // moment that door is needed. S10 says a retired intake stays reopenable, so
+    // reopen cannot depend on intake being open. It stands on its own.
+    note: 'Owner-triggered versioned reopen for selected parameters (S10). Deliberately independent of intake.questionnaire: reopening is how a RETIRED intake comes back.',
   }),
   // Spec 22 §9.2. Owner-side surface switches carry `owns: []` and name what
   // they govern in their note: the governing switch of a PATH stays the one its

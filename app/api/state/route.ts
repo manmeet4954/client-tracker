@@ -6,7 +6,7 @@ import {
   filterStateForRole, mergeRoleWrite, normalizeState, emptyState, windowsForRole, type Role,
 } from '@/lib/access';
 import { applyScopes, checkScopes } from '@/lib/tree/scopes';
-import { refusedCreationWrites } from '@/lib/strategy/derivation';
+import { refusedCreationWrites, refusedLegacyCreationWrites } from '@/lib/strategy/derivation';
 import { refusedPieceWrites } from '@/lib/engine/seeds';
 import { refusedProposalWrites } from '@/lib/engine/proposals';
 import { refusedCaptureWrites } from '@/lib/engine/captures';
@@ -31,6 +31,27 @@ function creationRefusals(current: AppState, incoming: AppState): { profileId: s
   for (const id of Object.keys(incoming.clientData ?? {})) {
     const paths = refusedCreationWrites(current.clientData?.[id]?.body, incoming.clientData[id]?.body);
     if (paths.length) out.push({ profileId: id, paths });
+  }
+  return out;
+}
+
+/**
+ * The same rule, for the slices the board she uses every day actually renders.
+ *
+ * `creationRefusals` above guards the TREE. Until this landed, an unlocked
+ * profile showed a banner reading "nothing can be written here" while every
+ * card, every drag between stages and every preview went straight through the
+ * door, because those live in the legacy slices and not under a tree path. The
+ * banner was telling the truth about the tree and a lie about the screen.
+ *
+ * Reading is untouched. Every past piece, every number and all history stay
+ * fully readable on an unlocked profile. This is the write door only.
+ */
+function legacyCreationRefusals(current: AppState, incoming: AppState): { profileId: string; reasons: string[] }[] {
+  const out: { profileId: string; reasons: string[] }[] = [];
+  for (const id of Object.keys(incoming.clientData ?? {})) {
+    const refusals = refusedLegacyCreationWrites(current.clientData?.[id], incoming.clientData[id]);
+    if (refusals.length) out.push({ profileId: id, reasons: refusals.map(r => r.why) });
   }
   return out;
 }
@@ -169,6 +190,15 @@ export async function POST(req: Request) {
         error: 'creation-locked',
         detail: 'Strategy has not locked on this profile yet, so nothing can be written into creation.',
         refused,
+      }, { status: 409 });
+    }
+
+    const legacyRefused = legacyCreationRefusals(base, next);
+    if (legacyRefused.length) {
+      return NextResponse.json({
+        error: 'creation-locked',
+        detail: 'Strategy has not locked on this profile yet, so nothing can be written into creation.',
+        refused: legacyRefused,
       }, { status: 409 });
     }
 

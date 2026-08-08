@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #26232b; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+    a { color: #ea4711; text-decoration: none; font-weight: 600; }
+    a:hover { color: #c2410c; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #ea4711; outline-offset: 2px; }
+    ::selection { background: rgba(234,71,17,.18); }
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-thumb { background: rgba(23,21,26,.18); border-radius: 6px; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh; box-sizing:border-box; padding:26px 26px 60px; color:#fff">
+
+  <div style="max-width:1760px; margin:0 auto 18px; display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap">
+    <div>
+      <div style="font-size:11px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.45)">Built to the UI structure</div>
+      <h1 style="font-family:'Bricolage Grotesque', system-ui, sans-serif; font-weight:700; font-size:32px; letter-spacing:-.025em; margin:7px 0 0">Desk, one profile, three apps</h1>
+      <p style="margin:6px 0 0; max-width:70ch; font-size:13.5px; line-height:1.65; color:rgba(255,255,255,.6)">Three levels and no fourth. Intake shows only while questions are open, Analysis only where something is collected, Strategy is a corner and never a nav item, and the phone bar never holds more than three.</p>
+    </div>
+    <div style="display:flex; gap:9px; flex-wrap:wrap; padding-bottom:4px">
+      <sc-for list="{{ jumps }}" as="j" hint-placeholder-count="4">
+        <button data-pid="{{ j.pid }}" data-app="{{ j.app }}" onClick="{{ onJump }}" style="{{ j.style }}">{{ j.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:26px; align-items:flex-start; max-width:1760px; margin:0 auto">
+
+    <div style="flex:none; width:1240px">
+      <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); padding-bottom:9px">
+        <span>Desktop</span><span>{{ routeLabel }}</span>
+      </div>
+      <div style="height:880px; border-radius:20px; overflow:hidden; background:#faf8f6; box-shadow:0 24px 60px rgba(0,0,0,.45)">
+        <sc-if value="{{ atDesk }}" hint-placeholder-val="{{ true }}">
+          <dc-import name="DeskV3" frame-h="{{ frameH }}" hint-size="100%,880px" data="{{ data }}" handlers="{{ handlers }}" narrow="{{ false }}"></dc-import>
+        </sc-if>
+        <sc-if value="{{ inProfile }}" hint-placeholder-val="{{ false }}">
+          <dc-import name="ProfileV3" frame-h="{{ frameH }}" hint-size="100%,880px" route="{{ route }}" data="{{ data }}" handlers="{{ handlers }}" narrow="{{ false }}"></dc-import>
+        </sc-if>
+      </div>
+    </div>
+
+    <sc-if value="{{ showPhone }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:none; width:392px">
+        <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); padding-bottom:9px">
+          <span>Phone</span><span>same state</span>
+        </div>
+        <div style="height:880px; border-radius:34px; overflow:hidden; background:#faf8f6; box-shadow:0 24px 60px rgba(0,0,0,.45)">
+          <sc-if value="{{ phoneDesk }}" hint-placeholder-val="{{ true }}">
+            <dc-import name="DeskV3" frame-h="{{ frameH }}" hint-size="100%,880px" data="{{ data }}" handlers="{{ handlers }}" narrow="{{ true }}"></dc-import>
+          </sc-if>
+          <sc-if value="{{ phoneProfile }}" hint-placeholder-val="{{ false }}">
+            <dc-import name="ProfileV3" frame-h="{{ frameH }}" hint-size="100%,880px" route="{{ route }}" data="{{ data }}" handlers="{{ handlers }}" narrow="{{ true }}"></dc-import>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <div style="max-width:1760px; margin:34px auto 0; display:flex; flex-wrap:wrap; gap:14px">
+    <sc-for list="{{ notes }}" as="n" hint-placeholder-count="4">
+      <div style="flex:1; min-width:250px; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:16px 18px">
+        <div style="font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#ea4711; margin-bottom:6px">{{ n.head }}</div>
+        <p style="margin:0; font-size:13px; line-height:1.65; color:rgba(255,255,255,.65)">{{ n.body }}</p>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1760,&quot;height&quot;:1100},&quot;showPhone&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Views&quot;,&quot;label&quot;:&quot;Show the phone frame&quot;}}">
+const PROFILES = [
+  { id: 'career', name: 'Career Bubble', kind: 'Client', hue: '#3b82f6', locked: true, intakeOpen: 0, analysis: true, pipelines: [] },
+  { id: 'divine', name: 'Divine Studio', kind: 'Client', hue: '#0ea5e9', locked: false, intakeOpen: 2, analysis: false, pipelines: [{ name: 'Cold calls', sub: '14 leads, 3 stages', when: 'last touched 2 Aug' }, { name: 'Saved replies', sub: '9 answers she reuses in DMs', when: 'last touched 28 Jul' }] },
+  { id: 'sonia', name: "Sonia's Crochet", kind: 'Client', hue: '#ec4899', locked: true, intakeOpen: 0, analysis: true, catalogue: true, pipelines: [{ name: 'Orders', sub: '6 open, 2 paid in full', when: 'last touched today' }] },
+  { id: 'rg', name: 'ResumeGuru', kind: 'Yours', hue: '#22c55e', locked: true, intakeOpen: 0, analysis: true, pipelines: [] },
+  { id: 'krnl', name: 'KRNL Studio', kind: 'Yours', hue: '#f97316', locked: true, intakeOpen: 0, analysis: false, pipelines: [] },
+  { id: 'freelance', name: 'Freelance Projects', kind: 'Yours', hue: '#e879f9', locked: true, intakeOpen: 0, analysis: false, pipelines: [{ name: 'Leads', sub: '4 conversations open', when: 'last touched 1 Aug' }] },
+  { id: 'shiva', name: 'Shiva Mam', kind: 'Client', hue: '#6366f1', locked: true, intakeOpen: 0, analysis: true, pipelines: [] },
+  { id: 'linkedin', name: "Manmeet's LinkedIn", kind: 'Yours', hue: '#2dd4bf', locked: true, intakeOpen: 0, analysis: true, pipelines: [] },
+];
+
+const POSTS = [
+  { id: 'p1', pid: 'rg', title: 'Salary question carousel', stage: 'idea', tags: ['AI Lane', 'Carousel'], meta: 'no date' },
+  { id: 'p2', pid: 'rg', title: 'Why tailoring takes so long', stage: 'idea', tags: ['Value'], meta: 'no date' },
+  { id: 'p3', pid: 'rg', title: 'Career OS walkthrough', stage: 'build', tags: ['Product', 'Reel'], meta: 'Aug 08', day: 8 },
+  { id: 'p4', pid: 'rg', title: 'Review pattern post', stage: 'review', tags: ['Proof'], meta: 'sent 2 Aug', day: 6 },
+  { id: 'p5', pid: 'rg', title: 'The stuck years', stage: 'approved', tags: ['Value', 'Carousel'], meta: 'their yes, 3 Aug' },
+  { id: 'p6', pid: 'rg', title: 'Cover letter myth', stage: 'scheduled', tags: ['Value'], meta: 'Aug 12', day: 12 },
+  { id: 'p7', pid: 'rg', title: 'What a good bullet looks like', stage: 'posted', tags: ['Value'], meta: 'Jul 29' },
+  { id: 'p8', pid: 'rg', title: 'Three lines that get replies', stage: 'posted', tags: ['AI Lane'], meta: 'Jul 24' },
+  { id: 'p9', pid: 'career', title: 'Onboarding walkthrough', stage: 'build', tags: ['Product'], meta: 'Aug 09', day: 9 },
+  { id: 'p10', pid: 'career', title: 'Two roles, one story', stage: 'review', tags: ['Value'], meta: 'sent 1 Aug' },
+  { id: 'p11', pid: 'career', title: 'Founder note, August', stage: 'review', tags: ['Proof'], meta: 'sent 31 Jul', day: 14 },
+  { id: 'p12', pid: 'career', title: 'The stuck years', stage: 'idea', tags: ['Value', 'Carousel'], meta: 'no date' },
+  { id: 'p13', pid: 'divine', title: 'Morning class reel', stage: 'build', tags: ['Reel'], meta: 'Aug 07', day: 7 },
+  { id: 'p14', pid: 'divine', title: 'Divine shoot, fetch ideas', stage: 'idea', tags: ['Proof'], meta: 'overdue' },
+  { id: 'p15', pid: 'sonia', title: 'Cardigan close-ups', stage: 'review', tags: ['Product'], meta: 'sent 3 Aug' },
+  { id: 'p16', pid: 'sonia', title: 'Crochet reel edit', stage: 'build', tags: ['Reel'], meta: 'overdue' },
+  { id: 'p17', pid: 'shiva', title: 'Shiva Mam draft', stage: 'approved', tags: ['Value'], meta: 'goes live 7pm' },
+];
+
+const TODAY_ITEMS = [
+  { id: 't1', pid: 'shiva', profile: 'Shiva Mam', title: 'Shiva Mam draft goes out', when: 'live 7pm', group: 'live' },
+  { id: 't2', pid: 'divine', profile: 'Divine Studio', title: 'Divine shoot, fetch some ideas', when: 'due 15 Jul', group: 'overdue' },
+  { id: 't3', pid: 'freelance', profile: 'Freelance Projects', title: 'Meeting with UK', when: 'due 15 Jul', group: 'overdue' },
+  { id: 't4', pid: 'sonia', profile: "Sonia's Crochet", title: 'Crochet reel edit and shoot', when: 'due 19 Jul', group: 'overdue' },
+  { id: 't5', pid: 'rg', profile: 'ResumeGuru', title: 'Review pattern post, chase the yes', when: 'sent 2 Aug', group: 'live' },
+  { id: 't6', pid: 'career', profile: 'Career Bubble', title: 'Onboarding walkthrough, record voice', when: 'today', group: 'live' },
+  { id: 't7', pid: 'career', profile: 'Career Bubble', title: 'August mix target check', when: 'due 2 Aug', group: 'overdue' },
+  { id: 't8', pid: 'rg', profile: 'ResumeGuru', title: 'Salary carousel, slides 5 to 8', when: 'waiting on artwork', group: 'waiting' },
+];
+
+class Component extends DCLogic {
+  state = {
+    route: { screen: 'desk', pid: 'rg', app: 'creation', tab: 'board', piece: null, strategyOpen: false, strategyTab: 'decide' },
+    posts: POSTS, profiles: PROFILES, phoneReady: false,
+  };
+
+  componentDidMount() { this._t = setTimeout(() => this.setState({ phoneReady: true }), 350); }
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  nav = (patch) => this.setState(s => ({ route: Object.assign({}, s.route, patch) }));
+  moveCard = (id, stage) => this.setState(s => ({ posts: s.posts.map(p => p.id === id ? Object.assign({}, p, { stage }) : p) }));
+  openPiece = (id) => this.nav({ piece: id });
+  strategy = (open) => this.nav({ strategyOpen: open });
+  toggleLock = (pid) => this.setState(s => ({ profiles: s.profiles.map(p => p.id === pid ? Object.assign({}, p, { locked: !p.locked }) : p) }));
+
+  renderVals() {
+    const r = this.state.route;
+    const prof = this.state.profiles.find(p => p.id === r.pid) || this.state.profiles[0];
+    const names = { intake: 'Intake', creation: 'Creation', analysis: 'Analysis' };
+    const jumpStyle = 'all:unset; cursor:pointer; font-size:12.5px; font-weight:600; padding:8px 15px; border-radius:11px; border:1px solid rgba(255,255,255,.2); color:rgba(255,255,255,.8);';
+
+    return {
+      frameH: 880,
+      route: r,
+      atDesk: r.screen !== 'profile',
+      inProfile: r.screen === 'profile',
+      showPhone: this.props.showPhone !== false,
+      phoneDesk: this.state.phoneReady && this.props.showPhone !== false && r.screen !== 'profile',
+      phoneProfile: this.state.phoneReady && this.props.showPhone !== false && r.screen === 'profile',
+      routeLabel: r.screen === 'profile' ? prof.name + ' · ' + (names[r.app] || r.app) : 'The desk',
+      jumps: [
+        { label: 'The desk', pid: '', app: '' },
+        { label: 'A locked profile', pid: 'rg', app: 'creation' },
+        { label: 'One not locked', pid: 'divine', app: 'creation' },
+        { label: 'Intake still open', pid: 'divine', app: 'intake' },
+        { label: 'Analysis', pid: 'rg', app: 'analysis' },
+      ].map(j => Object.assign({}, j, { style: jumpStyle })),
+      onJump: (e) => {
+        const pid = e.currentTarget.dataset.pid;
+        if (!pid) { this.nav({ screen: 'desk', piece: null, strategyOpen: false }); return; }
+        this.nav({ screen: 'profile', pid, app: e.currentTarget.dataset.app, tab: null, piece: null, strategyOpen: false });
+      },
+      data: { profiles: this.state.profiles, posts: this.state.posts, todayItems: TODAY_ITEMS, today: 'Tuesday, 4 August' },
+      handlers: { nav: this.nav, moveCard: this.moveCard, openPiece: this.openPiece, strategy: this.strategy, toggleLock: this.toggleLock },
+      notes: [
+        { head: 'Three apps, and only what exists', body: 'Divine Studio has Intake and Creation because nothing is collected for it yet. ResumeGuru has all three. An app with nothing to show is absent, not greyed out.' },
+        { head: 'Previews are a state, not a screen', body: 'Open any piece in Review and the preview, the public link and the gates are in the panel with it. One post, one home, many windows.' },
+        { head: 'The lock actually gates', body: 'Divine Studio is unlocked, so its board reads but nothing moves. Lock it from the Strategy corner and Creation opens.' },
+        { head: 'Strategy is a corner', body: 'The control top right, from anywhere in the profile, and nowhere else. It carries Decide, Gates, Switches, Lock, Channels, Brand kit and intake history.' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -679,12 +679,19 @@ test('11j. a SUGGESTED position is not a decision either', () => {
 
 suite('spec 28 §17.12 — the chat, mounted and untouched');
 
-test('12. the widget is mounted once, in the root layout, above every route', () => {
+// The desk was rebuilt as a chat on 2026-08-04, so the floating widget stands
+// down there and nowhere else. The mount moved one file out of the root layout
+// into `components/ChatMount.tsx`, which is the whole of that decision. What is
+// checked is unchanged in substance: mounted once, above every route, and the
+// widget itself never touched.
+test('12. the widget is mounted once, above every route, through one mount', () => {
   const layout = readFileSync(join(ROOT, 'app/layout.tsx'), 'utf8');
-  ok(/ChatWidget/.test(layout), 'mounted in the root layout');
+  ok(/ChatMount/.test(layout), 'mounted in the root layout');
   const mounts = [...sourcesUnder('app'), ...sourcesUnder('components')]
     .filter(s => /from '@\/components\/ChatWidget'/.test(s.text));
-  eq(mounts.map(m => m.file), ['app/layout.tsx'], 'and nowhere else');
+  eq(mounts.map(m => m.file), ['components/ChatMount.tsx'], 'and nowhere else');
+  const mount = readFileSync(join(ROOT, 'components/ChatMount.tsx'), 'utf8');
+  ok(/'\/shelf'/.test(mount), 'and it stands down on the desk, which is a chat itself');
 });
 
 test('12b. no shell module touches the chat at all', () => {
@@ -742,23 +749,32 @@ test('13d. a legacy address resolves to its new one', () => {
 
 suite('spec 28 §17.14 — the cutover (payload half; the browser half is §17.17)');
 
-test('14. migrated but unlocked: the card opens the legacy workspace', () => {
+// Her decision, 2026-08-04: the gate is dropped. Every profile enters the new
+// shell, locked or not. The lock still gates WRITES; it no longer decides which
+// shell she is looking at.
+test('14. migrated but unlocked: the card opens the new shell anyway', () => {
   const state = shellState();
   const divine = state.clients.find(c => c.id === 'divine-studio')!;
-  ok(!isCutOver(state.clientData['divine-studio']), 'not cut over');
-  eq(composeCard(state, divine).href, '/client/divine-studio', 'the legacy workspace');
+  ok(isCutOver(state.clientData['divine-studio']), 'every profile is in the new shell now');
+  eq(composeCard(state, divine).href, '/profile/divine-studio', 'the new shell, unlocked');
 });
 
-test('14b. after locking, the same profile opens the new shell', () => {
+test('14b. and an unlocked profile renders Creation read-only rather than empty', () => {
   const state = shellState();
+  const unlocked = renderProfile(state, 'divine-studio', 'owner');
+  ok(!unlocked.strategy_locked, 'divine has not locked');
+  eq(renderState(unlocked, 'creation.board', 'owner'), 'history',
+    'her side reads the board and cannot move it');
+  eq(renderState(unlocked, 'creation.board', 'client'), 'hidden',
+    'and a client sees nothing of it before the lock');
+
   const body = state.clientData['divine-studio'].body!;
   state.clientData['divine-studio'] = {
     ...state.clientData['divine-studio'],
     body: lock(withPositions(body, [['creation.board', 'active']])),
   };
-  const divine = state.clients.find(c => c.id === 'divine-studio')!;
-  ok(isCutOver(state.clientData['divine-studio']), 'cut over');
-  eq(composeCard(state, divine).href, '/profile/divine-studio', 'the new shell');
+  const locked = renderProfile(state, 'divine-studio', 'owner');
+  eq(renderState(locked, 'creation.board', 'owner'), 'active', 'the lock opens it for writing');
 });
 
 test('14c. and the two states differ only in routing', () => {

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="{{ rootStyle }}"><div style="height:100%; display:flex; background:#faf8f6; color:#17151a; font-family:'Plus Jakarta Sans', system-ui, sans-serif; overflow:hidden; position:relative">
+
+  <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}">
+    <nav style="width:224px; flex:none; display:flex; flex-direction:column; padding:20px 14px 16px; background:#1c1a21; color:#fff">
+      <button onClick="{{ goDesk }}" style="all:unset; cursor:pointer; display:flex; align-items:center; gap:8px; font-size:11.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:rgba(255,255,255,.55); padding:2px 8px 18px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+        The desk
+      </button>
+
+      <div style="display:flex; align-items:center; gap:11px; padding:0 8px 20px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,.12)">
+        <span style="{{ avatarStyle }}">{{ profileInitial }}</span>
+        <span style="flex:1; min-width:0">
+          <span style="display:block; font-size:16px; font-weight:600; letter-spacing:-.01em; line-height:1.2">{{ profileName }}</span>
+          <span style="display:block; font-size:11.5px; color:rgba(255,255,255,.55); margin-top:2px">{{ profileKind }}</span>
+        </span>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:3px; padding-top:12px">
+        <sc-if value="{{ showIntake }}" hint-placeholder-val="{{ false }}">
+          <button data-key="intake" onClick="{{ onNav }}" style="{{ sIntake }}">
+            <span style="{{ wIntake }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></span>
+            <span style="flex:1; text-align:left">Intake</span>
+            <span style="{{ bIntake }}">{{ intakeBadge }}</span>
+          </button>
+        </sc-if>
+        <button data-key="creation" onClick="{{ onNav }}" style="{{ sCreation }}">
+          <span style="{{ wCreation }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path></svg></span>
+          <span style="flex:1; text-align:left">Creation</span>
+          <span style="{{ bCreation }}">{{ creationBadge }}</span>
+        </button>
+        <sc-if value="{{ showAnalysis }}" hint-placeholder-val="{{ true }}">
+          <button data-key="analysis" onClick="{{ onNav }}" style="{{ sAnalysis }}">
+            <span style="{{ wAnalysis }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg></span>
+            <span style="flex:1; text-align:left">Analysis</span>
+          </button>
+        </sc-if>
+      </div>
+
+      <div style="flex:1"></div>
+      <p style="margin:0; padding:0 10px; font-size:11.5px; line-height:1.5; color:rgba(255,255,255,.35)">{{ railFoot }}</p>
+    </nav>
+  </sc-if>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+    <header style="{{ headerStyle }}">
+      <sc-if value="{{ narrow }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ goDesk }}" style="all:unset; cursor:pointer; display:flex; align-items:center; color:#6b6570">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+        </button>
+      </sc-if>
+      <span style="{{ headerDot }}"></span>
+      <span style="flex:1; font-size:16px; font-weight:600; letter-spacing:-.01em">{{ profileName }}</span>
+      <button onClick="{{ openStrategy }}" style="{{ cornerStyle }}" title="Strategy">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 5H3"></path><path d="M12 19H3"></path><path d="M14 3v4"></path><path d="M16 17v4"></path><path d="M21 12h-9"></path><path d="M21 19h-5"></path><path d="M21 5h-7"></path><path d="M8 10v4"></path><path d="M8 12H3"></path></svg>
+        <span style="font-size:12.5px; font-weight:600">{{ cornerLabel }}</span>
+      </button>
+    </header>
+
+    <main style="flex:1; overflow-y:auto">
+      <dc-import name="RoomsV3" hint-size="100%,420px" route="{{ route }}" narrow="{{ narrow }}" data="{{ data }}" handlers="{{ handlers }}"></dc-import>
+    </main>
+
+    <sc-if value="{{ narrow }}" hint-placeholder-val="{{ false }}">
+      <nav style="flex:none; display:flex; background:#fff; border-top:1px solid rgba(23,21,26,.09); padding-bottom:6px">
+        <sc-if value="{{ showIntake }}" hint-placeholder-val="{{ false }}">
+          <button data-key="intake" onClick="{{ onNav }}" style="{{ tIntake }}">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+            <span style="font-size:10.5px; font-weight:600">Intake</span>
+          </button>
+        </sc-if>
+        <button data-key="creation" onClick="{{ onNav }}" style="{{ tCreation }}">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path></svg>
+          <span style="font-size:10.5px; font-weight:600">Creation</span>
+        </button>
+        <sc-if value="{{ showAnalysis }}" hint-placeholder-val="{{ true }}">
+          <button data-key="analysis" onClick="{{ onNav }}" style="{{ tAnalysis }}">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+            <span style="font-size:10.5px; font-weight:600">Analysis</span>
+          </button>
+        </sc-if>
+      </nav>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ pieceOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; inset:0; background:rgba(23,21,26,.34); display:flex; justify-content:flex-end; z-index:20">
+      <div style="{{ panelStyle }}">
+        <div style="display:flex; align-items:center; gap:12px; padding:18px 20px; border-bottom:1px solid rgba(23,21,26,.09)">
+          <span style="flex:1; font-size:18px; font-weight:600; letter-spacing:-.015em">{{ piece.title }}</span>
+          <button onClick="{{ closePiece }}" style="all:unset; cursor:pointer; display:flex; color:#9b95a1"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:18px 20px; display:flex; flex-direction:column; gap:18px">
+          <div style="display:flex; gap:7px; flex-wrap:wrap">
+            <sc-for list="{{ pieceStages }}" as="s" hint-placeholder-count="6">
+              <button data-stage="{{ s.key }}" onClick="{{ onStage }}" style="{{ s.style }}">{{ s.label }}</button>
+            </sc-for>
+          </div>
+
+          <div>
+            <sc-for list="{{ pieceFields }}" as="f" hint-placeholder-count="5">
+              <div style="display:flex; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid rgba(23,21,26,.07); font-size:14px">
+                <span style="color:#9b95a1">{{ f.k }}</span><span style="font-weight:600; text-align:right">{{ f.v }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ inReview }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid rgba(23,21,26,.09); border-radius:18px; overflow:hidden">
+              <div style="padding:14px 16px 12px; font-size:11.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#6b6570">In review, which is a state, not a screen</div>
+              <div style="display:flex; gap:14px; padding:0 16px 16px">
+                <div style="width:118px; flex:none; border:1px solid rgba(23,21,26,.09); border-radius:12px; overflow:hidden">
+                  <div style="aspect-ratio:4/5; background:linear-gradient(150deg,#f4f1ee,#e7e2dd); display:flex; align-items:center; justify-content:center; color:#9b95a1; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.07em">Slide 1 of 8</div>
+                </div>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:9px">
+                  <div style="font-size:13px; color:#6b6570; line-height:1.5">How it will look on the feed. The link below is the only thing anyone outside ever sees.</div>
+                  <div style="font-size:12.5px; font-family:ui-monospace, Menlo, monospace; background:#f4f1ee; border-radius:9px; padding:8px 10px; overflow:hidden; text-overflow:ellipsis">/p/4aa6a2ad</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap">
+                    <button style="all:unset; cursor:pointer; background:#1c1a21; color:#fff; font-size:13px; font-weight:600; padding:9px 15px; border-radius:11px">Copy the link</button>
+                    <button style="all:unset; cursor:pointer; border:1px solid rgba(23,21,26,.14); font-size:13px; font-weight:600; padding:8px 14px; border-radius:11px">Send on WhatsApp</button>
+                  </div>
+                  <div style="font-size:12.5px; color:#9b95a1">Sent 2 Aug. Not opened yet.</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div>
+            <div style="font-size:11.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#6b6570; margin-bottom:9px">Gates</div>
+            <sc-for list="{{ pieceGates }}" as="g" hint-placeholder-count="5">
+              <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                <span style="{{ g.mark }}"></span>
+                <span style="flex:1; font-size:14px">{{ g.label }}</span>
+                <span style="font-size:12px; color:#9b95a1">{{ g.note }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ strategyOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; inset:0; background:rgba(23,21,26,.34); display:flex; justify-content:flex-end; z-index:30">
+      <div style="{{ panelStyle }}">
+        <div style="display:flex; align-items:center; gap:12px; padding:18px 20px; background:#1c1a21; color:#fff">
+          <span style="flex:1">
+            <span style="display:block; font-size:18px; font-weight:600; letter-spacing:-.015em">Strategy</span>
+            <span style="display:block; font-size:12px; color:rgba(255,255,255,.55); margin-top:2px">{{ strategyState }}</span>
+          </span>
+          <button onClick="{{ closeStrategy }}" style="all:unset; cursor:pointer; display:flex; color:rgba(255,255,255,.7)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+        </div>
+        <div style="flex:none; display:flex; gap:4px; padding:12px 16px; background:#f4f1ee; overflow-x:auto">
+          <sc-for list="{{ strategyTabs }}" as="t" hint-placeholder-count="6">
+            <button data-tab="{{ t.key }}" onClick="{{ onStrategyTab }}" style="{{ t.style }}">{{ t.label }}</button>
+          </sc-for>
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:18px 20px">
+
+          <sc-if value="{{ stDecide }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <p style="margin:0 0 14px; font-size:13.5px; color:#6b6570; line-height:1.6">Fourteen decisions. Not collected from them — decided by you, from what they told you. Each one keeps its sources and a one line reason.</p>
+              <sc-for list="{{ params }}" as="p" hint-placeholder-count="8">
+                <div style="display:flex; align-items:baseline; gap:12px; padding:12px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                  <span style="font-size:11.5px; color:#c9c3c8; width:20px; flex:none; font-variant-numeric:tabular-nums">{{ p.n }}</span>
+                  <span style="width:118px; flex:none; font-size:14px; font-weight:600">{{ p.name }}</span>
+                  <span style="flex:1; font-size:13.5px; color:#6b6570; line-height:1.5">{{ p.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ stGates }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <p style="margin:0 0 14px; font-size:13.5px; color:#6b6570; line-height:1.6">Five gates every piece clears, and two the client can raise. A failed gate holds the piece at Review. It never scolds and it never deletes.</p>
+              <sc-for list="{{ gates }}" as="g" hint-placeholder-count="7">
+                <div style="display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                  <span style="{{ g.mark }}"></span>
+                  <span style="flex:1; font-size:14.5px; font-weight:600">{{ g.label }}</span>
+                  <span style="{{ g.pill }}">{{ g.owner }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ stSwitches }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap">
+                <input placeholder="Find a switch" style="flex:1; min-width:160px; font-family:inherit; font-size:13.5px; padding:10px 13px; border:1px solid rgba(23,21,26,.12); border-radius:11px; background:#faf8f6; outline:none" />
+                <span style="font-size:12.5px; font-weight:600; color:#6b6570; font-variant-numeric:tabular-nums">6 changed · 72 default</span>
+              </div>
+              <sc-for list="{{ switchGroups }}" as="g" hint-placeholder-count="6">
+                <div style="border-bottom:1px solid rgba(23,21,26,.07)">
+                  <button data-id="{{ g.id }}" onClick="{{ onGroup }}" style="all:unset; cursor:pointer; display:flex; align-items:center; gap:11px; width:100%; box-sizing:border-box; padding:14px 0">
+                    <span style="font-size:11px; color:#9b95a1; width:11px">{{ g.caret }}</span>
+                    <span style="flex:1; font-size:14.5px; font-weight:600; text-align:left">{{ g.name }}</span>
+                    <span style="{{ g.pill }}">{{ g.summary }}</span>
+                  </button>
+                  <sc-for list="{{ g.open }}" as="s" hint-placeholder-count="0">
+                    <div style="display:flex; align-items:center; gap:12px; padding:11px 0 11px 22px; border-top:1px solid rgba(23,21,26,.06)">
+                      <span style="flex:1; font-size:13.5px">{{ s.label }}</span>
+                      <span style="font-size:11.5px; color:#9b95a1">{{ s.note }}</span>
+                      <button data-id="{{ s.id }}" onClick="{{ onSwitch }}" style="{{ s.style }}"><span style="{{ s.knob }}"></span></button>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ stLock }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="{{ lockCard }}">
+                <div style="font-size:17px; font-weight:600; letter-spacing:-.01em">{{ lockTitle }}</div>
+                <p style="margin:7px 0 0; font-size:14px; line-height:1.6; color:#6b6570">{{ lockBody }}</p>
+                <button onClick="{{ onLock }}" style="{{ lockBtn }}">{{ lockAction }}</button>
+              </div>
+              <sc-for list="{{ lockChecks }}" as="c" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                  <span style="{{ c.mark }}"></span>
+                  <span style="flex:1; font-size:14px">{{ c.label }}</span>
+                  <span style="font-size:12.5px; color:#9b95a1">{{ c.note }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ stChannels }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <p style="margin:0 0 14px; font-size:13.5px; color:#6b6570; line-height:1.6">Where this profile posts, and where the numbers come from. A channel switched off is not drawn anywhere else in the product.</p>
+              <sc-for list="{{ channels }}" as="c" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                  <span style="{{ c.dot }}"></span>
+                  <span style="flex:1; font-size:14.5px; font-weight:600">{{ c.name }}</span>
+                  <span style="{{ c.pill }}">{{ c.state }}</span>
+                </div>
+              </sc-for>
+              <button style="all:unset; cursor:pointer; margin-top:16px; border:1px solid rgba(23,21,26,.14); font-size:13.5px; font-weight:600; padding:9px 17px; border-radius:12px">Connect an account</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ stBrand }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:20px">
+              <div>
+                <div style="font-size:11.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9b95a1; margin-bottom:10px">Palette</div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap">
+                  <sc-for list="{{ brandColors }}" as="c" hint-placeholder-count="4">
+                    <div style="width:60px">
+                      <div style="{{ c.style }}"></div>
+                      <div style="font-size:10.5px; color:#9b95a1; margin-top:5px; font-variant-numeric:tabular-nums">{{ c.hex }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9b95a1; margin-bottom:10px">Type and mark</div>
+                <div style="font-family:'Bricolage Grotesque', system-ui, sans-serif; font-weight:700; font-size:26px; letter-spacing:-.02em">Bricolage Grotesque</div>
+                <div style="font-size:13.5px; color:#6b6570; margin-top:4px">Logo, wordmark and the two lockups live here.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ stHistory }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <p style="margin:0 0 14px; font-size:13.5px; color:#6b6570; line-height:1.6">Intake goes quiet once it is curated and lives here as history. Reopen it and it comes back as an app.</p>
+              <sc-for list="{{ history }}" as="x" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid rgba(23,21,26,.07)">
+                  <span style="flex:1; font-size:14.5px; font-weight:600">{{ x.label }}</span>
+                  <span style="font-size:12.5px; color:#9b95a1; font-variant-numeric:tabular-nums">{{ x.when }}</span>
+                </div>
+              </sc-for>
+              <button onClick="{{ reopenIntake }}" style="all:unset; cursor:pointer; margin-top:16px; border:1px solid rgba(23,21,26,.14); font-size:13.5px; font-weight:600; padding:9px 17px; border-radius:12px">Reopen intake</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:880}}">
+class Component extends DCLogic {
+  state = { openGroups: {}, sw: {} };
+
+  renderVals() {
+    const p = this.props, r = p.route || {}, d = p.data || {}, h = p.handlers || {};
+    const prof = (d.profiles || []).find(x => x.id === r.pid) || {};
+    const narrow = !!p.narrow;
+    const cur = r.app || 'creation';
+    const hue = prof.hue || '#ea4711';
+    const locked = prof.locked !== false;
+    const S = this.state;
+
+    const item = (k) => 'all:unset; cursor:pointer; display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:13px; font-size:14.5px; font-weight:600; letter-spacing:-.01em; ' +
+      (k === cur ? 'background:#fff; color:#17151a;' : 'color:rgba(255,255,255,.82);');
+    const wrap = (k) => 'display:flex; align-items:center; color:' + (k === cur ? '#ea4711' : 'rgba(255,255,255,.7)') + ';';
+    const badge = (k) => 'font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums; color:' + (k === cur ? '#9b95a1' : 'rgba(255,255,255,.55)') + ';';
+    const tab = (k) => 'all:unset; cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 0 8px; color:' + (k === cur ? '#ea4711' : '#9b95a1') + ';';
+    const pill = (on) => 'all:unset; cursor:pointer; white-space:nowrap; font-size:12.5px; font-weight:600; padding:7px 13px; border-radius:10px; ' +
+      (on ? 'background:#1c1a21; color:#fff;' : 'background:#fff; color:#6b6570;');
+
+    const showIntake = !!prof.intakeOpen;
+    const showAnalysis = prof.analysis !== false;
+    const bar = [];
+    if (showIntake) bar.push({ key: 'intake', label: 'Intake' });
+    bar.push({ key: 'creation', label: 'Creation' });
+    if (showAnalysis) bar.push({ key: 'analysis', label: 'Analysis' });
+
+    const openPieces = (d.posts || []).filter(x => x.pid === r.pid);
+    const piece = openPieces.find(x => x.id === r.piece) || null;
+    const stageDefs = [['idea', 'Idea'], ['build', 'Build'], ['review', 'Review'], ['approved', 'Approved'], ['scheduled', 'Scheduled'], ['posted', 'Posted']];
+
+    const swDefault = { g1: true, g2: false, g3: true, g4: false, g5: true, g6: false };
+    const groupDefs = [
+      { id: 'g1', name: 'Voice and words', changed: 2, total: 14, open: [{ id: 'w1', label: 'Em dashes allowed', note: 'default on' }, { id: 'w2', label: 'Emoji in captions', note: 'default on' }] },
+      { id: 'g2', name: 'Client review', changed: 1, total: 9, open: [{ id: 'w3', label: 'Client sees the draft before it is scheduled', note: 'default off' }] },
+      { id: 'g3', name: 'Posting rhythm', changed: 2, total: 17, open: [{ id: 'w4', label: 'Weekend posting', note: 'default on' }, { id: 'w5', label: 'Two pieces in one day', note: 'default on' }] },
+      { id: 'g4', name: 'Formats in play', changed: 1, total: 12, open: [{ id: 'w6', label: 'Carousels over 8 slides', note: 'default off' }] },
+      { id: 'g5', name: 'What the numbers watch', changed: 0, total: 15, open: [] },
+      { id: 'g6', name: 'Safety and claims', changed: 0, total: 11, open: [] },
+    ];
+
+    const stTab = r.strategyTab || 'decide';
+
+    return {
+      rootStyle: 'height:' + (p.frameH || 880) + 'px; overflow:hidden;',
+      wide: !narrow, narrow,
+      route: r, data: d, handlers: h,
+      profileName: prof.name || '', profileKind: prof.kind || '', profileInitial: (prof.name || '').charAt(0),
+      avatarStyle: 'width:32px; height:32px; flex:none; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff; background:' + hue + ';',
+      headerStyle: 'flex:none; display:flex; align-items:center; gap:11px; padding:' + (narrow ? '14px 16px' : '16px 26px') + '; background:#fff; border-bottom:1px solid rgba(23,21,26,.09);',
+      headerDot: 'width:10px; height:10px; border-radius:50%; flex:none; background:' + hue + ';',
+      cornerStyle: 'all:unset; cursor:pointer; display:flex; align-items:center; gap:7px; padding:7px 13px; border-radius:11px; border:1px solid rgba(23,21,26,.14); color:#6b6570;',
+      cornerLabel: narrow ? '' : 'Strategy',
+      railFoot: locked ? 'Strategy locked. Creation is open.' : 'Strategy is not locked, so Creation is read only.',
+
+      showIntake, showAnalysis,
+      sIntake: item('intake'), wIntake: wrap('intake'), bIntake: badge('intake'), intakeBadge: prof.intakeOpen ? String(prof.intakeOpen) : '',
+      sCreation: item('creation'), wCreation: wrap('creation'), bCreation: badge('creation'),
+      creationBadge: String((d.posts || []).filter(x => x.pid === r.pid && x.stage !== 'posted').length),
+      sAnalysis: item('analysis'), wAnalysis: wrap('analysis'),
+      tIntake: tab('intake'), tCreation: tab('creation'), tAnalysis: tab('analysis'),
+      onNav: (e) => h.nav({ app: e.currentTarget.dataset.key, tab: null }),
+      goDesk: () => h.nav({ screen: 'desk' }),
+
+      panelStyle: 'width:' + (narrow ? '100%' : '470px') + '; max-width:100%; background:#faf8f6; display:flex; flex-direction:column; box-shadow:-16px 0 40px rgba(23,21,26,.22);',
+      pieceOpen: !!piece,
+      piece: piece || {},
+      closePiece: () => h.openPiece(null),
+      inReview: !!piece && piece.stage === 'review',
+      pieceStages: stageDefs.map(([key, label]) => ({
+        key, label,
+        style: 'all:unset; cursor:pointer; font-size:12.5px; font-weight:600; padding:6px 13px; border-radius:999px; ' +
+          (piece && piece.stage === key ? 'background:#1c1a21; color:#fff;' : 'background:#efece9; color:#6b6570;')
+      })),
+      onStage: (e) => { if (piece) h.moveCard(piece.id, e.currentTarget.dataset.stage); },
+      pieceFields: piece ? [
+        { k: 'Pillar', v: (piece.tags || [])[0] || '—' },
+        { k: 'Format', v: (piece.tags || [])[1] || 'Single' },
+        { k: 'Born from', v: 'the career has no home' },
+        { k: 'Date', v: piece.meta || 'no date' },
+        { k: 'Live link', v: piece.stage === 'posted' ? 'instagram.com/p/…' : 'not yet' },
+      ] : [],
+      pieceGates: [
+        { label: 'Says one thing, not three', note: 'passes', ok: true },
+        { label: 'Claim can be pointed at a source', note: 'passes', ok: true },
+        { label: 'Sounds like her out loud', note: 'passes', ok: true },
+        { label: 'Has somewhere to go next', note: 'not checked', ok: false },
+        { label: 'Fits the mix target', note: 'not checked', ok: false },
+      ].map(g => Object.assign({}, g, { mark: 'width:16px; height:16px; flex:none; border-radius:50%; box-sizing:border-box; ' + (g.ok ? 'background:#1a7f4b;' : 'border:2px solid #d9d4d0;') })),
+
+      strategyOpen: !!r.strategyOpen,
+      openStrategy: () => h.strategy(true),
+      closeStrategy: () => h.strategy(false),
+      strategyState: locked ? 'Locked 22 July. Open it to read or to change one decision.' : 'Not locked. Creation stays read only until it is.',
+      strategyTabs: [
+        { key: 'decide', label: 'Decide' }, { key: 'gates', label: 'Gates' }, { key: 'switches', label: 'Switches' },
+        { key: 'lock', label: 'Lock' }, { key: 'channels', label: 'Channels' }, { key: 'brand', label: 'Brand kit' }, { key: 'history', label: 'Intake history' },
+      ].map(t => Object.assign({}, t, { style: pill(t.key === stTab) })),
+      onStrategyTab: (e) => h.nav({ strategyTab: e.currentTarget.dataset.tab }),
+      stDecide: stTab === 'decide', stGates: stTab === 'gates', stSwitches: stTab === 'switches',
+      stLock: stTab === 'lock', stChannels: stTab === 'channels', stBrand: stTab === 'brand', stHistory: stTab === 'history',
+
+      params: [
+        ['Positioning', 'The connected career home. Not a resume tool.'], ['Audience', 'Two to six years in, stuck, scared of applying.'],
+        ['Pillars', 'Four lanes, each with a job and a mix target.'], ['Platforms', 'Instagram active. LinkedIn reading only.'],
+        ['Voice', 'Plain, spoken, no jargon. Short sentences.'], ['Proof', 'Their words first, numbers second.'],
+        ['Cadence', 'Four a week, none on Sunday.'], ['Enemy', 'The idea that applying is a numbers game.'],
+        ['Offer', 'One product, named plainly.'], ['Money', 'Never the lead, never hidden.'],
+        ['Formats', 'Carousel first, reel when there is motion.'], ['Hooks', 'Correction, story, teach. In that order.'],
+        ['Reply style', 'She answers, not a template.'], ['Season', 'Reviewed every quarter.'],
+      ].map((x, i) => ({ n: String(i + 1).padStart(2, '0'), name: x[0], value: x[1] })),
+      gates: [
+        { label: 'Says one thing, not three', owner: 'always', ok: true },
+        { label: 'Claim can be pointed at a source', owner: 'always', ok: true },
+        { label: 'Sounds like her out loud', owner: 'always', ok: true },
+        { label: 'Has somewhere to go next', owner: 'always', ok: true },
+        { label: 'Fits the mix target for the month', owner: 'always', ok: true },
+        { label: 'Client has seen it', owner: 'client raised', ok: false },
+        { label: 'Legal or claim sign-off', owner: 'client raised', ok: false },
+      ].map(g => Object.assign({}, g, {
+        mark: 'width:16px; height:16px; flex:none; border-radius:50%; box-sizing:border-box; background:' + (g.ok ? '#1a7f4b' : '#c9c3c8') + ';',
+        pill: 'font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px; white-space:nowrap; ' +
+          (g.ok ? 'color:#6b6570; background:#efece9;' : 'color:#b8551f; background:rgba(234,71,17,.10);')
+      })),
+      switchGroups: groupDefs.map(g => {
+        const open = (S.openGroups[g.id] !== undefined ? S.openGroups[g.id] : g.changed > 0);
+        return {
+          id: g.id, name: g.name, caret: open ? '▾' : '▸',
+          summary: g.changed ? g.changed + ' changed' : 'all ' + g.total + ' default',
+          pill: 'font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px; white-space:nowrap; ' +
+            (g.changed ? 'color:#b8551f; background:rgba(234,71,17,.10);' : 'color:#9b95a1; background:#efece9;'),
+          open: open ? g.open.map(s => {
+            const on = S.sw[s.id] !== undefined ? S.sw[s.id] : swDefault[g.id];
+            return Object.assign({}, s, {
+              style: 'all:unset; cursor:pointer; width:38px; height:22px; border-radius:999px; display:flex; align-items:center; padding:0 2px; justify-content:' + (on ? 'flex-end' : 'flex-start') + '; background:' + (on ? '#1c1a21' : '#d9d4d0') + ';',
+              knob: 'display:block; width:18px; height:18px; border-radius:50%; background:#fff;'
+            });
+          }) : []
+        };
+      }),
+      onGroup: (e) => { const id = e.currentTarget.dataset.id; const was = S.openGroups[id] !== undefined ? S.openGroups[id] : (groupDefs.find(g => g.id === id).changed > 0); this.setState(s => ({ openGroups: Object.assign({}, s.openGroups, { [id]: !was }) })); },
+      onSwitch: (e) => { const id = e.currentTarget.dataset.id; const g = groupDefs.find(x => x.open.some(s => s.id === id)); const c = S.sw[id] !== undefined ? S.sw[id] : swDefault[g.id]; this.setState(s => ({ sw: Object.assign({}, s.sw, { [id]: !c }) })); },
+
+      lockCard: 'background:#fff; border:1px solid ' + (locked ? 'rgba(23,21,26,.09)' : 'rgba(234,71,17,.3)') + '; border-radius:18px; padding:18px 20px;',
+      lockTitle: locked ? 'Locked, and Creation is open' : 'Not locked yet',
+      lockBody: locked
+        ? 'Every decision above is in force. Changing one dates a new version and tells you which pieces were made under the old one.'
+        : 'Until this is locked, nothing can be written in Creation. The board can be read, but no piece moves.',
+      lockAction: locked ? 'Change a decision' : 'Lock it and open Creation',
+      lockBtn: 'all:unset; cursor:pointer; display:inline-block; margin-top:14px; font-size:13.5px; font-weight:600; padding:10px 18px; border-radius:12px; ' +
+        (locked ? 'border:1px solid rgba(23,21,26,.14); color:#17151a;' : 'background:#1c1a21; color:#fff;'),
+      onLock: () => h.toggleLock(prof.id),
+      lockChecks: [
+        { label: '14 of 14 decisions made', note: 'complete', ok: true },
+        { label: 'Gates chosen', note: '5 always, 2 client raised', ok: true },
+        { label: 'Intake curated', note: prof.intakeOpen ? 'still open' : 'complete', ok: !prof.intakeOpen },
+      ].map(c => Object.assign({}, c, { mark: 'width:16px; height:16px; flex:none; border-radius:50%; box-sizing:border-box; ' + (c.ok ? 'background:#1a7f4b;' : 'border:2px solid #d9d4d0;') })),
+
+      channels: [
+        { name: 'Instagram, @resumeguru.ai', state: 'not collecting since 12 Jul', bad: true },
+        { name: 'LinkedIn', state: 'reading only', bad: false },
+        { name: 'WhatsApp, for approvals', state: 'in use', bad: false },
+      ].map(c => Object.assign({}, c, {
+        dot: 'width:9px; height:9px; border-radius:50%; flex:none; background:' + (c.bad ? '#ea4711' : '#1a7f4b') + ';',
+        pill: 'font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px; white-space:nowrap; ' +
+          (c.bad ? 'color:#b8551f; background:rgba(234,71,17,.10);' : 'color:#6b6570; background:#efece9;')
+      })),
+      brandColors: ['#1c1a21', '#ea4711', '#f0a34a', '#8a9a8f'].map(hex => ({ hex, style: 'height:48px; border-radius:12px; background:' + hex + ';' })),
+      history: [
+        { label: 'Round 1, who they are', when: 'sent 1 Jun, answered 4 Jun' },
+        { label: 'Round 2, proof and money', when: 'sent 15 Jul, answered 18 Jul' },
+        { label: 'Curated into 14 decisions', when: '22 Jul' },
+      ],
+      reopenIntake: () => { h.strategy(false); h.nav({ app: 'intake', tab: 'rounds' }); },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

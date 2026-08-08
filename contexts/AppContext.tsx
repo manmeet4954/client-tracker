@@ -72,6 +72,7 @@ function defaultClientData(): ClientData {
   };
 }
 
+
 const SEED: AppState = {
   clients: [
     { id: 'career-bubble', name: 'Career Bubble', color: '#8B5CF6', createdAt: new Date().toISOString() },

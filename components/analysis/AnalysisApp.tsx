@@ -1,153 +1,128 @@
 'use client';
 
-// The Analysis app — spec 27 §5. One app inside a profile, eight tabs.
+// The Analysis app — spec 27 §5, restructured by the design handoff, "ANALYSIS".
 //
-// A tab whose switch is not `active` is NOT RENDERED. Not greyed out, not shown
-// with a lock: absent (PLAN §2 item 2). A tab at `history` renders read-only with
-// a line saying since when.
+// Eight screens became THREE GROUPS. The eight are not gone: each is still its
+// own read, its own switch and its own payload. What changed is what the
+// navigation addresses. A phone cannot carry eight tabs, and the operator does
+// not think in eight questions — she thinks in three: where are we, what
+// happened, what does it mean.
 //
-// Spec 28 re-homes these screens into the profile shell. Until then they mount
-// on the existing /client/[id]/analytics route, and a profile that has not moved
-// into the tree keeps rendering exactly what it renders today.
+//   Where we are   Now · Goals · Health
+//   What happened  Slices · Scorecard · Funnel
+//   What it means  Compare · Verdicts
+//
+// A screen whose switch is not `active` is NOT RENDERED. Not greyed, not shown
+// with a lock: absent. A group left with no screens is not rendered either, and
+// with all eight off there is no Analysis app at all.
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  CompareTab, FunnelTab, GoalsTab, HealthTab, NowTab, ScorecardTab, SlicesTab, VerdictsTab,
-} from './Tabs';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { ScreenHeader } from '@/components/shell/Screen';
+import AnalysisGroup from './AnalysisGroup';
+import { Empty } from './Shared';
+import { defaultGroupId, groupOf, groupsFor, resolveGroup } from '@/lib/analysis/groups';
+import type { TabNode } from '@/lib/analysis/groups';
 
-const TAB_LABEL: Record<string, string> = {
-  now: 'Now',
-  slices: 'Slices',
-  scorecard: 'Scorecard',
-  funnel: 'Funnel',
-  compare: 'Compare',
-  goals: 'Goals',
-  verdicts: 'Verdicts',
-  health: 'Health',
-};
+/** The eight, as the API answers with them when nothing else supplies the list. */
+async function readTabs(clientId: string): Promise<{ tabs?: TabNode[]; error?: string }> {
+  try {
+    const res = await fetch(`/api/analysis?clientId=${encodeURIComponent(clientId)}&tab=now`);
+    const json = await res.json();
+    if (Array.isArray(json.tabs)) return { tabs: json.tabs as TabNode[] };
+    return { error: json.detail ?? json.error ?? 'Could not read what is switched on here.' };
+  } catch {
+    return { error: 'Could not reach the engine. Nothing was lost.' };
+  }
+}
 
-interface TabState { id: string; switch: string; state: 'active' | 'history' | 'hidden' }
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type Payload = Record<string, any>;
-
-/**
- * Spec 28 §5.3 supplies the frame — the desktop tab row and the mobile
- * bottom-sheet picker — so when the shell drives the tab from the route, this
- * component renders the CONTENT only. Uncontrolled (no `tab` prop) it behaves
- * exactly as it did on the legacy analytics route. Nothing about the eight tabs
- * themselves changed.
- */
 export default function AnalysisApp({
-  clientId, accent, tab: routeTab,
-}: { clientId: string; accent?: string; tab?: string }) {
-  const [ownTab, setTab] = useState('now');
-  const controlled = typeof routeTab === 'string';
-  const tab = controlled ? routeTab : ownTab;
-  const [dimension, setDimension] = useState('hook_type');
-  const [cross, setCross] = useState('');
-  const [selected, setSelected] = useState<string[]>([]);
-  const [payload, setPayload] = useState<Payload | null>(null);
-  const [tabs, setTabs] = useState<TabState[]>([]);
+  clientId, tabs: given, group, tab, hrefForGroup, fixHref, engineHref,
+}: {
+  clientId: string;
+  /**
+   * The eight screens with their switch states, from
+   * `rendered(ANALYSIS_TABS, renderProfile(...), role)`. Pass it: it is the one
+   * source of truth for what is switched on. Without it this component reads
+   * the list from the API, which costs an extra request.
+   */
+  tabs?: TabNode[];
+  /** The group the route addresses: `where`, `what` or `means`. */
+  group?: string;
+  /** An old eight-tab address. It resolves to the group that screen now lives in. */
+  tab?: string;
+  /** Makes the segmented control navigate. Without it the control is local state. */
+  hrefForGroup?: (id: string) => string;
+  /** Where "Fix the connection" goes. Defaults to the Strategy corner's Channels panel. */
+  fixHref?: string;
+  /** Where "Send this back to Engine" goes. */
+  engineHref?: string;
+  /** Accepted and ignored: the chrome is ink everywhere now. */
+  accent?: string;
+}) {
+  const pathname = usePathname() ?? '';
+  const search = useSearchParams();
+  const [tabs, setTabs] = useState<TabNode[] | undefined>(given);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!given);
+  const [ownGroup, setOwnGroup] = useState<string | undefined>();
 
   const load = useCallback(async () => {
+    if (given) { setTabs(given); setLoading(false); return; }
     setLoading(true);
-    setError('');
-    const params = new URLSearchParams({ clientId, tab, dimension });
-    if (cross) params.set('cross', cross);
-    if (selected.length >= 2) params.set('pieces', selected.join(','));
-    try {
-      const res = await fetch(`/api/analysis?${params.toString()}`);
-      const json = await res.json();
-      if (!res.ok) {
-        setTabs(json.tabs ?? []);
-        setError(json.detail ?? json.error ?? 'Could not load this.');
-        setPayload(null);
-      } else {
-        setPayload(json);
-        setTabs(json.tabs ?? []);
-      }
-    } catch {
-      setError('Could not reach the engine. Nothing was lost.');
-    } finally {
-      setLoading(false);
-    }
-  }, [clientId, tab, dimension, cross, selected]);
+    const { tabs: read, error: failed } = await readTabs(clientId);
+    setTabs(read);
+    setError(failed ?? '');
+    setLoading(false);
+  }, [clientId, given]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const visible = tabs.filter(t => t.state !== 'hidden');
-  const current = tabs.find(t => t.id === tab);
-  const toggle = (id: string) =>
-    setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
+  if (loading && !tabs) return <Empty>Reading what is switched on here.</Empty>;
+
+  if (error && !tabs) {
+    return (
+      <div className="rounded-card border border-[rgba(234,71,17,.3)] bg-surface px-[18px] py-3 text-sm text-accent-text">
+        {error}
+      </div>
+    );
+  }
+
+  const groups = groupsFor(tabs ?? []);
+
+  // Off means absent, all the way up: with every screen switched off there is no
+  // Analysis app, and this says so in one line instead of drawing an empty shell.
+  if (groups.length === 0) {
+    return <Empty>Nothing is being collected for this profile, so there is nothing to read yet.</Empty>;
+  }
+
+  const asked = group ?? (tab ? groupOf(tab) : undefined) ?? ownGroup ?? defaultGroupId(tabs ?? []) ?? '';
+  const active = resolveGroup(tabs ?? [], asked);
+  if (!active) return null;
+
+  // "Fix the connection" opens the Strategy corner's Channels panel OVER this
+  // screen — the corner is a panel, not a place, so the rest of the query is
+  // carried through and closing it returns to exactly here.
+  const corner = new URLSearchParams(search?.toString() ?? '');
+  corner.set('strategy', 'channels');
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4">
-      <div className={`flex flex-wrap gap-2 border-b border-stone-200 pb-2 ${controlled ? 'hidden' : ''}`}>
-        {(visible.length ? visible : Object.keys(TAB_LABEL).map(id => ({ id, switch: '', state: 'active' as const })))
-          .map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                tab === t.id ? 'text-white' : 'text-stone-600 hover:bg-stone-100'
-              }`}
-              style={tab === t.id ? { backgroundColor: accent ?? '#1c1917' } : undefined}
-            >
-              {TAB_LABEL[t.id] ?? t.id}
-            </button>
-          ))}
-      </div>
+    <div className="flex flex-col gap-3.5">
+      <ScreenHeader
+        title="Analysis"
+        segments={groups.map(g => ({
+          id: g.id, label: g.label, href: hrefForGroup ? hrefForGroup(g.id) : undefined,
+        }))}
+        active={active.id}
+        onSelect={setOwnGroup}
+      />
 
-      {current?.state === 'history' ? (
-        <div className="rounded-lg border border-stone-300 bg-stone-50 px-4 py-2 text-sm text-stone-600">
-          This one is switched to history. Everything below is readable and nothing new is computed.
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
-      ) : null}
-
-      {loading && !payload ? (
-        <div className="px-4 py-8 text-center text-sm text-stone-500">Reading what was collected...</div>
-      ) : null}
-
-      {payload ? (
-        <>
-          {tab === 'now' ? <NowTab payload={payload} /> : null}
-          {tab === 'slices' ? (
-            <SlicesTab
-              payload={payload} dimension={dimension} cross={cross}
-              onDimension={setDimension} onCross={setCross}
-            />
-          ) : null}
-          {tab === 'scorecard' ? <ScorecardTab payload={payload} /> : null}
-          {tab === 'funnel' ? <FunnelTab payload={payload} /> : null}
-          {tab === 'compare' ? <CompareTab payload={payload} selected={selected} onToggle={toggle} /> : null}
-          {tab === 'goals' ? <GoalsTab payload={payload} /> : null}
-          {tab === 'verdicts' ? <VerdictsTab payload={payload} /> : null}
-          {tab === 'health' ? <HealthTab payload={payload} /> : null}
-        </>
-      ) : null}
-
-      {payload?.suggested_values?.length ? (
-        <details className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600">
-          <summary className="cursor-pointer font-medium text-stone-700">
-            Three values still waiting on your call
-          </summary>
-          <ul className="mt-2 space-y-2">
-            {payload.suggested_values.map((v: Payload) => (
-              <li key={v.id}>
-                <span className="font-medium text-stone-800">{v.what}.</span> Suggested: {v.suggested}. {v.question}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
+      <AnalysisGroup
+        clientId={clientId}
+        screens={active.screens}
+        fixHref={fixHref ?? (pathname ? `${pathname}?${corner.toString()}` : undefined)}
+        engineHref={engineHref ?? `/profile/${clientId}/creation/engine`}
+      />
     </div>
   );
 }

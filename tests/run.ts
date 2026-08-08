@@ -19,5 +19,17 @@ import './tracking.test.ts';
 import './analysis.test.ts';
 // spec 28
 import './shell.test.ts';
+// the restructure, phases 2 to 5 — one file per screen, each owned by the agent
+// that built that screen
+import './creation.board.test.ts';
+import './creation.piece.test.ts';
+import './creation.logs.test.ts';
+import './creation.assets.test.ts';
+import './analysis.groups.test.ts';
+import './intake.screens.test.ts';
+// spec 30 — the desk chat's tool layer
+import './desk.read.test.ts';
+import './desk.write.test.ts';
+import './desk.loop.test.ts';
 
 process.exit(await run());
