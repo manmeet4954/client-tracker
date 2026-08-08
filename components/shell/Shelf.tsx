@@ -19,10 +19,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronDown, LogOut, Menu, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, LogOut, Menu, MoreHorizontal, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import Modal from '@/components/Modal';
 import type { DeskAnswer, DeskProfile, DeskRow } from '@/lib/shell/desk';
+import type { Lifecycle } from '@/lib/tree/objects';
 import {
   DESK_PROMPTS, DESK_UNREACHABLE, answerToday, askDesk, composeDeskProfiles,
 } from '@/lib/shell/desk';
@@ -150,9 +151,18 @@ export default function Shelf() {
     setAddOpen(false);
   }
 
+  /**
+   * Spec 31. One dispatch, and it is the one that already existed: this adds no
+   * state and no new way to write a lifecycle. What it adds is a place to reach
+   * it from, and a consequence when she does.
+   */
+  function rest(id: string, to: Lifecycle) {
+    dispatch({ type: 'SET_LIFECYCLE', payload: { clientId: id, lifecycle: to } });
+  }
+
   const list = (labelled: boolean) => (
     <ProfileList profiles={profiles} labelled={labelled}
-      onAdd={() => { setMenuOpen(false); setAddOpen(true); }} onLogout={logout} />
+      onAdd={() => { setMenuOpen(false); setAddOpen(true); }} onLogout={logout} onRest={rest} />
   );
 
   return (
@@ -309,13 +319,86 @@ export default function Shelf() {
  * whatever `lib/shell/desk.ts` composed for that profile; a profile with
  * nothing true to say shows no line at all, never a zero.
  */
-function ProfileList({ profiles, labelled, onAdd, onLogout }: {
+/**
+ * One row. The whole row navigates; the small control on the right does not.
+ *
+ * Spec 31 §3: pausing is one tap and reversible, so it does not ask twice.
+ * Archiving asks once, because it reads as final even though it is not.
+ */
+function ProfileRow({ p, onRest }: { p: DeskProfile; onRest: (id: string, to: Lifecycle) => void }) {
+  const [menu, setMenu] = useState(false);
+  return (
+    <div className="group relative flex items-center rounded-xl pr-1 hover:bg-white/[.08]">
+      <Link href={p.href}
+        className="flex min-w-0 flex-1 items-center gap-[10px] rounded-xl px-[10px] py-[9px] text-white/85">
+        <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[9px] text-[12.5px] font-bold text-white"
+          style={{ backgroundColor: p.hue }}>
+          {p.initial}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[14px] font-semibold tracking-[-.01em]">{p.name}</span>
+          {p.line && (
+            <span className="mt-[2px] block truncate text-[11.5px]"
+              style={{ color: p.alert ? '#ff8a5c' : 'rgba(255,255,255,.42)' }}>
+              {p.line}
+            </span>
+          )}
+        </span>
+      </Link>
+
+      <button type="button" onClick={() => setMenu(v => !v)}
+        aria-label={`What to do with ${p.name}`}
+        className="flex-none rounded-lg p-1.5 text-white/40 opacity-0 hover:text-white/80 focus:opacity-100 group-hover:opacity-100 md:opacity-0">
+        <MoreHorizontal size={16} strokeWidth={2.2} />
+      </button>
+
+      {menu && (
+        <div className="absolute right-1 top-[calc(100%-4px)] z-30 w-[184px] overflow-hidden rounded-xl bg-white py-1 shadow-panel">
+          {p.resting ? (
+            <MenuItem label="Bring it back" onClick={() => { onRest(p.id, 'active'); setMenu(false); }} />
+          ) : (
+            <>
+              <MenuItem label="Pause it" sub="Not now, coming back"
+                onClick={() => { onRest(p.id, 'paused'); setMenu(false); }} />
+              <MenuItem label="Archive it" sub="Done, kept forever"
+                onClick={() => {
+                  if (confirm(`Archive ${p.name}? Everything is kept, and you can bring it back.`)) {
+                    onRest(p.id, 'archived');
+                  }
+                  setMenu(false);
+                }} />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuItem({ label, sub, onClick }: { label: string; sub?: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="block w-full px-3.5 py-2 text-left hover:bg-chip">
+      <span className="block text-[13px] font-semibold text-text">{label}</span>
+      {sub && <span className="mt-[1px] block text-[11.5px] text-faint">{sub}</span>}
+    </button>
+  );
+}
+
+function ProfileList({ profiles, labelled, onAdd, onLogout, onRest }: {
   profiles: DeskProfile[];
   /** The drawer carries its own "Profiles" header, so it does not want a second. */
   labelled: boolean;
   onAdd: () => void;
   onLogout: () => void;
+  onRest: (id: string, to: Lifecycle) => void;
 }) {
+  // Spec 31 §2. Resting profiles leave the list. The fold is shut, and when
+  // nothing is resting it is not drawn at all: off means absent.
+  const [restOpen, setRestOpen] = useState(false);
+  const working = profiles.filter(p => !p.resting);
+  const resting = profiles.filter(p => p.resting);
+
   return (
     <>
       {labelled && (
@@ -324,24 +407,23 @@ function ProfileList({ profiles, labelled, onAdd, onLogout }: {
         </div>
       )}
       <div className="flex flex-1 flex-col gap-[2px] overflow-y-auto">
-        {profiles.map(p => (
-          <Link key={p.id} href={p.href}
-            className="flex items-center gap-[10px] rounded-xl px-[10px] py-[9px] text-white/85 hover:bg-white/[.08]">
-            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[9px] text-[12.5px] font-bold text-white"
-              style={{ backgroundColor: p.hue }}>
-              {p.initial}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-semibold tracking-[-.01em]">{p.name}</span>
-              {p.line && (
-                <span className="mt-[2px] block truncate text-[11.5px]"
-                  style={{ color: p.alert ? '#ff8a5c' : 'rgba(255,255,255,.42)' }}>
-                  {p.line}
-                </span>
-              )}
-            </span>
-          </Link>
-        ))}
+        {working.map(p => <ProfileRow key={p.id} p={p} onRest={onRest} />)}
+
+        {resting.length > 0 && (
+          <>
+            <button type="button" onClick={() => setRestOpen(v => !v)}
+              className="mt-1 flex items-center gap-2 rounded-xl px-[10px] py-2 text-left text-[11.5px] font-semibold text-white/40 hover:bg-white/[.06]">
+              <ChevronDown size={14} strokeWidth={2.2}
+                className={restOpen ? '' : '-rotate-90'} />
+              Resting ({resting.length})
+            </button>
+            {restOpen && resting.map(p => (
+              <div key={p.id} className="opacity-50">
+                <ProfileRow p={p} onRest={onRest} />
+              </div>
+            ))}
+          </>
+        )}
       </div>
       <button type="button" onClick={onAdd}
         className="mt-3 rounded-xl border border-dashed border-white/[.24] p-[10px] text-center text-[13px] font-semibold text-white/60">

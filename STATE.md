@@ -3,8 +3,14 @@
 ## 2026-08-08 — THE STRATEGY ROOM, INTAKE, AND THE CHAT THAT KEEPS ITS THREAD
 
 Branch `main`. **855 tests green**, typecheck clean, production build green.
-Everything below is BUILT and NOT DEPLOYED. The 08-05 deploy (phases 2 to 6) is
-what is live.
+
+**DEPLOYED on her go: `eccc216` on `client-tracker/main`, Vercel SUCCESS
+2026-08-08 11:33.** All three DEPLOY.md gates passed, including the drift check
+showing nothing live the vault did not already have. Previous head was
+`f585b3c`, if it ever needs backing out; no stored data changed in this deploy.
+
+She deployed it to REVIEW it, on the understanding she will come back with
+changes. That is now the loop (see the decision below), not a one-off.
 
 ### A DECISION THAT CHANGES WHAT THIS IS (hers, 2026-08-08)
 

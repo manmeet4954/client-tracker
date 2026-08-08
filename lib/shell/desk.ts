@@ -97,7 +97,25 @@ export interface DeskProfile {
   line: string;
   /** True when the line is asking for her attention. */
   alert: boolean;
+  /**
+   * Spec 31 §2. A profile that is paused, closing or archived is not asking for
+   * anything, so it leaves the list and collects behind one quiet row.
+   *
+   * Before this existed, archiving a profile changed NOTHING she could see: the
+   * row stayed in the list looking identical to a live one. A state with no
+   * consequence is the same as no state, which is exactly how she found it.
+   */
+  resting: boolean;
+  /** Her word for where it stands: paused, closing, archived. Empty when active. */
+  restingWord: string;
 }
+
+/** `setup` is NOT resting: a profile she just added is waiting on her. */
+const RESTING: Record<string, string> = {
+  paused: 'Paused',
+  closing: 'Closing',
+  archived: 'Archived',
+};
 
 // ── The profiles, once, for everything below ─────────────────────────────────
 
@@ -133,14 +151,19 @@ export function composeDeskProfiles(state: AppState, today: string): DeskProfile
     const slipped = strip.filter(r => r.profile_id === card.id && r.overdue).length;
     const line = card.attention
       ?? (slipped > 0 ? `${slipped} slipped` : (card.status || card.chip || ''));
+    const restingWord = RESTING[String(card.lifecycle ?? 'active')] ?? '';
     return {
       id: card.id,
       name: card.name,
       initial: card.name.slice(0, 1).toUpperCase(),
       hue,
       href: card.href,
-      line,
-      alert: !!card.attention || slipped > 0,
+      // A resting profile says where it stands and nothing else. It is not
+      // nagging her about a strategy she has stopped working on.
+      line: restingWord || line,
+      alert: restingWord ? false : (!!card.attention || slipped > 0),
+      resting: !!restingWord,
+      restingWord,
     };
   });
 }
