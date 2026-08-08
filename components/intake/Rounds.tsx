@@ -20,9 +20,11 @@
 // is the only way a finding-session round ever gets its answers.
 
 import { useState } from 'react';
-import { Check, Link2, Mic, Plus } from 'lucide-react';
+import { Check, FileText, Link2, Mic, Plus } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import type { ProfileBody } from '@/lib/tree/body';
+import type { IntakeDelivery } from '@/lib/tree/objects';
+import Documents from './Documents';
 import { fileAnswer, openRound, refreshRounds, sendRound } from '@/lib/intake/rounds';
 import { curatedIds } from '@/lib/intake/curate';
 import {
@@ -50,7 +52,7 @@ export default function Rounds({ clientId, body }: { clientId: string; body: Pro
    * refuses (§4 rule 1: no round goes out carrying the draft wording), the
    * round is still written and the reason is said plainly.
    */
-  function open(delivery: 'dashboard-questionnaire' | 'finding-session') {
+  function open(delivery: IntakeDelivery) {
     const now = new Date().toISOString();
     const result = openRound(body, {
       delivery, config: switchConfigFromBody(body), now,
@@ -118,6 +120,14 @@ export default function Rounds({ clientId, body }: { clientId: string; body: Pro
           card={card}
           onSend={() => send(card)}
           onRecord={(pid, value, kind) => record(card.version, pid, value, kind)}
+          documents={(
+            <Documents
+              clientId={clientId}
+              body={body}
+              round={card.version}
+              questions={card.questions.map(q => ({ parameterId: q.parameterId, text: q.text }))}
+            />
+          )}
         />
       ))}
 
@@ -146,15 +156,26 @@ export default function Rounds({ clientId, body }: { clientId: string; body: Pro
           <Mic size={15} strokeWidth={2.2} />
           Open one for a recorded meeting
         </button>
+        {/* Spec 33 §2, the third route: they hand things over instead of typing. */}
+        <button
+          type="button"
+          onClick={() => open('documents')}
+          className="flex items-center gap-2 whitespace-nowrap rounded-xl border border-[rgba(23,21,26,.14)] px-[17px] py-[9px] text-[13.5px] font-semibold text-text"
+        >
+          <FileText size={15} strokeWidth={2.2} />
+          Open one for documents
+        </button>
       </div>
     </div>
   );
 }
 
-function Card({ card, onSend, onRecord }: {
+function Card({ card, onSend, onRecord, documents }: {
   card: RoundCard;
   onSend: () => void;
   onRecord: (parameterId: string, value: string, kind: 'answer' | 'skipped') => void;
+  /** Spec 33 §2. What they handed over on this round, listed on the card. */
+  documents?: React.ReactNode;
 }) {
   const blocked = sendBlockedLine(card);
 
@@ -191,6 +212,8 @@ function Card({ card, onSend, onRecord }: {
           This round asks nothing. Everything in it is either curated already or switched off here.
         </p>
       )}
+
+      {documents}
 
       {card.status === 'not-sent' && (
         <div className="flex flex-wrap items-center gap-3 border-t border-divider px-[18px] py-3.5">

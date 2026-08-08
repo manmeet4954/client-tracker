@@ -22,8 +22,21 @@ export function readRounds(body: ProfileBody): IntakeRound[] {
     .sort((a, b) => a.version - b.version);
 }
 
+/**
+ * Spec 33 §2 put DOCUMENTS at this address too, because a document handed over
+ * during intake is exactly what this folder is for: raw material the client
+ * gave, never altered. They are not answers, so they are filtered out here
+ * rather than every caller having to know.
+ *
+ * `lib/intake/documents.ts` reads the same folder for the other half. One
+ * address, two readers, and neither pretends to be the other.
+ */
+function isDocument(d: Record<string, unknown>): boolean {
+  return d.record === 'document';
+}
+
 export function readAnswers(body: ProfileBody): AnswerRecord[] {
-  return readPath(body, ANSWERS_PATH).map(e => {
+  return readPath(body, ANSWERS_PATH).filter(e => !isDocument(e.data as Record<string, unknown>)).map(e => {
     const d = e.data as Record<string, unknown>;
     return {
       id: e.id,

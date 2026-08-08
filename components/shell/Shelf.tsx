@@ -32,7 +32,7 @@ import {
 import { answerQuestion } from '@/lib/shell/deskAnswers';
 import { renderProfile } from '@/lib/shell/profile';
 import { renderState } from '@/lib/tree/render';
-import { CLIENT_COLORS } from '@/lib/utils';
+import { CLIENT_COLORS, generateId } from '@/lib/utils';
 
 function today(): string {
   const d = new Date();
@@ -46,7 +46,18 @@ type Message =
 export default function Shelf() {
   const { state, dispatch, logout } = useApp();
 
-  const [sent, setSent] = useState<Message[]>([]);
+  // NOT component state. The thread lives in `chatLog`, the one place the
+  // conversation is kept, shared with the floating bubble: same brain, same
+  // conversation, seen from two places. It used to be a useState here, which is
+  // why refreshing the page threw the conversation away.
+  const sent = useMemo<Message[]>(
+    () => (state.chatLog ?? []).map(m => (
+      m.who === 'me'
+        ? { who: 'me', text: m.text }
+        : { who: 'bot', text: m.text, rows: (m.rows ?? []) as DeskRow[], note: m.note ?? '', flag: 'slipped' }
+    )),
+    [state.chatLog],
+  );
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -87,6 +98,20 @@ export default function Shelf() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [thread.length, busy]);
 
+  /** One line into the kept conversation. Nothing here is component state. */
+  function keep(who: 'me' | 'dash', text: string, rows?: DeskRow[], note?: string) {
+    dispatch({
+      type: 'ADD_CHAT_MESSAGE',
+      payload: {
+        message: {
+          id: generateId(), who, text, createdAt: new Date().toISOString(),
+          ...(rows?.length ? { rows } : {}),
+          ...(note ? { note } : {}),
+        },
+      },
+    });
+  }
+
   async function send(question: string) {
     const q = question.trim();
     if (!q || busy) return;
@@ -95,7 +120,8 @@ export default function Shelf() {
 
     const local = answerQuestion(q, state, day);
     if (local) {
-      setSent(prev => [...prev, { who: 'me', text: q }, { who: 'bot', ...local }]);
+      keep('me', q);
+      keep('dash', local.text, local.rows, local.note);
       return;
     }
 
@@ -103,17 +129,14 @@ export default function Shelf() {
     // has. It never draws an empty bubble: a failure is one plain line.
     setBusy(true);
     const recent = thread.slice(-8).map(m => ({ who: m.who, text: m.text }));
-    setSent(prev => [...prev, { who: 'me', text: q }]);
+    keep('me', q);
     let reply: string | null = null;
     try {
       reply = await askDesk(q, state, recent);
     } catch {
       reply = null;
     }
-    setSent(prev => [
-      ...prev,
-      { who: 'bot', text: reply ?? DESK_UNREACHABLE, rows: [], note: '', flag: 'slipped' },
-    ]);
+    keep('dash', reply ?? DESK_UNREACHABLE);
     setBusy(false);
   }
 

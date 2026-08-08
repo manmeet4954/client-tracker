@@ -289,10 +289,18 @@ function ChatWidgetInner() {
           // It wrote to the stored state directly, so the tab has to catch up.
           // Reading it back is also the honest confirmation: what she sees next
           // is what actually landed, not what the chat believes it did.
+          //
+          // But it catches up with SYNC_FROM_SERVER, not LOAD, and the
+          // difference is the whole thread. LOAD replaces everything, including
+          // `chatLog`, with whatever the server last stored — and what she just
+          // typed a second ago is usually not stored yet, because the save is
+          // debounced. So a plain LOAD here eats her own message every time the
+          // chat does something. SYNC_FROM_SERVER takes the server's data and
+          // keeps the thread this tab is holding.
           if (desk.did?.length) {
             const fresh = await fetch('/api/state')
               .then(r => (r.ok ? r.json() : null)).catch(() => null);
-            if (fresh?.state) dispatch({ type: 'LOAD', payload: fresh.state });
+            if (fresh?.state) dispatch({ type: 'SYNC_FROM_SERVER', payload: fresh.state });
           }
           say('dash', desk.reply);
           return;

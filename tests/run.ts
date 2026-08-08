@@ -31,5 +31,13 @@ import './intake.screens.test.ts';
 import './desk.read.test.ts';
 import './desk.write.test.ts';
 import './desk.loop.test.ts';
+// spec 33 — intake by document, and the form that behaves like one
+import './intake.form.test.ts';
+import './intake.documents.test.ts';
+import './intake.curation.test.ts';
+// spec 34 — the Strategy room
+import './strategy.inputs.test.ts';
+import './strategy.plain.test.ts';
+import './strategy.reading.test.ts';
 
 process.exit(await run());

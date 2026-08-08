@@ -108,6 +108,16 @@ export const SWITCHES: SwitchDeclaration[] = [
     note: 'The recorded meeting route. Same fields, different door.',
   }),
   S({
+    // Spec 33 §2. The third route: a document is another way the same answers
+    // travel, so it sits beside the questionnaire and the meeting rather than
+    // opening a door of its own. It is give-point 1, which already exists — no
+    // fifth door (S19).
+    id: 'intake.documents', owns: ['context/intake/answers'], requires: ['intake.questionnaire'],
+    dependents: [], audience: 'both', allowed_states: ['active', 'history', 'hidden'],
+    suggested_default: 'active', derived_from: 'delivery mode chosen per client',
+    note: 'Files, links and pasted text handed over during intake. Read in curation beside typed answers.',
+  }),
+  S({
     id: 'intake.rounds_reopen', owns: ['context/intake'], requires: [],
     dependents: [], audience: 'owner', allowed_states: ['active', 'hidden'], suggested_default: 'active',
     // It USED to require `intake.questionnaire`, which was backwards: retiring
@@ -914,6 +924,9 @@ export interface SwitchValidationContext {
 export const SWITCH_DOOR: Record<string, ClientDoor> = {
   'intake.questionnaire': 'give:intake',
   'intake.finding_session': 'give:intake',
+  // Spec 33 §2: handing over a document is give-point 1, the door the client
+  // already holds. A third ROUTE in, never a fifth door (S19).
+  'intake.documents': 'give:intake',
   'intake.reminders': 'give:intake',
   'creation.seed_input_client': 'give:intake',
   'assets.client_upload': 'give:assets',

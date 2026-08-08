@@ -1210,6 +1210,13 @@ fit, not deployed on momentum.
   recorded lightly but do NOT feed the engine's verdicts; the impact
   layer is named honestly as not achievable. Closed on her words: "I
   can trust you with the whole plan."
+- 2026-08-08 — HER DECISION: the idea of rebuilding the whole dashboard inside
+  KRNL OS is SCRAPPED for now. This dashboard is what she will use to manage her
+  clients, she is not waiting on anything else, and it has to be perfect. So it
+  is the product and not a stopgap: no screen is left rough on the grounds that
+  a rebuild is coming. Her review of the live app, and the changes she brings
+  back from it, is now the main loop this gets better through. KRNL OS itself is
+  not cancelled; what is off is moving the dashboard into it.
 
 ---
 

@@ -342,17 +342,71 @@ export interface AttributedOutcome {
 
 export type IntakeStatus = 'not-sent' | 'sent' | 'answered' | 'curated';
 
+/**
+ * Spec 33 §2: a third way the same answers travel. Plan §3.1's law is unbent —
+ * intake is HOW, never WHAT — so a document is a ROUTE, not a new kind of
+ * knowledge. It never invents a parameter and never answers one by itself.
+ */
+export type IntakeDelivery = 'dashboard-questionnaire' | 'finding-session' | 'documents';
+
 export interface IntakeRound {
   id: string;
   version: number;
   /** Which parameters this round asked for. Questions come FROM the folders. */
   parameters: string[];
-  delivery: 'dashboard-questionnaire' | 'finding-session';
+  /**
+   * The route the round was OPENED as. The three mix freely inside one round:
+   * a client can answer six questions, skip four, and hand over a deck that
+   * covers the rest, and this field only says how it started.
+   */
+  delivery: IntakeDelivery;
   status: IntakeStatus;
   curation: Record<string, { curated: boolean; at?: string; by?: string }>;
+  /**
+   * Spec 33 §4. Parameter ids the answerer chose to come back to.
+   *
+   * A skip is a THIRD STATE, not a soft no: not answered, and not abandoned.
+   * It lives on the round rather than in `answers/` because answers are raw
+   * material the client gave and are never altered (S11) — a skip is not
+   * something they said. A round cannot reach `answered` while anything here
+   * is still only skipped, which is what stops a question falling silently
+   * through a long form.
+   */
+  skipped?: string[];
   opened_at: string;
   closed_at?: string;
   legacy?: boolean;
+}
+
+/**
+ * Spec 33 §2. Material handed over during intake: a file, a link, or pasted
+ * text. Stored with the ANSWERS, because that is what it is — raw material the
+ * client gave, kept exactly as it arrived and never altered (S11).
+ *
+ * Whether its text can actually be read is spec 32 §4's question, and the two
+ * fields below are the honest answer rather than a silent assumption.
+ */
+export interface IntakeDocument {
+  id: string;
+  round: number;
+  title: string;
+  kind: 'file' | 'link' | 'text';
+  /** For a file, the stored URL. For a link, the link. */
+  url?: string;
+  /** For pasted text, her paste, verbatim. */
+  text?: string;
+  given_by: string;
+  received_at: string;
+  /** The readable text, when there was any to read. Null when there was not. */
+  extracted?: string | null;
+  extraction_state: 'none' | 'ok' | 'unreadable' | 'not-attempted';
+  /**
+   * The parameters SHE decided this speaks to, during curation. Never guessed
+   * on upload: a document proposes, she decides (PLAN §5.1 item 4).
+   */
+  covers?: string[];
+  /** Set when it was given in answer to one question rather than the round. */
+  answers_parameter?: string;
 }
 
 // ── 7.7 Review configuration (S20) ───────────────────────────────────────────

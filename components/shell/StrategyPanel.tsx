@@ -27,12 +27,12 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import type { Lifecycle } from '@/lib/tree/objects';
 import { LIFECYCLE_POLICY } from '@/lib/tree/objects';
 import { renderProfile } from '@/lib/shell/profile';
-import StrategyDerivationView from '@/components/StrategyDerivationView';
-import GateSetView from '@/components/GateSetView';
-import SwitchboardView from '@/components/SwitchboardView';
-import StrategyLockView from '@/components/StrategyLockView';
-import BrandView from '@/components/BrandView';
-import ChannelsPanel from '@/components/shell/Channels';
+import Decide from '@/components/strategy/Decide';
+import Gates from '@/components/strategy/Gates';
+import Switches from '@/components/strategy/Switches';
+import Lock from '@/components/strategy/Lock';
+import BrandKit from '@/components/strategy/BrandKit';
+import Channels from '@/components/strategy/Channels';
 
 export interface StrategyTab { id: string; label: string }
 
@@ -99,31 +99,29 @@ function TabStrip({ tab, hrefFor }: { tab: string; hrefFor: (id: string) => stri
  * The panel's contents. Every one of these screens already exists; this phase
  * routes them into the new shell and rebuilds none of their internals.
  */
-export function StrategyBody({ profileId, tab }: { profileId: string; tab: string }) {
+export function StrategyBody(
+  { profileId, tab, hrefFor }: { profileId: string; tab: string; hrefFor?: (panel: string) => string },
+) {
   switch (tab) {
     case 'gates':
-      return <GateSetView clientId={profileId} />;
+      return <Gates profileId={profileId} />;
     case 'switches':
-      return <SwitchboardView clientId={profileId} />;
+      return <Switches profileId={profileId} />;
     case 'lock':
-      return <StrategyLockView clientId={profileId} />;
+      return <Lock profileId={profileId} hrefFor={hrefFor} />;
     case 'channels':
-      return <ChannelsPanel profileId={profileId} accent="#1c1a21" />;
+      return <Channels profileId={profileId} />;
     case 'brand':
-      return <BrandView clientId={profileId} />;
+      return <BrandKit profileId={profileId} />;
     case 'intake-history':
       return <IntakeHistory profileId={profileId} />;
     case 'lifecycle':
       return <LifecyclePanel profileId={profileId} />;
     default:
-      // Decide. The lock lives here too, exactly as it did before it got a tab,
-      // so the decision and the gate that closes it stay on one screen.
-      return (
-        <div className="space-y-8">
-          <StrategyDerivationView clientId={profileId} />
-          <StrategyLockView clientId={profileId} />
-        </div>
-      );
+      // Decide. The lock has its own section now (spec 34 §4), so it is not
+      // printed underneath as well: fourteen identical sentences under the
+      // decisions was most of what made this screen unreadable.
+      return <Decide profileId={profileId} brandHref={hrefFor?.('brand') ?? `/profile/${profileId}/strategy/brand`} />;
   }
 }
 

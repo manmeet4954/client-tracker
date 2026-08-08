@@ -22,9 +22,9 @@
 //   header      white, hairline bottom, padding 16px 26px (14px 16px on phone)
 //   bottom bar  white, hairline top, icon 21px + 10.5px/600, active #ea4711
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { BarChart3, ChevronLeft, List, MessageCircle, PenLine, SlidersHorizontal, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
@@ -34,7 +34,7 @@ import { APPS, rendered } from '@/lib/shell/nav';
 import type { RenderedNode } from '@/lib/shell/nav';
 import { readAnswers, readRounds } from '@/lib/intake/rounds';
 import { unanswered } from '@/lib/intake/status';
-import { DEFAULT_STRATEGY_TAB, StrategyOverlay, strategyTabOf } from '@/components/shell/StrategyPanel';
+import { DEFAULT_STRATEGY_TAB, strategyTabOf } from '@/components/shell/StrategyPanel';
 
 /** The design names three icons and only three. Intake, Creation, Analysis. */
 const APP_ICON: Record<string, LucideIcon> = {
@@ -140,6 +140,19 @@ export default function ProfileFrame({
   const inCorner = tail === '/strategy' || tail.startsWith('/strategy/');
   const openTab = search?.get('strategy') ?? null;
   const cornerOpen = isOwner && openTab !== null && !inCorner;
+
+  /**
+   * Spec 34 §2: Strategy is a ROOM now, not a drawer over the work. Seven
+   * sections crammed into a 470px overlay is most of why it felt cramped, and
+   * it is her decision space, not a quick peek.
+   *
+   * `?back=` carries where she was, so leaving the room returns there exactly
+   * as closing the drawer used to.
+   */
+  const toRoom = (tab: string) => {
+    const here = `${pathname}${search?.toString() ? `?${search.toString()}` : ''}`;
+    return `/profile/${profileId}/strategy/${tab}?back=${encodeURIComponent(here)}`;
+  };
 
   const withStrategy = (tab: string) => {
     const params = new URLSearchParams(search?.toString() ?? '');
@@ -258,7 +271,7 @@ export default function ProfileFrame({
           </span>
           {isOwner && !inCorner && (
             <Link
-              href={withStrategy(strategyTabOf(openTab ?? DEFAULT_STRATEGY_TAB))}
+              href={toRoom(strategyTabOf(openTab ?? DEFAULT_STRATEGY_TAB))}
               title="Strategy"
               className="flex items-center gap-[7px] rounded-[11px] border px-[13px] py-[7px] text-muted hover:text-text"
               style={{ borderColor: 'rgba(23,21,26,.14)' }}
@@ -349,14 +362,10 @@ export default function ProfileFrame({
         </div>
       )}
 
-      {cornerOpen && (
-        <StrategyOverlay
-          profileId={profileId}
-          tab={strategyTabOf(openTab)}
-          closeHref={withoutStrategy()}
-          hrefFor={withStrategy}
-        />
-      )}
+      {/* The overlay is gone: Strategy opens as its own screen (spec 34 §2).
+          A `?strategy=` link from anywhere still works - it redirects into the
+          room - so no old link, banner button or bookmark breaks. */}
+      {cornerOpen && <StrategyRedirect to={toRoom(strategyTabOf(openTab))} />}
     </div>
   );
 }
@@ -405,4 +414,17 @@ function lifecycleNotice(lifecycle: string | undefined, at: string | undefined):
     default:
       return null;
   }
+}
+
+/**
+ * An old `?strategy=` link, sent into the room.
+ *
+ * Every banner button, bookmark and deep link built before spec 34 used that
+ * query. Rather than hunt them all down and risk missing one, the frame keeps
+ * honouring it and forwards. It renders nothing.
+ */
+function StrategyRedirect({ to }: { to: string }) {
+  const router = useRouter();
+  useEffect(() => { router.replace(to); }, [router, to]);
+  return null;
 }

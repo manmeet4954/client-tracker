@@ -676,12 +676,45 @@ export interface Observation {
 // the filed items themselves live in their real homes (tasks, agenda,
 // observations, assets), so old chat lines are safe to drop.
 
+/**
+ * One line of the chat, and there is only ONE chat.
+ *
+ * The desk and the floating bubble are the same conversation seen from two
+ * places (spec 30 §4). Until 2026-08-08 the desk kept its thread in component
+ * state and nothing else, so refreshing the page threw the conversation away —
+ * which is what she reported, and it was not a save bug: nothing was ever
+ * being saved.
+ */
 export interface ChatMessage {
   id: string;
   who: 'me' | 'dash';
   text: string;
   ok?: boolean;      // dash replies: false marks a "Not done" answer
   createdAt: string;
+  /**
+   * The walk-into rows a desk answer carried, kept AS THEY WERE SAID.
+   *
+   * They are deliberately stored rather than recomputed on reload. Re-running
+   * the query would silently rewrite history: an answer that said three pieces
+   * were waiting would quietly become two, and she would have no way of knowing
+   * the line had changed under her. What was true when it was said stays what
+   * the line says.
+   */
+  rows?: ChatRow[];
+  /** The line under the rows, when the answer had one. */
+  note?: string;
+}
+
+/** A row inside a desk answer. Mirrors `DeskRow`, stored so it survives. */
+export interface ChatRow {
+  key: string;
+  profile_id: string;
+  title: string;
+  profile_name: string;
+  when: string;
+  late: boolean;
+  hue: string;
+  href: string;
 }
 
 export interface AppState {

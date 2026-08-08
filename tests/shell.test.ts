@@ -694,10 +694,33 @@ test('12. the widget is mounted once, above every route, through one mount', () 
   ok(/'\/shelf'/.test(mount), 'and it stands down on the desk, which is a chat itself');
 });
 
-test('12b. no shell module touches the chat at all', () => {
-  for (const s of [...sourcesUnder('app/profile'), ...sourcesUnder('app/shelf'), ...sourcesUnder('components/shell')]) {
-    ok(!/ChatWidget|chat-brain|chatLog/.test(s.text), `${s.file} reaches into the chat`);
+/**
+ * SHE CHANGED THIS RULING ON 2026-08-08, and this test changes with it.
+ *
+ * The rule came from her own answer on 2026-07-25 (PLAN §11 Q1): the chat is
+ * HELD, its connections excluded, its own spec written after the restructure
+ * lands. So nothing in the shell was allowed near it.
+ *
+ * Then the desk became a chat, kept its thread in component state because it
+ * was not allowed to touch `chatLog`, and threw the conversation away on every
+ * refresh. She reported exactly that, asked where past chats were, and said fix
+ * it. The honest fix is one conversation kept in one place, which means the desk
+ * reads `chatLog`. Holding the old line would have meant keeping a bug to
+ * honour a decision she had just reversed.
+ *
+ * What is still forbidden, and is what this now checks: no shell module mounts
+ * a SECOND chat widget or calls the brain behind the desk's back. The desk
+ * shares the one thread; it does not become a rival chat.
+ */
+test('12b. the shell shares the one thread, and never mounts a second chat', () => {
+  const shell = [...sourcesUnder('app/profile'), ...sourcesUnder('app/shelf'), ...sourcesUnder('components/shell')];
+  for (const s of shell) {
+    ok(!/ChatWidget/.test(s.text), `${s.file} mounts a second chat widget`);
+    ok(!/chat-brain/.test(s.text), `${s.file} calls the brain directly instead of going through the desk`);
   }
+  const desk = readFileSync(join(ROOT, 'components/shell/Shelf.tsx'), 'utf8');
+  ok(/chatLog/.test(desk), 'the desk keeps its thread in chatLog, not in component state');
+  ok(!/useState<Message\[\]>/.test(desk), 'and the component-state thread is gone, which is what lost her conversations');
 });
 
 test('12c. its own rules are still its own', () => {

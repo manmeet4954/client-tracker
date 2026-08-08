@@ -18,6 +18,8 @@ import type { ProfileBody } from '@/lib/tree/body';
 import { putEntry } from '@/lib/tree/body';
 import type { BodyEntry, ReviewVerdict } from '@/lib/tree/objects';
 import { fileAnswer } from '@/lib/intake/rounds';
+import { applySkip, openFormFor, writeSkipped } from '@/lib/intake/form';
+import ClientForm from '@/components/intake/ClientForm';
 import { accentFor } from '@/lib/shell/profile';
 import { generateId } from '@/lib/utils';
 
@@ -114,77 +116,88 @@ function labelOf(path: string): string {
 export function ClientIntakeWindow({ profileId }: { profileId: string }) {
   const { role, dispatch } = useApp();
   const { client, data } = useClient(profileId);
-  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [note, setNote] = useState('');
   const accent = accentFor(client, data);
   const body = data.body;
 
-  const rounds = (body?.paths?.['context/intake'] ?? [])
-    .map(e => e.data as unknown as { version: number; parameters: string[]; status: string });
-  const open = rounds.filter(r => r.status !== 'curated').pop();
-  const questions = (body?.paths?.['context/intake/questions'] ?? [])
-    .map(e => e.data as unknown as { parameter_id: string; text: string; round?: number });
-  const answers = (body?.paths?.['context/intake/answers'] ?? [])
-    .map(e => e.data as unknown as { parameter_id: string; answer: string; by: string });
-  const answered = new Set(answers.map(a => a.parameter_id));
+  // Spec 33 §4. Everything the form knows comes from lib/intake/form.ts; this
+  // window only reads the open round and files what the form hands back.
+  const open = body ? openFormFor(body) : null;
+  if (!body || !open) {
+    return (
+      <div className="mx-auto max-w-3xl p-4 md:p-8">
+        <Empty>Nothing to answer right now. Thank you.</Empty>
+      </div>
+    );
+  }
 
-  const asking = open
-    ? questions.filter(q => open.parameters.includes(q.parameter_id) && !answered.has(q.parameter_id))
-    : [];
-
-  function send(parameterId: string) {
+  /** Filed the moment it is given. There is no submit at the end (§4). */
+  function answer(parameterId: string, value: string) {
     if (!body || !open) return;
     const now = new Date().toISOString();
     const next = fileAnswer(body, {
-      round: open.version, parameter_id: parameterId, value: draft[parameterId] ?? '',
-      by: role, source: `round-${open.version}`, now, writer: 'client',
+      round: open.round.version, parameter_id: parameterId, value,
+      by: role, source: `round-${open.round.version}`, now, writer: 'client',
     });
     dispatch({ type: 'SET_BODY', payload: { clientId: profileId, body: next } });
-    setDraft(d => ({ ...d, [parameterId]: '' }));
+  }
+
+  /**
+   * The skip lives on the round, and `context/intake` is fed by the owner
+   * alone — no client action writes the round object (spec 22 §5.2). So this
+   * works from her own session today. A CLIENT's skip cannot travel that way,
+   * because `context/intake` is fed by the owner alone and no button is worth
+   * opening a door S19 does not allow. So it goes through `/api/intake/skip`,
+   * which checks the binding and writes as the owner authority.
+   */
+  async function skip(parameterId: string, on: boolean) {
+    if (!body || !open) return;
+    const now = new Date().toISOString();
+
+    // The screen moves at once, because saying "later" should feel instant.
+    const optimistic = applySkip(open.skipped, parameterId, on);
+    try {
+      dispatch({
+        type: 'SET_BODY',
+        payload: { clientId: profileId, body: writeSkipped(body, open.round.id, optimistic, now) },
+      });
+      setNote('');
+    } catch {
+      // Her own session writes the round directly. A client's cannot, which is
+      // the whole reason the route below exists, so this is expected there and
+      // not an error worth showing.
+    }
+
+    // And the route records it for real. It checks the caller is bound to this
+    // profile and that the round is theirs and open, then writes as the owner
+    // authority. A client never writes `context/intake` themselves.
+    const res = await fetch('/api/intake/skip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId, roundId: open.round.id, parameterId, on }),
+    }).catch(() => null);
+
+    if (!res?.ok) {
+      setNote('That one could not be set aside just now. Everything you have answered is still saved.');
+    }
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4 md:p-8">
-      <Section title="A few questions">
-        {asking.length === 0
-          ? <Empty>Nothing to answer right now. Thank you.</Empty>
-          : (
-            <div className="space-y-3">
-              {asking.map(q => (
-                <div key={q.parameter_id} className="rounded-xl border border-stone-200 bg-white p-4">
-                  <p className="text-sm text-stone-900">{q.text}</p>
-                  <textarea
-                    value={draft[q.parameter_id] ?? ''}
-                    onChange={e => setDraft(d => ({ ...d, [q.parameter_id]: e.target.value }))}
-                    rows={3}
-                    className="mt-2 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
-                  />
-                  <button type="button" onClick={() => send(q.parameter_id)}
-                    disabled={!(draft[q.parameter_id] ?? '').trim()}
-                    className="mt-2 rounded-full px-3.5 py-1.5 text-xs text-white disabled:opacity-40"
-                    style={{ backgroundColor: accent }}>
-                    Send this answer
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-      </Section>
-
-      <Section title="What you have already sent">
-        {answers.length === 0
-          ? <Empty>Nothing yet.</Empty>
-          : (
-            <ul className="space-y-1.5">
-              {answers.map((a, i) => (
-                <li key={i} className="rounded-xl border border-stone-200 bg-white px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-stone-400">{a.parameter_id}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-stone-800">{a.answer}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-      </Section>
-    </div>
+    <>
+      {note && (
+        <p className="mx-auto max-w-2xl px-4 pt-4 text-[12.5px] leading-[1.5] text-accent-text md:px-8">{note}</p>
+      )}
+      <ClientForm
+        parameters={open.round.parameters}
+        questions={open.questions}
+        answers={open.answers}
+        skipped={open.skipped}
+        roundVersion={open.round.version}
+        accent={accent}
+        onAnswer={answer}
+        onSkip={skip}
+      />
+    </>
   );
 }
 

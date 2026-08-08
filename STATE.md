@@ -1,9 +1,115 @@
 # STATE - Client Dashboard
 
-## 2026-08-05 — PHASES 2 TO 6 ARE BUILT, INCLUDING THE DESK CHAT. NOT DEPLOYED
+## 2026-08-08 — THE STRATEGY ROOM, INTAKE, AND THE CHAT THAT KEEPS ITS THREAD
+
+Branch `main`. **855 tests green**, typecheck clean, production build green.
+Everything below is BUILT and NOT DEPLOYED. The 08-05 deploy (phases 2 to 6) is
+what is live.
+
+### A DECISION THAT CHANGES WHAT THIS IS (hers, 2026-08-08)
+
+**The idea of rebuilding the whole dashboard inside KRNL OS is scrapped, for
+now.** Her words: this dashboard is the main thing she will be using to manage
+her clients, she is not waiting for it, and it has to be perfect.
+
+Three consequences, and they are not small:
+
+1. **This is the product, not a stopgap.** Every earlier decision that leaned on
+   "the real one comes later" is void. Nothing gets left rough because a rebuild
+   was coming.
+2. **Her daily use is the standard.** She reviews screens on the live app and
+   comes back with changes. That loop is now the main way this gets better, so
+   deploying often and honestly matters more than batching.
+3. **KRNL OS is not cancelled as a project** - she said "for now", and
+   `studio/krnl-os/` and `krnl-os/` are untouched. What is off is the plan to
+   move this dashboard into it.
+
+### Her three verdicts from the live app, and what each became
+
+1. **"This whole strategy thing needs to be restructured."** One diagnosis
+   behind all of it: the Strategy corner rendered the DATA MODEL instead of the
+   work. "0 of 7 sources ready" is a count of curated intake records. The Lock
+   screen printed fourteen identical sentences. The Switches screen showed
+   `intake.questionnaire` and a line apologising that a suggestion was only a
+   suggestion. And all fourteen parameters got the SAME form: two free text
+   boxes with a required reason, so Platforms, a multiple-choice question, was
+   built as an essay.
+   Spec 34 fixes it: full screen on her yes, and each parameter gets the input
+   its answer actually is. Verified on screen: Platforms picks from nine
+   platforms and ticks formats; Goals picks a goal, a number and how it is
+   measured, with the S16 rule stated where she can read it; Lock now says what
+   locking DOES before asking, then lists only what is missing; Switches shows
+   plain names grouped by question, with 78 defaults folded away.
+   **Her test, adopted as a standing rule: if the screen needs a paragraph
+   explaining itself, the screen is wrong.**
+2. **"There is no option to skip, go backward, pause, or go next."** Correct,
+   and the client's form was the worst screen in the build: every question in
+   one flat list with a send button each. Spec 33 rebuilt it as a form. Also
+   recorded as a standing rule (spec 33 §5): any screen that walks a person
+   through more than three of something must answer where am I, how do I go on,
+   how do I go back, and how do I leave without losing anything.
+3. **"If I refresh the chat the past conversation does not exist."** True, and
+   not a save bug. The desk kept its thread in component state and nothing else,
+   so nothing was ever saved. That is also why there was no past-chats feature
+   to find. The thread now lives in `chatLog`, shared with the floating bubble:
+   one conversation, two places. Rows are stored as they were said rather than
+   recomputed, so an answer cannot quietly change under her.
+
+### What that crossed, deliberately
+
+Moving the desk's thread into `chatLog` breaks the line SHE drew on 2026-07-25
+(PLAN §11 Q1: the chat is HELD, the shell may not touch it). She reversed it on
+2026-08-08 by asking for the fix, so the test that pinned it was rewritten with
+the reason and the date rather than worked around. It still forbids a second
+chat widget and any shell module calling the brain behind the desk's back.
+
+### Named, not hidden
+
+- **PDFs do not read yet.** A PDF stores, opens and lists, and says its text was
+  not read. It needs one dependency (`unpdf`), which is her call under rule 5.
+- **Scans, photos of documents and links behind a login can never be read.**
+  They say so. They still reach the model by title and note, so nothing answers
+  as though it had read them.
+- **No real file upload has been watched.** No database on this machine.
+- **A true unlock does not exist.** `unlockStrategy` would need to not collide
+  with versions already stamped on pieces. The screen offers what the product
+  actually supports and states its cost.
+- **The chat thread is still capped at 100.** It survives a refresh; it is not
+  an archive. A real Chats surface is a separate build and hers to ask for.
+
+### Specs written today
+
+31 (pausing a profile) and 32 (resources) are WRITTEN AND NOT BUILT. 33 (intake)
+and 34 (the Strategy room) are built.
+
+---
+
+## 2026-08-05 — PHASES 2 TO 6 ARE BUILT AND **DEPLOYED**, INCLUDING THE DESK CHAT
+
+**LIVE on her go.** Deploy commit `f585b3c` on `client-tracker/main`, Vercel
+build SUCCESS. All three DEPLOY.md gates passed: green build of the exact
+shipping tree with dummy keys; drift check clean, with NOTHING live that the
+vault did not have, so nothing was erased; and her explicit go.
+
+**Two things are true the moment she opens it:**
+
+1. **Seven boards are read-only.** Only ResumeGuru is locked, and the lock now
+   really gates writes (phase 3). Every other profile reads fine and shows
+   everything, but a card cannot be added or dragged until that profile is
+   walked through migrate then strategy then lock. This was flagged to her three
+   times before the deploy and she chose the timing. One profile at a time is
+   the sane order.
+2. **The desk chat is dormant until `ANTHROPIC_API_KEY` is set in Vercel.** The
+   route answers `fallback` without it and the widget uses the hashtag rules it
+   has always had, so the chat behaves exactly as it did yesterday. Setting the
+   key turns the whole tool loop on. That key was already owed for the nightly
+   tagger and the digest.
+
+**If it needs undoing:** the previous head was `9784cce`. No stored data changed
+in this deploy, so a revert is a code revert only.
 
 Branch `claude/restructure-phase-2`. **689 tests green**, typecheck clean, production build green.
-The demo seed is removed. Deployed on her go, 2026-08-05.
+The demo seed was removed before the deploy.
 
 ### The desk chat is built (spec 30)
 

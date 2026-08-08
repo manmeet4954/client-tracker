@@ -114,6 +114,7 @@ const STATE_WORDS: Record<QuestionState, string> = {
 const DELIVERY_WORDS: Record<IntakeRound['delivery'], string> = {
   'dashboard-questionnaire': 'they fill it in',
   'finding-session': 'a recorded meeting',
+  documents: 'they hand things over',
 };
 
 /**

@@ -95,6 +95,7 @@ const SEED: AppState = {
 
 export type Action =
   | { type: 'LOAD'; payload: AppState }
+  | { type: 'SYNC_FROM_SERVER'; payload: AppState }
   // Spec 28 §4.5 — add-profile is the shell's ONE write. Name and brand colour
   // are the whole form; the profile is born at lifecycle `setup`, with the
   // owner_kind she chose, no switch positions and no strategy version.
@@ -253,6 +254,19 @@ function reducer(state: AppState, action: Action): AppState {
         clientData: { ...state.clientData, [id]: defaultClientData() },
       };
     }
+
+    /**
+     * The server changed something under this tab and the tab has to catch up.
+     *
+     * Everything comes from the server EXCEPT the chat thread, which stays as
+     * this tab is holding it. The thread is the one slice that is always ahead
+     * of what is stored: she types, the line appears immediately, and the save
+     * is debounced behind it. Taking the server's copy would therefore delete
+     * the message she just sent, every single time. The desk chat writing to
+     * the tree is what made this a real path rather than a theoretical one.
+     */
+    case 'SYNC_FROM_SERVER':
+      return { ...action.payload, chatLog: state.chatLog ?? [] };
 
     case 'REMOVE_CLIENT': {
       const { [action.payload]: _removed, ...rest } = state.clientData;
