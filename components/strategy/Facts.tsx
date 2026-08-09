@@ -17,6 +17,9 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, CLIENT_COLORS } from '@/lib/utils';
 import { CLIENT_GOALS, DEFAULT_PLATFORMS, type BrandOverview } from '@/types';
 import { draftingNote, factsKnown, factsLine } from '@/lib/strategy/facts';
+import {
+  FACT_ASKS, askableBlanks, factAnswers, openFactsRound, type FactAnswer, type FactName,
+} from '@/lib/intake/factsRound';
 
 export default function Facts({ profileId, brandHref }: { profileId: string; brandHref: string }) {
   const { role, dispatch } = useApp();
@@ -33,6 +36,8 @@ export default function Facts({ profileId, brandHref }: { profileId: string; bra
 
   const count = factsKnown(data);
   const note = draftingNote(count);
+  // What the client already answered, waiting under the box it was asked for.
+  const answered = factAnswers(data.body);
 
   function saveBrand(patch: Partial<BrandOverview>) {
     dispatch({ type: 'UPDATE_BRAND', payload: { clientId: profileId, brand: { ...brand, ...patch } } });
@@ -66,18 +71,21 @@ export default function Facts({ profileId, brandHref }: { profileId: string; bra
           question="What do they do, and for whom?"
           value={brand.tagline}
           onSave={v => saveBrand({ tagline: v })}
+          answer={answered.Positioning}
         />
         <TextFact
           label="Audience"
           question="Who are they talking to?"
           value={brand.audience}
           onSave={v => saveBrand({ audience: v })}
+          answer={answered.Audience}
         />
         <TextFact
           label="Voice"
           question="What do they sound like?"
           value={brand.voice ?? ''}
           onSave={v => saveBrand({ voice: v })}
+          answer={answered.Voice}
         />
 
         <PillarsFact profileId={profileId} />
@@ -160,14 +168,76 @@ export default function Facts({ profileId, brandHref }: { profileId: string; bra
         </FactCard>
       </div>
 
-      {/* The questionnaire is the next pass, not this one. Nothing clickable. */}
-      <p className="mt-5 flex items-center gap-2 text-[12.5px] text-faint opacity-70">
-        Ask the client to fill the blanks
-        <span className="rounded-full bg-chip px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[.06em] text-muted">
-          coming next
-        </span>
-      </p>
+      <AskTheBlanks profileId={profileId} answered={answered} />
     </div>
+  );
+}
+
+/**
+ * The questionnaire, built FROM THE GAPS. Every blank fact is a chip, on by
+ * default; she unticks what she would rather fill herself, and one button makes
+ * the round and marks it sent. The client link is the one Intake already has.
+ * A fact she has filled is never offered, so nothing is ever asked twice.
+ */
+function AskTheBlanks({ profileId, answered }: {
+  profileId: string;
+  answered: Partial<Record<FactName, FactAnswer>>;
+}) {
+  const { dispatch } = useApp();
+  const { data } = useClient(profileId);
+  const [skipped, setSkipped] = useState<FactName[]>([]);
+  const [note, setNote] = useState('');
+
+  const body = data.body;
+  const blanks = askableBlanks(factsKnown(data))
+    // A blank with their answer already under it does not need asking again.
+    .filter(f => !answered[f]);
+  const chosen = blanks.filter(f => !skipped.includes(f));
+
+  if (!body || blanks.length === 0) return null;
+
+  function send() {
+    if (!body || chosen.length === 0) return;
+    const { body: next, round } = openFactsRound(body, chosen, new Date().toISOString());
+    dispatch({ type: 'SET_BODY', payload: { clientId: profileId, body: next } });
+    setNote(`Round ${round.version} is ready, asking ${chosen.length === 1 ? 'one blank' : `${chosen.length} blanks`}. `);
+  }
+
+  return (
+    <section className="mt-5 rounded-card border border-hairline bg-white p-4 shadow-card">
+      <p className="text-[14.5px] font-semibold text-text">Ask the client to fill the blanks</p>
+      <p className="mt-0.5 text-[12.5px] text-faint">
+        One question per blank box, in plain words. Nothing already known is asked.
+      </p>
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {blanks.map(f => {
+          const on = !skipped.includes(f);
+          return (
+            <button key={f} type="button"
+              onClick={() => setSkipped(s => on ? [...s, f] : s.filter(x => x !== f))}
+              title={FACT_ASKS[f].question}
+              className={`rounded-[10px] px-[13px] py-[7px] text-[12.5px] font-semibold ${
+                on ? 'bg-ink text-white' : 'bg-control text-muted hover:text-text'
+              }`}>
+              {f}
+            </button>
+          );
+        })}
+      </div>
+      {note ? (
+        <p className="mt-3 text-[13px] text-muted">
+          {note}
+          <Link href={`/profile/${profileId}/intake`} className="font-semibold text-accent hover:underline">
+            Copy the client link from Intake.
+          </Link>
+        </p>
+      ) : (
+        <button type="button" onClick={send} disabled={chosen.length === 0}
+          className="mt-3 rounded-xl bg-ink px-4 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40">
+          Make the round
+        </button>
+      )}
+    </section>
   );
 }
 
@@ -186,8 +256,10 @@ function FactCard({ label, question, children }: {
 }
 
 /** A one-box text fact. Saves on blur, only when something changed. */
-function TextFact({ label, question, value, onSave }: {
+function TextFact({ label, question, value, onSave, answer }: {
   label: string; question: string; value: string; onSave: (v: string) => void;
+  /** The client's raw answer, shown under a blank box. Her tap makes it true. */
+  answer?: FactAnswer;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
 
@@ -204,6 +276,16 @@ function TextFact({ label, question, value, onSave }: {
         placeholder="Type it when you know it"
         className="mt-2.5 w-full resize-y rounded-xl border border-[rgba(23,21,26,.12)] bg-white px-3 py-2.5 text-sm text-text placeholder:text-faint focus:border-accent focus:outline-none"
       />
+      {answer && !value.trim() && (
+        <div className="mt-2 rounded-xl bg-chip px-3 py-2.5">
+          <p className="text-[11.5px] font-bold uppercase tracking-[.09em] text-muted">What they said</p>
+          <p className="mt-1 text-[13px] leading-[1.55] text-text">{answer.value}</p>
+          <button type="button" onClick={() => onSave(answer.value)}
+            className="mt-2 rounded-lg bg-ink px-3 py-1.5 text-[12px] font-semibold text-white">
+            Use this
+          </button>
+        </div>
+      )}
     </FactCard>
   );
 }

@@ -6,6 +6,13 @@
 
 import { suite, test, ok, eq } from './harness.ts';
 import { FACT_NAMES, draftingNote, factsKnown, factsLine, type FactsInput } from '../lib/strategy/facts.ts';
+import { FACT_ASKS, factAnswers, openFactsRound } from '../lib/intake/factsRound.ts';
+import { INTAKE_PATH, fileAnswer, readQuestions } from '../lib/intake/rounds.ts';
+import { readPath } from '../lib/tree/body.ts';
+import { migrateProfile } from '../lib/tree/migrate.ts';
+import { normalizeState } from '../lib/access.ts';
+import { fixtureState } from './fixtures.ts';
+import type { ProfileBody } from '../lib/tree/body.ts';
 
 function full(): FactsInput {
   return {
@@ -107,4 +114,58 @@ test('no line she reads carries an em dash', () => {
   ]) {
     ok(!line.includes('—'), `"${line}" has an em dash`);
   }
+});
+
+// ── The round made from the blanks ───────────────────────────────────────────
+//
+// Her intake model: the questionnaire is built from the gaps. One question per
+// blank fact, in the page's own wording, and nothing already known is asked.
+
+suite('a facts round — the questionnaire built from the gaps');
+
+const RNOW = '2026-08-09T12:00:00.000Z';
+
+function bodyFor(): ProfileBody {
+  const s = normalizeState(fixtureState());
+  const c = s.clients.find(x => x.id === 'divine-studio')!;
+  return migrateProfile(c, s.clientData['divine-studio'], { now: RNOW }).body;
+}
+
+test('one question per asked blank, in her wording, marked sent', () => {
+  const { body, round } = openFactsRound(bodyFor(), ['Voice', 'Look'], RNOW);
+  eq(round.status, 'sent', 'a facts round is out the moment it is made');
+  eq(round.parameters, ['fact.voice', 'fact.look'], 'it asks exactly what was chosen');
+  const qs = readQuestions(body, round.version);
+  eq(qs.length, 2, 'two blanks, two questions');
+  eq(qs[0].text, FACT_ASKS.Voice.question, 'the wording is the page\'s, not the bank\'s');
+  ok(qs.every(q => !q.vocabulary_draft), 'her wording never counts as a draft');
+});
+
+test('the answer comes back attached to the fact it was asked for', () => {
+  const opened = openFactsRound(bodyFor(), ['Voice'], RNOW);
+  const withAnswer = fileAnswer(opened.body, {
+    round: opened.round.version, parameter_id: 'fact.voice',
+    value: 'Straight talk, no fitness jargon, a little playful.',
+    by: 'client', source: `round-${opened.round.version}`, now: RNOW, writer: 'owner',
+  });
+  const got = factAnswers(withAnswer);
+  ok(got.Voice, 'the voice answer is found');
+  eq(got.Voice?.value, 'Straight talk, no fitness jargon, a little playful.', 'verbatim');
+  eq(got.Voice?.landsInBox, true, 'voice is free text, so one tap can take it');
+});
+
+test('a facts round asks nothing when nothing is chosen', () => {
+  let threw = false;
+  try { openFactsRound(bodyFor(), [], RNOW); } catch { threw = true; }
+  ok(threw, 'an empty round is refused, not written');
+});
+
+test('earlier rounds move to history when a facts round opens', () => {
+  const first = openFactsRound(bodyFor(), ['Voice'], RNOW);
+  const second = openFactsRound(first.body, ['Look'], RNOW);
+  const entries = readPath(second.body, INTAKE_PATH);
+  const active = entries.filter(e => e.state === 'active');
+  eq(active.length, 1, 'one live round at a time');
+  eq((active[0].data as { version?: number }).version, 2, 'and it is the newer one');
+  eq(entries.length, 2, 'the earlier round stays on the record as history');
 });

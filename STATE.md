@@ -1,5 +1,25 @@
 # STATE - Client Dashboard
 
+## 2026-08-09, end of day — BOTH DEPLOYS LIVE, ON HER PUSH
+
+Live head `7023757`, Vercel SUCCESS, live matches vault exactly. Two deploys,
+both pushed by her hand after gates 1 and 2 passed here:
+
+1. `bc7c118` — one chat everywhere that acts, recording open on every profile,
+   the Strategy Facts page, lifecycle and Canva tools on the chat.
+2. `7023757` — month strip on the board (an empty month names where the work
+   is), previews reminder folded to one line. Her feedback on the first deploy,
+   fixed same day.
+
+The data migration (all nine profiles carrying a body) was applied directly to
+the live database earlier today, verified by read-back, backup in
+`dashboard/.backups/`.
+
+**Owed next, in her order:** retire the old Decide tab (Facts replaces it, she
+flagged the duplication) · Documents section on Facts (drop a brief, get
+suggestions under blank boxes, one tap to accept, never auto-filled) ·
+questionnaire generated from the blank Facts boxes.
+
 ## 2026-08-09, later — RECORDING NEVER WAITS FOR THE LOCK, AND ALL NINE PROFILES MIGRATED
 
 Her decision, plainly: recording what is happening always works; strategy gates
