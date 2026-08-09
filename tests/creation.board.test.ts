@@ -22,6 +22,7 @@ import {
   agendaIdOf, agendaOf, bareId, boardCards, boardNote, cardChips, dndId, monthCells,
   needsOpenKey, needsToday, pillarColumns, pillarMixLine, plural, previewFor,
   readNeedsOpen, stageBuckets, unattachedPreviews, writeNeedsOpen,
+  monthsWithWork, shiftMonth,
 } from '../lib/creation/board.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -400,4 +401,26 @@ test('singular and plural, both', () => {
 test('the copy carries no em dashes', () => {
   const copy = BOARD_TSX.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
   ok(!copy.includes('—'), 'house rule: no em dashes in UI copy');
+});
+
+// ── The month strip (her feedback, 2026-08-09) ───────────────────────────────
+
+suite('the board month strip — walking months, and naming where the work is');
+
+test('shiftMonth walks forward and back, across year ends', () => {
+  eq(shiftMonth('2026-08', 1), '2026-09', 'forward');
+  eq(shiftMonth('2026-08', -1), '2026-07', 'back');
+  eq(shiftMonth('2026-12', 1), '2027-01', 'over the year end');
+  eq(shiftMonth('2026-01', -1), '2025-12', 'back over the year end');
+  eq(shiftMonth('junk', 1), 'junk', 'junk stays put rather than exploding');
+});
+
+test('monthsWithWork lists only months that hold cards, newest first', () => {
+  const months = monthsWithWork([
+    { id: 'a', scheduledDate: '2026-07-14' },
+    { id: 'b', scheduledDate: '2026-07-02' },
+    { id: 'c', createdMonth: '2026-05' },
+    { id: 'd' },
+  ] as never);
+  eq(months, ['2026-07', '2026-05'], 'two months, newest first, undated cards claim none');
 });

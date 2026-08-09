@@ -25,14 +25,14 @@ import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
 } from '@dnd-kit/core';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { formatDate, formatMonthLabel } from '@/lib/utils';
 import { CONTENT_STAGES, type ContentCard, type ContentPillar, type ContentStage } from '@/types';
 import {
   agendaIdOf, agendaOf, bareId, boardCards, boardNote, cardChips, dndId, monthCells,
-  needsOpenKey, needsToday, pillarColumns, pillarMixLine, plural, readNeedsOpen,
-  stageBuckets, unattachedPreviews, writeNeedsOpen,
+  monthsWithWork, needsOpenKey, needsToday, pillarColumns, pillarMixLine, plural, readNeedsOpen,
+  shiftMonth, stageBuckets, unattachedPreviews, writeNeedsOpen,
   type NeedRow, type PillarColumn as PillarCol,
 } from '@/lib/creation/board';
 import { LockBanner, Segmented } from '@/components/shell/Screen';
@@ -93,11 +93,13 @@ export interface BoardProps {
 export default function Board({
   profileId, hue, readOnly, onOpenPiece, lockBanner = false,
 }: BoardProps) {
-  const { dispatch, selectedMonth: month } = useApp();
+  const { dispatch, selectedMonth: month, setSelectedMonth } = useApp();
   const { data } = useClient(profileId);
 
   const [view, setView] = useState('board');
   const [dragging, setDragging] = useState<string | null>(null);
+  // The unattached-previews list starts folded: it is a reminder, not the work.
+  const [orphansOpen, setOrphansOpen] = useState(false);
   // Server and first client render agree (open), then the remembered value
   // arrives. Reading storage in the initial state would mismatch hydration.
   const [needsOpen, setNeedsOpen] = useState(true);
@@ -114,6 +116,9 @@ export default function Board({
   const mine = boardCards(cards, month);
   const needs = needsToday({ cards, agenda, today });
   const orphans = unattachedPreviews(data.previewPosts ?? [], cards);
+  // When the chosen month has nothing but other months do, say where the work
+  // is instead of presenting an empty board as the truth about the profile.
+  const monthHint = mine.length === 0 ? (monthsWithWork(cards).find(m => m !== month) ?? null) : null;
   const buckets = stageBuckets(CONTENT_STAGES, mine);
 
   const sensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
@@ -217,9 +222,35 @@ export default function Board({
         ))}
       </div>
 
-      {/* ── The four views ─────────────────────────────────────────────────── */}
+      {/* ── The four views, and which month is on the table ────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented segments={VIEWS} active={view} onSelect={setView} />
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented segments={VIEWS} active={view} onSelect={setView} />
+          {/* The board shows ONE month. This is where that month is chosen.
+              Before this strip existed the screen filtered by month with no way
+              to change it, so past months looked like an empty board. */}
+          <div className="flex items-center gap-1 rounded-[10px] bg-chip px-1 py-1">
+            <button type="button" aria-label="Earlier month"
+              onClick={() => setSelectedMonth(shiftMonth(month, -1))}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-white">
+              <ChevronLeft size={15} strokeWidth={2.2} />
+            </button>
+            <span className="min-w-[104px] text-center text-[12.5px] font-semibold tabular-nums text-text">
+              {formatMonthLabel(month)}
+            </span>
+            <button type="button" aria-label="Later month"
+              onClick={() => setSelectedMonth(shiftMonth(month, 1))}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-white">
+              <ChevronRight size={15} strokeWidth={2.2} />
+            </button>
+          </div>
+          {monthHint && (
+            <button type="button" onClick={() => setSelectedMonth(monthHint)}
+              className="text-[12.5px] font-semibold text-accent-text">
+              This month is empty. Jump to {formatMonthLabel(monthHint)}.
+            </button>
+          )}
+        </div>
         <span className="text-[12.5px] text-faint">{boardNote(readOnly)}</span>
       </div>
 
@@ -274,18 +305,29 @@ export default function Board({
       )}
 
       {/* ── Previews with nothing to hold on to (S9: nothing is deleted) ────── */}
+      {/* One quiet line, not a block. Her note on 2026-08-09: the board is the
+          screen, and this list was taking more room than the work itself. It
+          folds to a notification and opens only when she wants to clear it. */}
       {orphans.length > 0 && (
         <div className="overflow-hidden rounded-card border border-hairline bg-white shadow-card">
-          <div className="px-[18px] pb-2.5 pt-3.5">
-            <p className="text-[11.5px] font-bold uppercase tracking-[.09em] text-muted">
-              {plural(orphans.length, 'preview')} not attached to a piece
-            </p>
-            <p className="mt-1 text-[12.5px] leading-[1.5] text-faint">
+          <button type="button" onClick={() => setOrphansOpen(v => !v)}
+            className="flex w-full items-center gap-[11px] px-[18px] py-3 text-left">
+            <span className="h-2 w-2 flex-none rounded-full bg-faint" />
+            <span className="flex-1 text-[13px] font-semibold text-muted">
+              {plural(orphans.length, 'preview')} to attach to a piece
+            </span>
+            <span className="text-[12.5px] font-semibold text-faint">{orphansOpen ? 'Hide' : 'Open'}</span>
+            <span className={`flex text-faint ${orphansOpen ? '' : '-rotate-90'}`}>
+              <ChevronDown size={15} strokeWidth={2.2} />
+            </span>
+          </button>
+          {orphansOpen && (
+            <p className="px-[18px] pb-2.5 text-[12.5px] leading-[1.5] text-faint">
               These were made before a preview belonged to a piece. Open the piece it was made for and
               attach it there. Nothing is deleted.
             </p>
-          </div>
-          {orphans.map(p => (
+          )}
+          {orphansOpen && orphans.map(p => (
             <div key={p.id} className="flex items-center gap-3.5 border-t border-divider px-[18px] py-3.5">
               <span className="flex-1 text-[14.5px] font-semibold text-text">{p.name || 'Untitled preview'}</span>
               <span className="text-[12px] text-faint">{plural(p.images.length, 'slide')}</span>

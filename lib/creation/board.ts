@@ -281,3 +281,26 @@ export function agendaOf(cards: ContentCard[]): ContentCard[] {
     .filter(c => DAY.test((c.scheduledDate ?? '').slice(0, 10)))
     .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
 }
+
+/**
+ * The month beside this one. `2026-08` + 1 is `2026-09`; `2026-01` - 1 is
+ * `2025-12`. The board's month strip walks with this and nothing else, so the
+ * arithmetic lives here where the tests can hold it.
+ */
+export function shiftMonth(month: string, delta: 1 | -1): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) return month;
+  const total = Number(m[1]) * 12 + (Number(m[2]) - 1) + delta;
+  const y = Math.floor(total / 12);
+  return `${String(y).padStart(4, '0')}-${String((total % 12) + 1).padStart(2, '0')}`;
+}
+
+/** The months that actually hold work, newest first. What the picker offers. */
+export function monthsWithWork(cards: ContentCard[]): string[] {
+  const seen = new Set<string>();
+  for (const c of cards) {
+    const own = c.scheduledDate?.trim() ? c.scheduledDate.slice(0, 7) : (c.createdMonth ?? '');
+    if (/^\d{4}-\d{2}$/.test(own)) seen.add(own);
+  }
+  return [...seen].sort().reverse();
+}
