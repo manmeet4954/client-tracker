@@ -34,6 +34,7 @@ import Lock from '@/components/strategy/Lock';
 import BrandKit from '@/components/strategy/BrandKit';
 import MockupScreen from '@/components/mockup/MockupScreen';
 import Channels from '@/components/strategy/Channels';
+import Facts from '@/components/strategy/Facts';
 
 export interface StrategyTab { id: string; label: string }
 
@@ -46,6 +47,9 @@ export interface StrategyTab { id: string; label: string }
  * have taken a live control away.
  */
 export const STRATEGY_TABS: StrategyTab[] = [
+  // Facts is first and default: strategy as one simple page of eight facts.
+  // The other tabs stay because the engine still reads gates and switches.
+  { id: 'facts', label: 'Facts' },
   { id: 'derivation', label: 'Decide' },
   { id: 'gates', label: 'Gates' },
   { id: 'switches', label: 'Switches' },
@@ -56,7 +60,7 @@ export const STRATEGY_TABS: StrategyTab[] = [
   { id: 'lifecycle', label: 'Lifecycle' },
 ];
 
-export const DEFAULT_STRATEGY_TAB = 'derivation';
+export const DEFAULT_STRATEGY_TAB = 'facts';
 
 /** The tab an unknown or missing value falls back to. */
 export function strategyTabOf(value: string | null | undefined): string {
@@ -104,6 +108,13 @@ export function StrategyBody(
   { profileId, tab, hrefFor }: { profileId: string; tab: string; hrefFor?: (panel: string) => string },
 ) {
   switch (tab) {
+    case 'facts':
+      return (
+        <Facts
+          profileId={profileId}
+          brandHref={hrefFor?.('brand') ?? `/profile/${profileId}/strategy/brand`}
+        />
+      );
     case 'gates':
       return <Gates profileId={profileId} />;
     case 'switches':

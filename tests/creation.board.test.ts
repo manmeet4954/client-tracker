@@ -6,7 +6,8 @@
 //   1. Every number the board says out loud is COUNTED from the array it
 //      describes. The handoff calls this a recurring bug to be treated as a rule.
 //   2. Off means absent. An empty thing is not drawn as an empty thing.
-//   3. Before the lock the board reads and nothing moves.
+//   3. The board reads and nothing moves when the profile is RESTING. The
+//      strategy lock is not one of those reasons any more (2026-08-09).
 //   4. The board opens the piece panel by asking, never by routing. Another
 //      screen owns that panel.
 //
@@ -25,6 +26,10 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BOARD_TSX = readFileSync(join(ROOT, 'components/creation/Board.tsx'), 'utf8');
+const SCREEN_TSX = readFileSync(join(ROOT, 'components/shell/Screen.tsx'), 'utf8');
+const CREATION_PAGE_TSX = readFileSync(
+  join(ROOT, 'app/profile/[id]/creation/[tab]/page.tsx'), 'utf8',
+);
 
 type Card = Parameters<typeof needsToday>[0]['cards'][number];
 type Pillar = Parameters<typeof pillarColumns>[1][number];
@@ -277,17 +282,22 @@ test('the month headline counts the agenda it is written above', () => {
   ok(/min-h-\[62px\]/.test(BOARD_TSX), 'cells are 62px');
 });
 
-// ── 7. Before the lock ───────────────────────────────────────────────────────
+// ── 7. Read only ─────────────────────────────────────────────────────────────
+//
+// Her decision, 2026-08-09: the strategy lock no longer makes the board read
+// only. Recording always works. What is left is a profile that is archived or
+// resting, and a board switch she moved to `history`.
 
-suite('Board — read only until Strategy is locked');
+suite('Board — read only when the profile is resting, not when strategy is open');
 
 test('the note under the views says which state the board is in', () => {
-  eq(boardNote(true), 'Read only until Strategy is locked.', 'unlocked profile');
+  eq(boardNote(true), 'Read only. This profile is resting, so nothing here moves.', 'a resting profile');
   eq(boardNote(false), 'Drag a piece to move it. Review and scheduling are states, not screens.',
-    'locked profile');
+    'a working profile');
+  ok(!/Strategy/.test(boardNote(true)), 'and it never blames the strategy for it');
 });
 
-test('nothing moves and nothing is ticked off before the lock', () => {
+test('nothing moves and nothing is ticked off while it reads', () => {
   ok(/function onDragEnd[\s\S]{0,200}?if \(readOnly \|\| !e\.over\) return;/.test(BOARD_TSX),
     'a drop is refused');
   ok(/function tickOff[\s\S]{0,120}?if \(readOnly\) return;/.test(BOARD_TSX),
@@ -313,6 +323,31 @@ test('the banner is the shell\'s one banner, not a second copy of the words', ()
   ok(/import \{ LockBanner, Segmented \} from '@\/components\/shell\/Screen'/.test(BOARD_TSX),
     'one home for the lock copy');
   ok(!/Strategy is not locked yet/.test(BOARD_TSX), 'the board never respells it');
+});
+
+test('the lock banner says the work still saves, and never claims nothing can be written', () => {
+  const banner = SCREEN_TSX.slice(SCREEN_TSX.indexOf('export function LockBanner'));
+  ok(!/nothing can be written here/.test(banner),
+    'the old sentence is gone: it stopped being true on 2026-08-09');
+  ok(!/pieces\s+cannot move/.test(banner), 'and so is the half about the pieces');
+  ok(/still saves/.test(banner), 'it says the recording still saves');
+  ok(/Strategy is still to be locked/.test(banner), 'and it still says what is waiting');
+  ok(!/—/.test(banner), 'no em dashes in anything she reads');
+});
+
+test('the lock is not what makes a Creation screen read only', () => {
+  ok(!/readOnly: beforeLock/.test(CREATION_PAGE_TSX),
+    'read-only no longer comes from the lock');
+  ok(/const writable = \(switchId: string\) =>/.test(CREATION_PAGE_TSX),
+    'it comes from one helper');
+  ok(/renderState\(\{ \.\.\.profile, strategy_locked: true \}, switchId, kind\) === 'active'/
+    .test(CREATION_PAGE_TSX),
+    'which asks the ONE resolver, with the lock set aside and nothing re-implemented');
+  ok(/readOnly: !writable\('creation\.board'\)/.test(CREATION_PAGE_TSX),
+    'and the board is read-only only when its own switch or the profile says so');
+  // Seeing is decided the ordinary way, so nothing here widens what a client sees.
+  ok(/renderState\(profile, s\.switch, kind\)/.test(CREATION_PAGE_TSX),
+    'visibility still asks with the real profile');
 });
 
 // ── 8. The piece panel is somebody else's screen ─────────────────────────────

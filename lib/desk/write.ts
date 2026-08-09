@@ -14,12 +14,12 @@
 //
 // WHAT A TOOL IS. A pure function: current state plus an intent in, either the
 // next state or a refusal out. It never mutates in place and it NEVER SAVES.
-// The route saves, through the ordinary write door, so path scoping, the lock
-// and role filtering all still apply exactly as they do for a screen.
+// The route saves, through the ordinary write door, so path scoping and role
+// filtering still apply exactly as they do for a screen.
 //
 // THE REFUSAL RULE. A tool refuses, in her words, and does nothing at all when:
-//   - the strategy is not locked and the write lands in creation,
 //   - the switch governing that path is not active on that profile,
+//   - the profile is archived, so everything on it reads and nothing moves,
 //   - the piece, task or profile named does not exist,
 //   - the name is ambiguous between two profiles.
 // Never half a thing reported as done. Never a refused write retried a second
@@ -38,7 +38,6 @@ import { findDeclaration } from '../tree/declarations.ts';
 import { scopeKey } from '../tree/scopes.ts';
 import { renderState } from '../tree/render.ts';
 import { renderProfile } from '../shell/profile.ts';
-import { CREATION_PREFIX, strategyLocked } from '../strategy/derivation.ts';
 import { PIECE_PATH, canMotherPieces, resolveSeed } from '../engine/seeds.ts';
 import { resolvePiece } from '../engine/resolve.ts';
 import { writeCapture, type CaptureArrival } from '../engine/captures.ts';
@@ -77,6 +76,13 @@ export const CAPTURES_PATH = 'work-log/creation/topics/captures';
 export const NOTES_PATH = OBSERVATIONS_PATH;
 export const PREVIEWS_PATH = 'work-log/creation/review';
 export const SCHEDULING_PATH = 'work-log/creation/scheduling';
+
+/**
+ * Not a path inside a profile: the OWNER scope that owns `clients`, which is
+ * where a profile's lifecycle lives. `setLifecycle` writes here and nothing else
+ * does from this module.
+ */
+export const PROFILES_SCOPE = 'shelf/profiles';
 
 /** How each address is named when a refusal has to say what is switched off. */
 const PLAIN_NAME: Record<string, string> = {
@@ -174,10 +180,26 @@ export function resolveProfile(state: AppState, ref: string | undefined): Resolu
 /**
  * May this profile be written at this address right now?
  *
- * The lock first, because the lock is the reason she will hear most often and
- * it deserves its own sentence. Then the switch that the DECLARATION names for
- * that path, resolved through the one visibility authority (`renderState`), so
- * nothing here re-implements a switch position.
+ * The switch that the DECLARATION names for that path, resolved through the one
+ * visibility authority (`renderState`), so nothing here re-implements a switch
+ * position. A path that is switched off refuses, a profile that is archived or
+ * resting refuses, and everything else is open.
+ *
+ * THE LOCK IS NOT ASKED. Her decision, 2026-08-09: recording what is happening
+ * always works, locked or not, and generation is the only thing that needs a
+ * strategy (see lib/strategy/derivation.ts §8.7). Every tool in this file
+ * records — a task, a piece, a stage, a date, a capture, a note — so none of
+ * them is the kind of thing the lock exists to hold back.
+ *
+ * The resolver ALSO drops creation and logs to `history` before the lock, which
+ * is the read-only shell she sees, not a rule about writing. So the question put
+ * to it here sets the lock aside and asks only the part it is being asked about:
+ * is this path switched on, on a profile that is still working? Nothing about
+ * the resolver changes, and nothing here re-implements it.
+ *
+ * This never widens what a CLIENT can see. It is a write question, asked as the
+ * owner, on a profile the owner already resolved; visibility is decided
+ * elsewhere and still asks the resolver the ordinary way.
  *
  * Returns a refusal string, or null when the door is open.
  */
@@ -187,30 +209,29 @@ export function guardPath(state: AppState, profile: ResolvedProfile, path: strin
     return `"${path}" is not a place anything lives, so I did not write it.`;
   }
 
-  const locked = strategyLocked(profile.body);
-  const inCreation = path === CREATION_PREFIX || path.startsWith(CREATION_PREFIX + '/');
-  if (inCreation && !locked) return lockRefusal(profile);
-
   const rp = renderProfile(state, profile.id, 'owner');
-  const rendered = renderState(rp, dec.switch, 'owner');
+  const rendered = renderState({ ...rp, strategy_locked: true }, dec.switch, 'owner');
   if (rendered === 'active') return null;
 
-  // Which of the two is it? The resolver gates whole families behind the lock,
-  // not just creation, and "switched off" would be the wrong sentence for a
-  // profile whose strategy simply has not locked. So the same authority is
-  // asked the counterfactual: would this render if the strategy were locked?
-  // Nothing here re-implements the rule; it asks the one function that owns it.
-  if (!locked && renderState({ ...rp, strategy_locked: true }, dec.switch, 'owner') === 'active') {
-    return lockRefusal(profile);
+  // Which of the two is it? The resolver freezes EVERYTHING on a profile that is
+  // archived, paused or still being set up, so "switched off" would blame a
+  // switch she never moved. Same authority, asked the counterfactual: would this
+  // render if the profile were working? Nothing here re-implements the rule.
+  if (rp.lifecycle !== 'active' && renderState(
+    { ...rp, strategy_locked: true, lifecycle: 'active' }, dec.switch, 'owner',
+  ) === 'active') {
+    return `${profile.name} is ${restingWord(rp.lifecycle)}, `
+      + 'so nothing on it is written again. Nothing was written.';
   }
 
   return `${plainName(path)} is switched off on ${profile.name}, `
     + 'so I cannot write there. Nothing was written.';
 }
 
-function lockRefusal(profile: ResolvedProfile): string {
-  return `Strategy is not locked on ${profile.name} yet, so nothing can be written there. `
-    + 'Lock it from the Strategy corner and I will do this. Nothing was written.';
+/** What a profile at rest is called, in the words the desk already uses. */
+function restingWord(lifecycle: string): string {
+  if (lifecycle === 'setup') return 'still being set up';
+  return REST_WORD[lifecycle as LifecycleTo] ?? 'not running';
 }
 
 // ── Committing: the next state, and the scopes it touched ────────────────────
@@ -805,6 +826,94 @@ export function addNote(ctx: WriteContext, intent: AddNoteIntent): ToolResult {
   }
 
   return commitBody(ctx, profile, body, [NOTES_PATH], `Noted that on ${profile.name}.`);
+}
+
+// ── A profile's lifecycle: pause it, close it, archive it, bring it back ─────
+
+/**
+ * `setup` is not settable from here. A profile is born at setup by the one
+ * write the shell owns, and it leaves setup by being worked on, never by being
+ * told to.
+ */
+export const LIFECYCLE_STATES = ['active', 'paused', 'closing', 'archived'] as const;
+export type LifecycleTo = (typeof LIFECYCLE_STATES)[number];
+
+/** Her word for each state, used in the sentence she reads back. */
+const REST_WORD: Record<LifecycleTo, string> = {
+  active: 'active again',
+  paused: 'paused',
+  closing: 'closing',
+  archived: 'archived',
+};
+
+export interface SetLifecycleIntent {
+  profile: string;
+  to: string;
+}
+
+/**
+ * The state of the whole profile, which is the one thing the chat could not
+ * touch. She asked it to unarchive something and it told her it had no setting
+ * for that, which was true: there was no tool, in either chat.
+ *
+ * This is the SAME change the "..." menu on a desk profile row makes, through
+ * the same slice and the same address (`shelf/profiles`, which owns `clients`).
+ * It is not a second way to rest a profile, it is the existing one reached by
+ * asking.
+ *
+ * Nothing is deleted at any point. Archiving stops a profile resolving and takes
+ * its doors away; the work stays exactly where it was and coming back is one
+ * more sentence. That is why this acts and then says so, rather than asking
+ * first.
+ */
+export function setLifecycle(ctx: WriteContext, intent: SetLifecycleIntent): ToolResult {
+  const to = String(intent.to ?? '').trim().toLowerCase() as LifecycleTo;
+  if (!LIFECYCLE_STATES.includes(to)) {
+    return {
+      ok: false,
+      refusal: 'A profile can be active, paused, closing or archived, and nothing else. Nothing was written.',
+    };
+  }
+
+  const found = resolveProfile(ctx.state, intent.profile);
+  if (!found.ok) return found;
+  const profile = found.profile;
+
+  const from = (profile.client.lifecycle ?? 'active') as string;
+  if (from === to) {
+    return {
+      ok: false,
+      refusal: `${profile.name} is already ${REST_WORD[to]}, so I changed nothing.`,
+    };
+  }
+
+  // `setup` is a profile still being born. Bringing it to active by asking would
+  // skip the walk that decides what it is, so it is refused and named.
+  if (from === 'setup') {
+    return {
+      ok: false,
+      refusal: `${profile.name} is still being set up, so it does not rest yet. `
+        + 'Finish its strategy first. Nothing was written.',
+    };
+  }
+
+  const state: AppState = {
+    ...ctx.state,
+    clients: (ctx.state.clients ?? []).map(c =>
+      c.id === profile.id
+        // The date it was set, so the desk can say "Paused since 3 June" rather
+        // than just "Paused". Same field the row menu writes.
+        ? { ...c, lifecycle: to, lifecycleAt: ctx.now }
+        : c),
+  };
+
+  const summary = to === 'archived'
+    ? `${profile.name} is archived. Everything is kept, and you can bring it back by asking.`
+    : to === 'active'
+      ? `${profile.name} is back, and its doors are open again.`
+      : `${profile.name} is ${REST_WORD[to]}. Its counts stop here and nothing is lost.`;
+
+  return { ok: true, state, paths: [scopeKey(null, PROFILES_SCOPE)], summary };
 }
 
 // ── The door's own refusals, said plainly ────────────────────────────────────

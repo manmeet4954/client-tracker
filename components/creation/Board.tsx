@@ -68,7 +68,11 @@ export interface BoardProps {
   profileId: string;
   /** The profile's identity hue. It paints a card edge, a dot, a month chip. */
   hue: string;
-  /** Before the lock nothing here moves. The banner above says why, once. */
+  /**
+   * The board reads and does not move. Since 2026-08-09 the strategy lock is NOT
+   * a reason for this: recording always works. What is left is a profile that is
+   * archived or resting, and a board switch she moved to `history`.
+   */
   readOnly: boolean;
   /**
    * Opens the piece panel over this screen. The panel is another screen's job;
@@ -76,15 +80,18 @@ export interface BoardProps {
    */
   onOpenPiece: (cardId: string) => void;
   /**
-   * Whether the board draws the lock banner itself. The Creation page already
-   * draws one above every sub-tab, so it passes false. A board mounted on its
-   * own keeps the design's behaviour and draws it.
+   * Whether the board draws the strategy banner itself. The Creation page draws
+   * one above every sub-tab already, so it passes nothing.
+   *
+   * It used to be drawn whenever the board was read-only, because read-only and
+   * "not locked yet" were the same thing. They are not any more, so the CALLER
+   * decides: it is the one that knows whether the strategy has locked.
    */
   lockBanner?: boolean;
 }
 
 export default function Board({
-  profileId, hue, readOnly, onOpenPiece, lockBanner = true,
+  profileId, hue, readOnly, onOpenPiece, lockBanner = false,
 }: BoardProps) {
   const { dispatch, selectedMonth: month } = useApp();
   const { data } = useClient(profileId);
@@ -154,7 +161,7 @@ export default function Board({
 
   return (
     <div className="flex flex-col gap-3.5">
-      {lockBanner && readOnly && <LockBanner />}
+      {lockBanner && <LockBanner />}
 
       {/* ── Needs you today. This profile, and no other. ───────────────────── */}
       <div className="overflow-hidden rounded-card border border-hairline bg-white shadow-card">

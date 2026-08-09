@@ -37,7 +37,7 @@ export const ROOM_SECTIONS: { id: string; label: string }[] = CORNER_PANELS.map(
   label: p.id === 'derivation' ? 'Decide' : p.label,
 }));
 
-export const DEFAULT_SECTION = 'derivation';
+export const DEFAULT_SECTION = 'facts';
 
 export function roomSectionOf(value: string | null | undefined): string {
   return ROOM_SECTIONS.some(s => s.id === value) ? (value as string) : DEFAULT_SECTION;
@@ -118,7 +118,7 @@ export default function Room({
           ))}
           {!locked && (
             <p className="mt-3 px-3 text-[12px] leading-[1.55] text-faint">
-              Creation stays read only until Strategy is locked.
+              Briefs and drafts wait for this. Recording your work does not.
             </p>
           )}
         </aside>
@@ -126,7 +126,7 @@ export default function Room({
         <main className="min-w-0 flex-1 px-4 py-5 md:px-7 md:py-7">
           {active === 'derivation'
             ? <Decide profileId={profileId} brandHref={hrefFor('brand')} />
-            : <StrategyBody profileId={profileId} tab={active} />}
+            : <StrategyBody profileId={profileId} tab={active} hrefFor={hrefFor} />}
         </main>
       </div>
     </div>

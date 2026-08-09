@@ -25,7 +25,7 @@ import Modal from '@/components/Modal';
 import type { DeskAnswer, DeskProfile, DeskRow } from '@/lib/shell/desk';
 import type { Lifecycle } from '@/lib/tree/objects';
 import {
-  DESK_PROMPTS, DESK_UNREACHABLE, answerToday, askDesk, composeDeskProfiles,
+  DESK_PROMPTS, DESK_UNREACHABLE, answerToday, askDesk, composeDeskProfiles, runDesk,
 } from '@/lib/shell/desk';
 // The standing questions moved into their own file when phase 6 started, so the
 // desk's answers can be read and tested without the screen around them. This
@@ -113,24 +113,58 @@ export default function Shelf() {
     });
   }
 
-  async function send(question: string) {
+  /**
+   * `fromChip` is the whole distinction. A TAPPED CHIP is one of the five
+   * standing questions and is answered here, from her state, instantly and
+   * without a model call. ANYTHING SHE TYPES goes to the harness.
+   *
+   * It used to classify everything she typed through `answerQuestion` first, and
+   * that is why the desk could not be talked to. The triggers include `today`,
+   * `yes`, `go`, `due` and `review` as whole words, so "I posted the Career
+   * Bubble reel today" matched `today`, was answered with the standing today
+   * list, and her actual instruction was thrown away. Nothing is lost by sending
+   * typed text to the harness: its `across_profiles` tool answers those same
+   * five standing questions from the same counters.
+   */
+  async function send(question: string, fromChip = false) {
     const q = question.trim();
     if (!q || busy) return;
     setDraft('');
     setMenuOpen(false);
 
-    const local = answerQuestion(q, state, day);
-    if (local) {
-      keep('me', q);
-      keep('dash', local.text, local.rows, local.note);
-      return;
+    if (fromChip) {
+      const local = answerQuestion(q, state, day);
+      if (local) {
+        keep('me', q);
+        keep('dash', local.text, local.rows, local.note);
+        return;
+      }
     }
 
-    // Anything outside the standing questions goes to the brain the app already
-    // has. It never draws an empty bubble: a failure is one plain line.
     setBusy(true);
     const recent = thread.slice(-8).map(m => ({ who: m.who, text: m.text }));
     keep('me', q);
+
+    // One brain, two surfaces: the same tool loop the floating chat calls. When
+    // it actually did something, the tab reads the state back, so what she sees
+    // next is what landed and not what the chat believes it did. It syncs rather
+    // than loads, because a plain load would replace `chatLog` with the server's
+    // copy and eat the message she just sent.
+    const done = await runDesk(q, recent, day).catch(() => null);
+    if (done) {
+      if (done.did.length) {
+        const fresh = await fetch('/api/state')
+          .then(r => (r.ok ? r.json() : null)).catch(() => null);
+        if (fresh?.state) dispatch({ type: 'SYNC_FROM_SERVER', payload: fresh.state });
+      }
+      keep('dash', done.reply);
+      setBusy(false);
+      return;
+    }
+
+    // The harness is unreachable or has no key: the older text-only brain,
+    // exactly as before, so the desk still answers rather than going dead. It
+    // never draws an empty bubble: a failure is one plain line.
     let reply: string | null = null;
     try {
       reply = await askDesk(q, state, recent);
@@ -224,7 +258,7 @@ export default function Shelf() {
 
             <div className="flex flex-wrap gap-2 pt-[2px]">
               {prompts.map(q => (
-                <button key={q.text} type="button" onClick={() => send(q.text)}
+                <button key={q.text} type="button" onClick={() => send(q.text, true)}
                   className="rounded-full border border-hairline bg-surface px-[15px] py-2 text-[13px] font-semibold text-muted hover:border-[rgba(234,71,17,.4)] hover:text-accent-text">
                   {q.text}
                 </button>

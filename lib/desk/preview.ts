@@ -17,8 +17,10 @@
 //
 // STEP 4, HONESTLY, and this is the part that must not pretend:
 //   - a direct image or video link: attached.
-//   - a Canva design link: the Canva code is written and waiting, but it needs
-//     a registered Canva app that does not exist yet. That is said plainly and
+//   - a Canva design link: resolved to image links BEFORE this module sees it,
+//     by the loop, using the same import the preview editor runs. When Canva is
+//     not connected the link arrives here untouched and is refused. That is
+//     said plainly and
 //     nothing is written.
 //   - anything else: refused, with the reason. No scraping. No screenshotting.
 //

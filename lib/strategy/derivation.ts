@@ -627,7 +627,32 @@ export function lockStrategy(input: LockInput): LockResult {
   return { ok: true, failures: [], body, lifecycle, strategy_version: version };
 }
 
-// ── §8.7 Creation stays locked until strategy locks ──────────────────────────
+// ── §8.7 Recording always works. Generation is what needs strategy ───────────
+//
+// HER DECISION, 2026-08-09, and it replaces the rule this section used to hold.
+//
+// The old rule was "until a profile's Strategy is locked, Creation cannot be
+// written to", and both functions below enforced it: every card, every stage
+// move, every seed, every saved reply refused until the strategy was written up.
+// In practice that locked her out of her own clients. The clients already exist,
+// the work is already happening, and the only thing missing is the write-up.
+//
+// The rule now:
+//
+//   RECORDING what is happening is ALWAYS allowed, locked or not. Cards and
+//   pieces, the stage they sit at, dates, live links, previews, seeds and
+//   topics, channels, saved replies, tasks and notes. None of it needs a
+//   strategy to be true, and refusing it only loses the record.
+//
+//   GENERATION still needs the strategy, because a draft or a brief written
+//   with no positioning, voice or pillars is a guess wearing her name. That gate
+//   is NOT here: the engine surfaces already receive a `strategyLocked` flag and
+//   answer for themselves (`app/api/engine/*`, `EngineRoomView`, `CostumeView`).
+//   Nothing in this file changes that.
+//
+// So strategy is a layer of understanding, not a gate on work.
+//
+// Reading was never touched by either function, and still is not.
 
 export const CREATION_PREFIX = 'work-log/creation';
 
@@ -636,46 +661,38 @@ export function strategyLocked(body: ProfileBody | undefined): boolean {
 }
 
 /**
- * "Any write to a path under work-log/creation on a profile whose
- * strategy_version is null is refused." Server side, at the write door, the
- * same way an undeclared path is refused — not hidden, not grayed out.
+ * The tree half of the old lock. It now refuses NOTHING, and that is the whole
+ * of it: every path under `work-log/creation` is a record of work that happened,
+ * and a record does not need a strategy to be allowed to exist.
  *
- * A spec-21-migrated profile is unaffected: this binds NEW writes through the
- * tree, never the legacy slices spec 21 deliberately left rendering (§13.6).
+ * We went through the addresses under the prefix one by one looking for anything
+ * that genuinely cannot be DECIDED without a strategy, and there is nothing. The
+ * generated things that could qualify — drafts, briefs, gate runs, resolved
+ * costumes — are already gated where they are made, before they ever reach a
+ * write, and each has its own guard at this same door (`refusedDraftWrites`,
+ * `refusedGateRunWrites`, `refusedCostumeWrites`, and the rest).
+ *
+ * KEPT rather than deleted, on purpose. Two routes import it as the named place
+ * where "does the strategy lock refuse this write?" is answered
+ * (`app/api/state/route.ts`, `app/api/desk-chat/route.ts`). Keeping the call and
+ * emptying the answer means the decision lives in ONE readable place instead of
+ * disappearing into two deleted imports, and if a later spec finds a creation
+ * write that truly needs a locked strategy, it goes here and nowhere else.
  */
 export function refusedCreationWrites(
-  current: ProfileBody | undefined, incoming: ProfileBody | undefined,
+  _current: ProfileBody | undefined, _incoming: ProfileBody | undefined,
 ): string[] {
-  if (!incoming || strategyLocked(incoming) || strategyLocked(current)) return [];
-  const out: string[] = [];
-  const paths = new Set([
-    ...Object.keys(current?.paths ?? {}), ...Object.keys(incoming.paths ?? {}),
-  ]);
-  for (const p of paths) {
-    if (p !== CREATION_PREFIX && !p.startsWith(CREATION_PREFIX + '/')) continue;
-    const a = JSON.stringify(current?.paths?.[p] ?? null);
-    const b = JSON.stringify(incoming.paths?.[p] ?? null);
-    if (a !== b) out.push(p);
-  }
-  return out;
+  return [];
 }
 
 // ── §8.7 part two: the legacy slices ARE creation ────────────────────────────
 //
-// `refusedCreationWrites` above guards the TREE, and the comment beside it was
-// honest about what it left out: "this binds NEW writes through the tree, never
-// the legacy slices spec 21 deliberately left rendering". The board she uses
-// every day renders from those legacy slices. So on an unlocked profile the
-// banner said "nothing can be written here" while every card, every move
-// between stages and every preview went straight through the door.
-//
-// That is closed here: at the same door, on the same condition, with the same
-// answer — refused, named, and told why. One address per slice, taken from the
-// same address map the write scopes use (`PROFILE_SCOPES` in lib/tree/scopes.ts).
-// Every slice below is one that map files under `work-log/creation`.
-//
-// Reading is never touched. History, analytics and every past piece stay fully
-// readable on an unlocked profile. This is the WRITE door only.
+// The board she uses every day renders from the legacy slices rather than from
+// the tree, so the same answer has to hold for both halves or the rule is a rule
+// on paper only. The address map below stays: it is the standing statement of
+// which legacy slices live under `work-log/creation`, taken from the same map
+// the write scopes use (`PROFILE_SCOPES` in lib/tree/scopes.ts), and a later
+// spec that adds a creation slice still has one list to add it to.
 
 export interface LegacyCreationRefusal {
   /** The legacy slice the write touched. */
@@ -705,64 +722,28 @@ const LEGACY_CREATION: LegacySliceAddress[] = [
  *  whole of what the address map files under creation, and stays that way. */
 export const LEGACY_CREATION_SLICES: string[] = LEGACY_CREATION.map(r => r.slice as string);
 
-/** Absent, empty and blank all mean the same thing: nothing is recorded here. */
-function emptyish(v: unknown): boolean {
-  if (v == null) return true;
-  if (Array.isArray(v)) return v.length === 0;
-  if (typeof v === 'string') return v.trim().length === 0;
-  if (typeof v === 'object') return Object.values(v as Record<string, unknown>).every(emptyish);
-  return false;
-}
-
-function sameSlice(a: unknown, b: unknown): boolean {
-  if (emptyish(a) && emptyish(b)) return true;
-  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-}
-
 /**
- * CLAUDE.md gotcha 3: `contentCards` is deliberately never defaulted, because
- * the client's one-time LOAD migration keys off it being absent. That migration
- * folds the legacy kanban and pillar cards into the unified board. It is not
- * something she typed, so it is not a write.
+ * The legacy half, and it refuses NOTHING for the same reason the tree half
+ * does: every slice in the list above is a record of work that happened. A card
+ * she made, the stage she dragged it to, the preview she sent, the seed she
+ * caught, the account she posts from, the reply she saved. All of it is true
+ * whether or not the strategy has been written up, and refusing it only means
+ * the record is lost.
  *
- * It passes on exactly one condition: every id arriving is the id of a card the
- * profile ALREADY had. A piece she makes carries a new id, and it is refused
- * like everything else.
- */
-function dormantContentMigration(current: ClientData | undefined, incoming: unknown): boolean {
-  if (current?.contentCards !== undefined) return false;
-  if (!Array.isArray(incoming)) return false;
-  const known = new Set<string>([
-    ...(current?.cards ?? []).map(c => c.id),
-    ...(current?.pillarCards ?? []).map(c => c.id),
-  ]);
-  return incoming.every(c => known.has((c as { id?: string }).id ?? ''));
-}
-
-/**
- * "Until a profile's Strategy is locked, Creation cannot be written to" — the
- * legacy half. Same condition as `refusedCreationWrites`: a profile that has
- * locked, now or before this save, is not affected at all.
+ * KEPT for the same reason as `refusedCreationWrites`: the two routes call it by
+ * name, so this file stays the one readable place where the lock's effect on
+ * writing is decided.
+ *
+ * One thing this being empty quietly fixes: CLAUDE.md gotcha 3. `contentCards`
+ * is deliberately never defaulted, because the client's one-time LOAD migration
+ * keys off it being absent, and that migration used to need an exception carved
+ * out of this guard so it was not mistaken for a write. With nothing refused,
+ * there is nothing to carve.
  */
 export function refusedLegacyCreationWrites(
-  current: ClientData | undefined, incoming: ClientData | undefined,
+  _current: ClientData | undefined, _incoming: ClientData | undefined,
 ): LegacyCreationRefusal[] {
-  if (!incoming) return [];
-  if (strategyLocked(incoming.body) || strategyLocked(current?.body)) return [];
-
-  const out: LegacyCreationRefusal[] = [];
-  for (const row of LEGACY_CREATION) {
-    const before = current?.[row.slice];
-    const after = incoming[row.slice];
-    if (sameSlice(before, after)) continue;
-    if (row.slice === 'contentCards' && dormantContentMigration(current, after)) continue;
-    out.push({
-      slice: row.slice as string,
-      path: row.path,
-      why: `${row.what} cannot be written until Strategy is locked on this profile`,
-    });
-  }
-  return out;
+  return [];
 }
 
 // ── Cross-checks the validator runs (§4.6, acceptance test 10) ───────────────

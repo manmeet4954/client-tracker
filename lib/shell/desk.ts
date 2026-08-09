@@ -354,10 +354,48 @@ export const DESK_UNREACHABLE =
 export const DESK_ONLY_FINDS =
   'I can only find things from here. Ask what needs you today, what is stuck, or what is not locked.';
 
+/** What the harness answers (spec 30). `did` is what actually landed, not what it meant to do. */
+export interface DeskOutcome {
+  reply: string;
+  did: string[];
+}
+
 /**
- * The same endpoint and the same request shape the floating chat uses, so there
- * is one brain and not two. The desk reads only the REPLY: the desk finds, it
- * does not act, and an action belongs inside a profile.
+ * The desk's real brain: `/api/desk-chat`, spec 30's tool loop — the SAME one
+ * the floating chat calls. One brain, two surfaces, which is what she assumed
+ * was true all along.
+ *
+ * Before this, the desk called `askDesk` below and nothing else, so it could
+ * read her data and write a sentence about it but could not touch anything. The
+ * acting half was reachable only from the floating bubble.
+ *
+ * Returns null when the loop is unreachable or has no key, so the caller can
+ * drop through to the older text-only brain rather than the desk going dead.
+ */
+export async function runDesk(
+  question: string,
+  recent: { who: string; text: string }[],
+  today: string,
+): Promise<DeskOutcome | null> {
+  const answer = await fetch('/api/desk-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: question, recent, today }),
+  })
+    .then(r => (r.ok ? r.json() : null))
+    .catch(() => null) as { fallback?: boolean; reply?: string; did?: string[] } | null;
+
+  if (!answer || answer.fallback) return null;
+  const reply = (answer.reply ?? '').trim();
+  if (!reply) return null;
+  return { reply, did: Array.isArray(answer.did) ? answer.did : [] };
+}
+
+/**
+ * The OLDER text-only brain, kept as the fallback under `runDesk` above. It has
+ * no tools, so it can read her data and write a sentence about it and nothing
+ * more. It is what answers when the harness is unreachable or has no key, so the
+ * desk still says something rather than going dead.
  *
  * Returns null when the endpoint is unavailable or answers with nothing usable,
  * so the thread can say so in one plain line rather than draw an empty bubble.

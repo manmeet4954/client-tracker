@@ -23,6 +23,9 @@ import {
 } from '../lib/tree/switches.ts';
 import { validateRegistries } from '../lib/tree/validate.ts';
 import { migrateProfile } from '../lib/tree/migrate.ts';
+import { briefAvailability } from '../lib/engine/brief.ts';
+import { draftingAvailability } from '../lib/engine/drafting.ts';
+import { extractionAvailability } from '../lib/engine/extraction.ts';
 
 const NOW = '2026-07-27T10:00:00.000Z';
 const PLATFORMS = ['Instagram'];
@@ -262,9 +265,9 @@ test('15. each of the six conditions blocks the lock on its own, and says which'
     'and Instagram, which she switched on, renders');
 });
 
-suite('spec 22 §14.16 — creation stays locked until strategy locks');
+suite('§8.7, as she decided it on 2026-08-09 — recording always works');
 
-test('16. a write under work-log/creation is refused until the lock, and the legacy slices keep working', () => {
+test('16. a write under work-log/creation lands before the lock, because it is a record', () => {
   const state = fixtureState();
   const rg = state.clients.find(c => c.id === 'resumeguru')!;
   const migrated = migrateProfile(rg, state.clientData['resumeguru'], { now: NOW });
@@ -275,51 +278,51 @@ test('16. a write under work-log/creation is refused until the lock, and the leg
     id: 'seed-new', type: 'seed',
     data: { name: 'A new seed', raw_thought: 'x', raw_material: [], status: 'draft' },
   }, { writer: 'owner', now: NOW });
-  eq(refusedCreationWrites(before, newSeed), ['work-log/creation/topics'],
-    'the write door refuses it, and names the path');
+  eq(refusedCreationWrites(before, newSeed), [],
+    'a seed caught on an unlocked profile is not refused: it happened, so it is recorded');
 
-  // Nothing else about the profile is affected — including everything spec 21
-  // deliberately left rendering.
-  eq(refusedCreationWrites(before, before), [], 'an unchanged body writes nothing and is refused nothing');
-  eq(state.clientData['resumeguru'].contentCards.length, 3,
-    'the legacy slices are untouched: this binds new writes through the tree, never them');
+  eq(refusedCreationWrites(before, before), [], 'and an unchanged body is still nothing at all');
 
   const lockedBody = { ...readyToLock(), strategy_version: 1 };
   const afterLock = putEntry(lockedBody, 'work-log/creation/topics', {
     id: 'seed-new', type: 'seed',
     data: { name: 'A new seed', raw_thought: 'x', raw_material: [], status: 'draft' },
   }, { writer: 'owner', now: NOW });
-  eq(refusedCreationWrites(lockedBody, afterLock), [], 'after the lock the same write is allowed');
+  eq(refusedCreationWrites(lockedBody, afterLock), [], 'the locked profile behaves exactly the same');
 });
 
-suite('the restructure, phase 3 — the lock gates the board she actually uses');
-
-test('the legacy slices are refused too, so the banner stops lying', () => {
+test('the legacy slices the board renders from are not refused either', () => {
   const state = fixtureState();
   const before = state.clientData['resumeguru'];
   ok(!strategyLocked(before.body), 'the fixture profile has not locked');
 
-  // A piece she makes on the board today.
+  // A piece she makes on the board today, on a client whose strategy is still
+  // only in her head. This is the exact save that used to be refused.
   const after = {
     ...before,
     contentCards: [...before.contentCards, {
       ...before.contentCards[0], id: 'card-new', title: 'A new piece', stage: 'idea' as const,
     }],
   };
-  const refused = refusedLegacyCreationWrites(before, after);
-  eq(refused.map(r => r.slice), ['contentCards'], 'the door refuses it, and names the slice');
-  eq(refused[0].path, 'work-log/creation', 'addressed in the tree, not invented');
-  ok(refused[0].why.includes('until Strategy is locked'), 'and it says why in her words');
+  eq(refusedLegacyCreationWrites(before, after), [], 'the card is hers to make, and it saves');
 
-  eq(refusedLegacyCreationWrites(before, before), [],
-    'an unchanged save writes nothing and is refused nothing');
+  // And the same card moved to another stage, which is the other half of
+  // recording: where the work has got to.
+  const moved = {
+    ...after,
+    contentCards: after.contentCards.map(c =>
+      c.id === 'card-new' ? { ...c, stage: 'posted' as const } : c),
+  };
+  eq(refusedLegacyCreationWrites(after, moved), [], 'and moving it between stages saves too');
 
-  // Reading is never what this touches: the cards are all still there.
+  eq(refusedLegacyCreationWrites(before, before), [], 'an unchanged save is still nothing');
+
+  // Reading was never what this touched: the cards are all still there.
   eq(after.contentCards.length, before.contentCards.length + 1,
     'the guard reports; it never edits what came in');
 });
 
-test('the one-time content migration is not a write, so it still passes (gotcha 3)', () => {
+test('the one-time content migration needs no exception any more (gotcha 3)', () => {
   const state = fixtureState();
   const base = state.clientData['resumeguru'];
   // The pre-migration shape: legacy cards present, contentCards absent.
@@ -328,16 +331,16 @@ test('the one-time content migration is not a write, so it still passes (gotcha 
   ] };
   const migrated = { ...before, contentCards: [{ ...base.contentCards[0], id: 'legacy-1' }] };
   eq(refusedLegacyCreationWrites(before, migrated), [],
-    'folding the old cards into the unified board is not something she typed');
+    'folding the old cards into the unified board still passes');
 
   const andOneMore = { ...before, contentCards: [
     { ...base.contentCards[0], id: 'legacy-1' }, { ...base.contentCards[0], id: 'card-new' },
   ] };
-  eq(refusedLegacyCreationWrites(before, andOneMore).map(r => r.slice), ['contentCards'],
-    'but a new id riding in with the migration is a write, and is refused');
+  eq(refusedLegacyCreationWrites(before, andOneMore), [],
+    'and so does a new piece riding in beside it: both are records of work');
 });
 
-test('after the lock the same write lands, and every creation slice is covered', () => {
+test('a locked profile behaves identically, and every creation slice is still named', () => {
   const state = fixtureState();
   const before = { ...state.clientData['resumeguru'], body: { ...readyToLock(), strategy_version: 1 } };
   const after = {
@@ -348,11 +351,49 @@ test('after the lock the same write lands, and every creation slice is covered',
   };
   eq(refusedLegacyCreationWrites(before, after), [], 'a locked profile is not affected at all');
 
-  // The list is the whole of what the address map files under creation. If a
-  // later spec adds a creation slice and forgets this guard, this fails.
+  // The list is the whole of what the address map files under creation. It is
+  // the standing statement of which legacy slices ARE creation, so a later spec
+  // that adds one has a single place to add it.
   eq(LEGACY_CREATION_SLICES.slice().sort(), [
     'contentCards', 'evergreenIdeas', 'instagram', 'leadAnswers', 'previewPosts', 'topics',
-  ], 'every legacy slice that lives under work-log/creation is guarded');
+  ], 'every legacy slice that lives under work-log/creation is named');
+});
+
+test('generation is the half that still waits, and it says so in her words', () => {
+  // The other side of the same decision. Recording is free; generation is not,
+  // because a brief or a draft written with no positioning, voice or pillars is
+  // a guess wearing her name. Each engine surface answers for itself, on the
+  // `strategyLocked` flag it already receives.
+  const brief = briefAvailability({
+    hasApiKey: true, briefSwitchActive: true, strategyLocked: false,
+    gateSetLocked: true, lifecycle: 'active',
+  });
+  ok(!brief.available, 'a brief is refused on an unlocked profile');
+  ok((brief.reason ?? '').includes('no locked strategy'), 'and it names the strategy');
+
+  const draft = draftingAvailability({
+    hasApiKey: true, draftingSwitchActive: true, strategyLocked: false,
+    gateSetLocked: true, hasBrief: true, lifecycle: 'active',
+  });
+  ok(!draft.available, 'so is a draft');
+
+  const extract = extractionAvailability({
+    hasApiKey: true, extractionSwitchActive: true, strategyLocked: false, lifecycle: 'active',
+  });
+  ok(!extract.available, 'and so is extraction');
+
+  // And all three open the moment it locks, with nothing else changed.
+  ok(briefAvailability({
+    hasApiKey: true, briefSwitchActive: true, strategyLocked: true,
+    gateSetLocked: true, lifecycle: 'active',
+  }).available, 'the lock is what opens them');
+  ok(draftingAvailability({
+    hasApiKey: true, draftingSwitchActive: true, strategyLocked: true,
+    gateSetLocked: true, hasBrief: true, lifecycle: 'active',
+  }).available, 'drafting too');
+  ok(extractionAvailability({
+    hasApiKey: true, extractionSwitchActive: true, strategyLocked: true, lifecycle: 'active',
+  }).available, 'and extraction');
 });
 
 suite('spec 22 §14.20 — nothing regressed');

@@ -45,8 +45,9 @@ import {
 export interface LogsProps {
   profileId: string;
   /**
-   * A hard read-only, for the page that already shows the lock banner. Each tab
-   * also goes read-only on its own when its switch resolves to `history`.
+   * A hard read-only, for a caller that has its own reason. Each tab also goes
+   * read-only on its own when its switch resolves to `history`, or the profile
+   * is archived. The strategy lock is NOT one of those reasons any more.
    */
   readOnly?: boolean;
 }
@@ -68,7 +69,23 @@ export default function Logs({ profileId, readOnly = false }: LogsProps) {
   const profile = renderProfile(state, profileId, role);
   const resolve = (switchId: string): PathState => renderState(profile, switchId, kind);
 
+  /**
+   * The same resolver, asked the WRITING question rather than the seeing one.
+   *
+   * Her decision, 2026-08-09: recording what is happening always works, locked
+   * or not. The resolver drops the log to `history` before the lock because that
+   * is the shell she sees, so the lock is set aside here and only the rest of
+   * the answer is read: a switch she moved to `history`, or a profile that is
+   * archived or resting, still makes a tab read-only.
+   *
+   * Seeing is untouched — `tabs` below still asks the ordinary way, so a tab
+   * that is hidden for a client is never reached, whatever this says.
+   */
+  const resolveWritable = (switchId: string): PathState =>
+    renderState({ ...profile, strategy_locked: true }, switchId, kind);
+
   const tabs = liveLogTabs(resolve);
+  const writableTabs = liveLogTabs(resolveWritable);
   const pipelines = livePipelines(resolve);
   const effortState = resolve('logs.effort_meter');
 
@@ -80,7 +97,8 @@ export default function Logs({ profileId, readOnly = false }: LogsProps) {
   }
 
   const id = current.item.id;
-  const locked = readOnly || current.state === 'history';
+  const locked = readOnly
+    || (writableTabs.find(t => t.item.id === id)?.state ?? 'history') !== 'active';
   const today = todayKey();
   const body = data.body;
 

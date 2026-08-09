@@ -1,11 +1,142 @@
 # STATE - Client Dashboard
 
+## 2026-08-09, later — RECORDING NEVER WAITS FOR THE LOCK, AND ALL NINE PROFILES MIGRATED
+
+Her decision, plainly: recording what is happening always works; strategy gates
+generation only. Shipped on the branch (907 tests green, typecheck clean):
+
+- `refusedCreationWrites` / `refusedLegacyCreationWrites` return empty. The
+  functions stay so the decision lives in one commented place.
+- `guardPath` no longer asks the lock. Archived, paused and switched-off still
+  refuse. Clients see nothing new.
+- Lock banner and board copy rewritten: strategy pending, recording still saves.
+- All nine profiles now carry a migrated body (applied to the LIVE database
+  2026-08-09 with a verified read-back; backup at `dashboard/.backups/`).
+  133 cards before and after. Only ResumeGuru is locked; that no longer matters
+  for recording.
+
+Direction settled with her (docs/Strategy as a Layer, not a Gate.md and
+docs/Access Matrix — Strategy States.md): strategy becomes one page of eight
+facts per profile, filled in any order; a questionnaire is generated from the
+blank facts only. She rejected ceremony and over-explanation — show screens,
+not documents.
+
+## 2026-08-09 — ONE CHAT, TWO SURFACES: THE DESK REACHES THE HARNESS
+
+Branch `claude/ui-work-handoff-review-5361ad`. **902 tests green.** Not deployed,
+not typechecked (this worktree has no `node_modules`, no Supabase and no key, so
+nothing here could be run end to end). Her go is still needed per DEPLOY.md.
+
+### What she said the problem was
+
+Not the layout. "The desk looks fine." The chat does not behave like a chat: she
+asks it to do something and it tells her it has no setting for that. She had
+assumed the desk chat and the floating bubble were one thing shown two ways.
+
+Her reason for wanting it, in her words: across four or five accounts, opening
+each one to add and update things by hand is the pain, and it never gets done.
+She wants to say "I did this today" and have the card made or moved, and to
+paste a link and get back a preview link she can send to the client.
+
+### Two causes, both found in the code
+
+1. **They were two different chats.** The floating bubble calls `/api/desk-chat`
+   (spec 30, fifteen tools, acts). The desk called `/api/chat-brain` (no tools,
+   writes a sentence). The desk was wired to the half built not to act.
+2. **The desk keyword-matched everything she typed** through `DESK_INTENTS`
+   before anything else ran. The triggers include `today`, `yes`, `go`, `due`
+   and `review` as whole words, so "I posted the Career Bubble reel today"
+   matched `today`, was answered with the standing today list, and her actual
+   instruction was discarded. This is the larger of the two.
+
+### The decision, and it is now the rule
+
+**One brain, two surfaces.** `runDesk` in `lib/shell/desk.ts` calls
+`/api/desk-chat`, and `Shelf.tsx` uses it. `askDesk` stays as the fallback only.
+
+**A tapped chip is answered locally; anything TYPED goes to the harness.** The
+trigger table is no longer allowed to route free text. Nothing is lost: the
+harness answers the same five standing questions through `across_profiles`.
+
+Also settled with her: the chat DOES the thing and then says so. It does not ask
+permission first. That is the point of it saving her time.
+
+### What it still cannot do (told to her plainly, not hidden)
+
+- ~~No lifecycle tool anywhere.~~ **BUILT, 2026-08-09.** `setLifecycle` in
+  `lib/desk/write.ts`, exposed as the `set_lifecycle` tool. Active, paused,
+  closing, archived, both directions. It writes `clients` through the owner
+  scope `shelf/profiles`, the same slice the row menu writes, and its tests
+  carry the path through `checkScopes` and `applyScopes` rather than trusting
+  the return value. A `setup` profile refuses. Six tests, 893 green.
+- ~~Canva links are refused by `make_preview`.~~ **BUILT, 2026-08-09.** The loop
+  resolves a Canva link to image links before the pure preview code sees it,
+  through an injected `importCanva` that runs the same
+  `resolveDesignId` / `getValidAccessToken` / `exportDesignPages` path as
+  `/api/canva/import`, re-hosting every page so a sent preview cannot expire.
+  `runTool` is async now and `maxDuration = 60` is set on the route. A failed or
+  empty export refuses whole and writes nothing: never half a carousel to a
+  client. Six tests, all with the importer injected so they need no network.
+  The background, kept because it is the lesson: Canva Connect is fully built and she uses it every day: paste a
+  design link into the preview editor, `/api/canva/import` exports the pages,
+  re-hosts them and hands back permanent image URLs. The OAuth app exists and
+  the tokens are stored. The chat refuses only because spec 30 never let the
+  chat run that import: the refusal she would hit is `CANVA_CONNECT_FIRST`,
+  "the Canva app is registered, but this chat cannot run the import itself".
+  **Nothing is blocked on her.** The tool can call the same server code the
+  editor calls.
+- **The tools reach about a third of the app**: pieces, tasks, seeds, notes,
+  previews, status. Not intake, strategy, switches, the lock, analysis, assets,
+  references or pipelines. Her standard is that it reacts across everything
+  built, so this gap is the real backlog.
+- **It runs on Haiku** to keep the bill down. `DESK_CHAT_MODEL` raises the tier
+  with no deploy, and for the judgement she is asking for it probably should.
+
+### A correction worth keeping
+
+I told her twice that something was owed by her when it was not.
+
+1. The Anthropic key, "still unset in production" — quoted from a code comment
+   dated 2026-08-05 as if it were today's truth. She had already set it.
+2. The Canva OAuth app, "needs your OAuth app first" — quoted from the handoff's
+   "owed by her" list. She had already made it, and the import works daily.
+
+Both came from reading a dated document as live configuration. **The repo's own
+notes describe the day they were written, not today.** Check the code path, and
+check what she says she is already doing, before telling her she owes anything.
+She was right both times and it cost her patience, not mine.
+
+### One chat, two surfaces — done, and pinned
+
+Her ask, in her words: the desk chat and the floating chat should be the same
+thing shown two ways. They already shared the THREAD (both dispatch
+`ADD_CHAT_MESSAGE` into `chatLog`). They did not share the BRAIN: the bubble had
+its own copy of the harness fetch and the desk called the old endpoint.
+
+Now `runDesk` in `lib/shell/desk.ts` is the only thing in the app that names
+`/api/desk-chat`, and both surfaces call it. Three tests in `shell.test.ts` scan
+the source and hold that: one caller, both surfaces through it, both into the one
+thread. The first of those would have FAILED before this change, which is what
+makes it worth keeping.
+
+What is still legitimately different is CHROME, not brain: the desk has the five
+chips and rows she can walk into, the bubble takes photos and keeps the `#task`
+shortcut. Neither changes what the chat can do.
+
+### Next step
+
+Nothing is blocked. Deploy on her go (DEPLOY.md, drift check not optional), then
+widen the tools past pieces, tasks, seeds, notes, previews, status and lifecycle
+— intake, strategy, analysis, assets, references and pipelines are still
+unreachable from the chat, and her standard is that it reaches everything built.
+
 ## 2026-08-08 — THE STRATEGY ROOM, INTAKE, AND THE CHAT THAT KEEPS ITS THREAD
 
 Branch `main`. **855 tests green**, typecheck clean, production build green.
 
-**DEPLOYED on her go, twice. Latest: `9cbcf81` (pause and archive from the
-desk), Vercel SUCCESS. Before it: `eccc216` (the Strategy room, the intake form,
+**DEPLOYED on her go, three times. Latest: `993c909` (the profile mockup, dark
+and light), Vercel SUCCESS. Before it: `9cbcf81` (pause and archive from the
+desk). Before it: `eccc216` (the Strategy room, the intake form,
 documents, the kept thread), Vercel SUCCESS 2026-08-08 11:33.** All three DEPLOY.md gates passed, including the drift check
 showing nothing live the vault did not already have. Previous head was
 `f585b3c`, if it ever needs backing out; no stored data changed in this deploy.
@@ -90,6 +221,14 @@ chat widget and any shell module calling the brain behind the desk's back.
 worked, buried in the Strategy corner, and changed nothing on screen. Pause and
 Archive are now on the profile row, and resting profiles leave the list for a
 folded "Resting (n)" row. Nothing is deleted.
+
+**35 (the profile mockup) is built and LIVE.** An editable Instagram profile she
+shows a client during onboarding: username, name, bio, link, avatar, five
+highlight covers and a six-tile 4:5 grid with up to three pins, in dark or
+light. Copy one for a before-and-after; share it read-only by link. Furniture
+(the counts, the followed-by line, the buttons, the story ring) has no setters.
+Its screen was built by hand after the agent building it stalled with 790 lines
+uncommitted.
 
 **32 (resources) is WRITTEN AND NOT BUILT.** 33 (intake) and 34 (the Strategy
 room) are built and live.

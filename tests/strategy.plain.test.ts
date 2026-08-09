@@ -352,7 +352,12 @@ function lockOf(body: ProfileBody) {
 test('what locking does is said before she is asked to do it', () => {
   const view = lockOf(emptyBody());
   eq(view.does.length, 2, 'what locking does is not two lines');
-  ok(view.does[0].toLowerCase().includes('creation'), 'the first line does not say Creation opens');
+  // Her decision, 2026-08-09: locking opens GENERATION. Recording always worked
+  // from here on, so the line must not promise that the lock is what opens it.
+  ok(view.does[0].toLowerCase().includes('drafts'),
+    'the first line does not say what actually opens');
+  ok(view.does[0].toLowerCase().includes('recording'),
+    'and it does not say that recording saves either way');
   ok(view.does[1].toLowerCase().includes('judged'),
     'the second line does not say what the frozen version is for');
 });

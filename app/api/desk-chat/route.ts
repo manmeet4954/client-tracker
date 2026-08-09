@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { readState, writeState } from '@/lib/supabaseServer';
+import { readState, uploadToStorage, writeState } from '@/lib/supabaseServer';
 import { normalizeState, type Role } from '@/lib/access';
 import { applyScopes, checkScopes } from '@/lib/tree/scopes';
 import { refusedCreationWrites, refusedLegacyCreationWrites } from '@/lib/strategy/derivation';
-import { canvaConfigured } from '@/lib/canva';
+import {
+  canvaConfigured, exportDesignPages, getValidAccessToken, resolveDesignId,
+} from '@/lib/canva';
 import { generateId } from '@/lib/utils';
 import {
   MAX_TOOL_CALLS, MAX_WRITES, TOOLS, isWrite, runTool, systemPrompt, type LoopContext,
@@ -13,6 +15,9 @@ import {
 import type { AppState } from '@/types';
 
 export const dynamic = 'force-dynamic';
+// A Canva export polls Canva and re-uploads every page, exactly as
+// `/api/canva/import` does, so this route needs the same room to breathe.
+export const maxDuration = 60;
 
 /**
  * The desk chat — spec 30.
@@ -76,6 +81,35 @@ async function callModel(system: string, messages: unknown[], apiKey: string) {
   return res.json();
 }
 
+/**
+ * One Canva design link to permanent image links, in page order.
+ *
+ * This is `/api/canva/import` without the HTTP around it. Canva's own export
+ * URLs expire in about a day, so every page is re-hosted in the same bucket the
+ * editor uses: a preview she sent a client must not go blank next week.
+ *
+ * It throws a sentence she can read. The loop turns that into a refusal, and
+ * nothing is written when it does.
+ */
+async function importCanvaPages(link: string): Promise<string[]> {
+  const designId = await resolveDesignId(link);
+  if (!designId) {
+    throw new Error('I could not read a design from that link. Open it in Canva and copy the link from the address bar.');
+  }
+  const token = await getValidAccessToken();
+  if (!token) {
+    throw new Error('Canva is not connected right now, so I could not open the design.');
+  }
+  const pageUrls = await exportDesignPages(designId, token);
+  const images: string[] = [];
+  for (const pageUrl of pageUrls) {
+    const resp = await fetch(pageUrl);
+    if (!resp.ok) throw new Error(`A slide would not download from Canva (${resp.status}).`);
+    images.push(await uploadToStorage('post-images', await resp.arrayBuffer(), 'image/png', 'png'));
+  }
+  return images;
+}
+
 export async function POST(req: Request) {
   const role = currentRole();
   if (role !== 'owner') return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -83,9 +117,11 @@ export async function POST(req: Request) {
   // No key, no desk. It says FALLBACK rather than answering, so the widget drops
   // through to the hashtag rules it has always had and the chat keeps working.
   //
-  // This is not hypothetical: `ANTHROPIC_API_KEY` is still unset in production as
-  // of 2026-08-05. Answering here with an apology would have taken a working
-  // feature away from her on the day this shipped.
+  // Do NOT read this as a statement about today. An earlier version of this
+  // comment said the key was unset in production, and a later session quoted
+  // that back to her as current fact and told her to go and set a key she had
+  // already set. A comment records the day it was written. The only honest test
+  // of whether a key is there is this line running.
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ fallback: true });
 
@@ -105,6 +141,10 @@ export async function POST(req: Request) {
     today: /^\d{4}-\d{2}-\d{2}$/.test(today) ? today : new Date().toISOString().slice(0, 10),
     ids: { id: () => generateId(), shareId: () => generateId() + generateId() },
     canvaConfigured: canvaConfigured(),
+    // The SAME export-and-re-host the preview editor runs, handed to the loop as
+    // a function so `lib/desk` keeps its no-fetch, no-environment rule. Absent
+    // when Canva is not connected, and then a Canva link refuses as before.
+    importCanva: canvaConfigured() ? importCanvaPages : undefined,
   };
 
   const system = systemPrompt(ctx.today, (base.clients ?? []).map(c => ({ id: c.id, name: c.name })));
@@ -148,7 +188,7 @@ export async function POST(req: Request) {
 
         let outcome;
         try {
-          outcome = runTool(ctx, use.name, use.input ?? {});
+          outcome = await runTool(ctx, use.name, use.input ?? {});
         } catch (e) {
           // A real bug, not a foreseeable refusal. It goes back as a result so
           // the model can tell her honestly instead of the chat dying silently.
@@ -203,10 +243,11 @@ export async function POST(req: Request) {
  * `app/api/state`: declared paths only, then the strategy lock on both the tree
  * and the legacy slices, then the write.
  *
- * The chat gets no privilege here. A profile whose strategy has not locked
- * refuses a chat write exactly as it refuses a drag on the board. If this file
- * and `app/api/state` ever disagree about that sequence, `app/api/state` is the
- * one that is right.
+ * The chat gets no privilege here, and no handicap either. Since 2026-08-09 the
+ * lock refuses nothing at this step, on the board and in the chat alike, because
+ * recording always works. The two calls stay so the sequence keeps matching. If
+ * this file and `app/api/state` ever disagree, `app/api/state` is the one that
+ * is right.
  */
 async function save(base: AppState, next: AppState, paths: string[]) {
   const rejected = checkScopes(paths);

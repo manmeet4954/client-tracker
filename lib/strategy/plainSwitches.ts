@@ -586,7 +586,7 @@ export function composeMove(
  * deep idea of it is.
  */
 export const WHAT_LOCKING_DOES: [string, string] = [
-  'Locking opens Creation. Until it happens, nothing can be written there.',
+  'Locking opens the parts that need a strategy, like briefs and drafts. Recording your work saves either way.',
   'It freezes this version of the strategy, and every piece made from here on is judged against it.',
 ];
 

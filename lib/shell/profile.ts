@@ -30,11 +30,11 @@ export const CUTOVER_BODY_VERSION = BODY_VERSION;
  * dropped.** Every profile enters the new shell now, with the screens that
  * already exist mounted inside it, exactly as the handoff's phase 1 asks.
  *
- * Nothing about the LOCK changed. A write under `work-log/creation/` is still
- * refused server side until strategy locks (spec 22 §8.7), and an unlocked
- * profile's Creation renders READ-ONLY rather than disappearing — see
- * `renderState` step 4. The lock still gates; it no longer decides which shell
- * she is looking at.
+ * Nothing about the LOCK changed here, and what the lock now does changed
+ * elsewhere: since 2026-08-09 it refuses no writes at all, because recording
+ * what is happening always works and generation is the only thing that waits
+ * (lib/strategy/derivation.ts §8.7). An unlocked profile still enters the same
+ * shell, which is all this function was ever about.
  *
  * Kept as a function, and kept honest, so the one place this is decided stays
  * one place. `staysOnLegacy` is untouched: §19's open question about the intern

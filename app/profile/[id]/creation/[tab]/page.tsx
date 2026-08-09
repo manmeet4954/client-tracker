@@ -56,9 +56,25 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
     notFound();
   }
 
-  // Before the lock, the whole app reads and nothing moves. One banner says so
-  // once, at the top, rather than a hundred disabled controls (handoff rule 3).
+  // Before the lock, one banner at the top says what is waiting on the strategy,
+  // rather than a hundred disabled controls (handoff rule 3).
   const beforeLockNow = !profile.strategy_locked;
+
+  /**
+   * Can this screen be written to right now?
+   *
+   * Her decision, 2026-08-09: recording what is happening always works, locked
+   * or not, and generation is the only thing that needs a strategy. So the lock
+   * no longer makes a screen read-only. What still does: a switch she moved to
+   * `history`, and a profile that is archived or resting.
+   *
+   * Both of those come from the one resolver, asked with the lock set aside —
+   * the same question the desk chat's write door asks. VISIBILITY is untouched:
+   * `live` below still asks the ordinary way, so a client sees exactly what a
+   * client saw before, and a tab that is hidden is never reached here at all.
+   */
+  const writable = (switchId: string) =>
+    renderState({ ...profile, strategy_locked: true }, switchId, kind) === 'active';
 
   // A piece opens as a PANEL over whatever screen you are on, never as a place
   // you navigate to — review and scheduling are states of a piece, not screens
@@ -80,7 +96,7 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
   const piece = pieceId ? <PiecePanel cardId={pieceId} onClose={closePiece} /> : null;
 
   const sections: Section[] = SECTIONS[params.tab]?.({
-    id: params.id, accent, seedId, readOnly: beforeLockNow, openPiece,
+    id: params.id, accent, seedId, readOnly: !writable('creation.board'), openPiece,
   }) ?? [];
   const live = sections
     .map(s => ({ ...s, state: renderState(profile, s.switch, kind) }))
@@ -112,7 +128,7 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
         {header}
         {beforeLock && <LockBanner />}
         <div className="-mx-4 md:-mx-7">
-          <Logs profileId={params.id} readOnly={beforeLock} />
+          <Logs profileId={params.id} />
           {effort && <MomentumMeter clientId={params.id} accent={accent} />}
         </div>
         {piece}
@@ -176,8 +192,7 @@ const SECTIONS: Record<string, (a: SectionArgs) => Section[]> = {
     {
       id: 'stages', label: 'Board', switch: 'creation.board',
       render: () => (
-        <Board profileId={id} hue={accent} readOnly={readOnly}
-          lockBanner={false} onOpenPiece={openPiece} />
+        <Board profileId={id} hue={accent} readOnly={readOnly} onOpenPiece={openPiece} />
       ),
     },
     { id: 'slides', label: 'Slides', switch: 'creation.review', render: () => <PreviewsView clientId={id} /> },

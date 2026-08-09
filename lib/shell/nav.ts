@@ -68,6 +68,10 @@ export const ANALYSIS_TABS: NavNode[] = [
 
 /** §5.5 — the owner corner. Owner, always, in every position of every switch. */
 export const CORNER_PANELS: NavNode[] = [
+  // Strategy as a layer, not a gate: the eight facts, first and default. The
+  // corner is owner-always, and the facts live on `strategy.fixed`'s paths, so
+  // no new switch is invented for this panel.
+  { id: 'facts', label: 'Facts', switches: ['strategy.fixed'] },
   { id: 'derivation', label: 'Decide it', switches: ['strategy.derivation'] },
   { id: 'gates', label: 'Gates', switches: ['strategy.gate_set'] },
   { id: 'switches', label: 'Switches', switches: ['strategy.switchboard'] },

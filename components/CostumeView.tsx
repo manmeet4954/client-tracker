@@ -85,12 +85,11 @@ export default function CostumeView({ clientId, seedId }: { clientId: string; se
     return (
       <Shell onBack={() => router.push(`/client/${clientId}/engine`)}>
         <p className="text-sm text-stone-700">
-          This profile has not locked a strategy yet, so nothing can be written into creation.
+          Strategy is still pending on this profile, so the costume surface is not open yet.
         </p>
         <p className="text-sm text-stone-500 mt-2">
-          Walk it through curation, then strategy, then the switches, then lock. The costume surface
-          opens the moment that is done, and the birth record it writes can then name a real gate
-          version and a real strategy version instead of two blanks.
+          Recording work on the board still saves. This screen needs the strategy first, because the
+          birth record it writes has to name a real gate version and a real strategy version.
         </p>
       </Shell>
     );

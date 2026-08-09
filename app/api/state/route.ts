@@ -19,12 +19,12 @@ import { refusedEvidenceWrites } from '@/lib/analysis/verdict';
 import type { AppState } from '@/types';
 
 /**
- * Spec 22 §8.7: creation stays locked until strategy locks. Any write to a path
- * under work-log/creation on a profile whose `strategy_version` is null is
- * refused here — not hidden, not grayed out, refused at the write door, the same
- * way an undeclared path is. Spec 21's migrated profiles keep their legacy
- * slices rendering exactly as they do today; this binds new writes through the
- * tree only (§13.6).
+ * The strategy lock's effect on writing, asked at the write door.
+ *
+ * Her decision, 2026-08-09: recording what is happening always works, locked or
+ * not, so this now refuses nothing. Generation is what needs a strategy, and it
+ * is gated where it is made rather than here. The full reasoning, and why the
+ * call is kept rather than deleted, is in lib/strategy/derivation.ts §8.7.
  */
 function creationRefusals(current: AppState, incoming: AppState): { profileId: string; paths: string[] }[] {
   const out: { profileId: string; paths: string[] }[] = [];
@@ -35,18 +35,8 @@ function creationRefusals(current: AppState, incoming: AppState): { profileId: s
   return out;
 }
 
-/**
- * The same rule, for the slices the board she uses every day actually renders.
- *
- * `creationRefusals` above guards the TREE. Until this landed, an unlocked
- * profile showed a banner reading "nothing can be written here" while every
- * card, every drag between stages and every preview went straight through the
- * door, because those live in the legacy slices and not under a tree path. The
- * banner was telling the truth about the tree and a lie about the screen.
- *
- * Reading is untouched. Every past piece, every number and all history stay
- * fully readable on an unlocked profile. This is the write door only.
- */
+/** The same question for the legacy slices the board renders from, and the same
+ *  answer: nothing is refused. See lib/strategy/derivation.ts §8.7. */
 function legacyCreationRefusals(current: AppState, incoming: AppState): { profileId: string; reasons: string[] }[] {
   const out: { profileId: string; reasons: string[] }[] = [];
   for (const id of Object.keys(incoming.clientData ?? {})) {

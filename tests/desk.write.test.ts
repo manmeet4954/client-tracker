@@ -22,7 +22,7 @@ import { putEntry } from '../lib/tree/body.ts';
 import type { ProfileBody } from '../lib/tree/body.ts';
 import type { PathState } from '../lib/tree/contract.ts';
 import { setSwitchPosition } from '../lib/strategy/derivation.ts';
-import { parseScope } from '../lib/tree/scopes.ts';
+import { applyScopes, checkScopes, parseScope, scopeKey } from '../lib/tree/scopes.ts';
 import { resolvePiece } from '../lib/engine/resolve.ts';
 import { foldEntry } from '../lib/creation/logs.ts';
 import { stageCounts } from '../lib/shell/shelf.ts';
@@ -30,7 +30,8 @@ import type { AppState } from '../types/index.ts';
 import type { IdSource, WriteContext } from '../lib/desk/write.ts';
 import {
   addNote, addPiece, addSeedCapture, addTask, movePiece, normalizeStage,
-  resolveProfile, schedulePiece, updateTask, writerFor,
+  resolveProfile, schedulePiece, setLifecycle, updateTask, writerFor,
+  PROFILES_SCOPE,
 } from '../lib/desk/write.ts';
 import {
   CANVA_NOT_CONNECTED, classifyLink, makePreview,
@@ -337,35 +338,76 @@ test('add_piece refuses a seed that is not locked, and writes nothing', () => {
 
 suite('spec 30 §6.4 — the refusal test: named, plain, and no partial write');
 
-test('an unlocked profile refuses every creation write, and writes nothing', () => {
-  const ctx = ctxFor();
-  const before = JSON.stringify(ctx.state);
+// Her decision, 2026-08-09: recording what is happening always works, locked or
+// not. Her clients already exist and the work is already happening; the only
+// thing missing is the strategy write-up, and that is not a reason to lose the
+// record. Generation is what needs the strategy, and it is gated where it is
+// made — the engine surfaces, on their own `strategyLocked` flag.
 
-  const piece = addPiece(ctx, { profile: 'Divine Studio', title: 'The 6am flow' });
-  ok(!piece.ok, 'a piece is refused');
-  if (!piece.ok) {
-    ok(piece.refusal.includes('Strategy is not locked'), 'it names the lock');
-    ok(piece.refusal.includes('Divine'), 'and the profile');
-  }
+test('an unlocked profile records exactly like a locked one, through the same door', () => {
+  // Divine is migrated and NOT locked. This is the profile the old rule shut.
+  const made = addPiece(ctxFor(), { profile: 'Divine Studio', title: 'The 6am flow' });
+  ok(made.ok, 'a piece can be made');
+  if (!made.ok) return;
+  eq(pathsOf(made.paths), ['work-log/creation'], 'at the board’s declared address');
 
-  const capture = addSeedCapture(ctx, { profile: 'Divine Studio', text: 'the morning class idea' });
-  ok(!capture.ok, 'a capture is refused too: captures live under creation');
+  // Made, then edited, then moved: the three halves of recording.
+  const moved = movePiece(ctxFor(made.state), {
+    profile: 'Divine Studio', pieceId: made.pieceId, to: 'posted',
+    liveLink: 'https://instagram.com/p/abc', postedOn: TODAY,
+  });
+  ok(moved.ok, 'and moved to another stage');
+  if (!moved.ok) return;
+  const piece = resolvePiece(
+    entriesAt(moved.state, 'divine-studio', 'work-log/creation')
+      .find(e => e.id === made.pieceId)!,
+  );
+  eq(piece.stage, 'posted', 'the stage change landed');
+  eq(piece.live_link, 'https://instagram.com/p/abc', 'and the link went on with it');
 
-  eq(JSON.stringify(ctx.state), before, 'nothing at all was written');
+  const capture = addSeedCapture(ctxFor(), { profile: 'Divine Studio', text: 'the morning class idea' });
+  ok(capture.ok, 'a capture lands too: it is a record of something she thought');
+
+  // And the profile that HAS locked behaves identically. The lock changes
+  // nothing about recording, in either direction.
+  const onLocked = addPiece(ctxFor(), { profile: 'ResumeGuru', title: 'The salary follow-up' });
+  ok(onLocked.ok, 'the locked profile records the same way');
 });
 
-test('an unlocked profile refuses a task and a note too, and says the LOCK, not "switched off"', () => {
-  // `renderState` gates whole families behind the lock, logs included, and it is
-  // the one visibility authority. So the honest answer here is the lock, and the
-  // refusal has to name it: "switched off" would send her to the wrong switch.
+test('a task and a note land on an unlocked profile too', () => {
   const task = addTask(ctxFor(), { profile: 'Divine Studio', text: 'Ask for the class photos' });
-  ok(!task.ok, 'refused');
-  if (task.ok) return;
-  ok(task.refusal.includes('Strategy is not locked'), 'it names the lock');
-  ok(!task.refusal.includes('switched off'), 'and never blames a switch she did not move');
+  ok(task.ok, 'a task is not a thing that waits for a strategy');
+  if (task.ok) eq(pathsOf(task.paths), ['work-log/logs/tasks'], 'and it goes to the tasks address');
 
   const note = addNote(ctxFor(), { profile: 'Divine Studio', text: 'They reply fastest on Sundays' });
-  ok(!note.ok, 'a note is refused the same way');
+  ok(note.ok, 'and so is a note');
+});
+
+test('an archived profile still reads and never moves', () => {
+  // The lock stopped making things read-only. A profile at rest did not: it is
+  // kept, whole, and nothing on it is written again.
+  const state = deskState();
+  state.clients = state.clients.map(c =>
+    c.id === 'resumeguru' ? { ...c, lifecycle: 'archived' as const } : c);
+  const before = JSON.stringify(state);
+
+  const piece = addPiece(ctxFor(state), { profile: 'ResumeGuru', title: 'One more carousel' });
+  ok(!piece.ok, 'a piece is refused');
+  if (!piece.ok) {
+    ok(piece.refusal.includes('archived'), 'and it says the profile is archived');
+    ok(!piece.refusal.includes('switched off'), 'never blaming a switch she did not move');
+    ok(piece.refusal.includes('Nothing was written'), 'and that nothing happened');
+  }
+
+  const move = movePiece(ctxFor(state), {
+    profile: 'ResumeGuru', pieceId: 'piece-salary', to: 'posted',
+  });
+  ok(!move.ok, 'and so is a stage change');
+
+  const task = addTask(ctxFor(state), { profile: 'ResumeGuru', text: 'Chase the photos' });
+  ok(!task.ok, 'and a task');
+
+  eq(JSON.stringify(state), before, 'nothing at all was written');
 });
 
 test('a switched-off feature refuses, and writes nothing', () => {
@@ -439,9 +481,13 @@ test('a profile that has not moved into the tree is refused plainly', () => {
 });
 
 test('no refusal reads like a stack trace', () => {
+  const switchedOff = deskState();
+  switchedOff.clientData.resumeguru.body =
+    setSwitchPosition(bodyOf(switchedOff, 'resumeguru'), 'creation.board', 'hidden', NOW, false);
+
   const refusals = [
     addTask(ctxFor(), { profile: 'Nike', text: 'x' }),
-    addPiece(ctxFor(), { profile: 'Divine Studio', title: 'x' }),
+    addPiece(ctxFor(switchedOff), { profile: 'ResumeGuru', title: 'x' }),
     movePiece(ctxFor(), { profile: 'ResumeGuru', pieceId: 'nope', to: 'posted' }),
   ];
   for (const r of refusals) {
@@ -540,15 +586,31 @@ test('a preview with no piece named and nothing described is refused', () => {
   ok(r.refusal.includes('Which piece'), 'it asks which piece');
 });
 
-test('a preview on an unlocked profile is refused, and no piece is left behind', () => {
-  const ctx = ctxFor();
-  const before = JSON.stringify(ctx.state);
-  const r = makePreview(ctx, {
+test('a preview on an unlocked profile is made, piece and all', () => {
+  // A preview is a record of something she sent for review. It does not wait for
+  // a strategy either (her decision, 2026-08-09).
+  const r = makePreview(ctxFor(), {
     profile: 'Divine Studio', newPiece: { title: 'The 6am flow' }, links: [IMAGE],
     canvaConfigured: false,
   });
+  ok(r.ok, 'it was made');
+  if (!r.ok) return;
+  const previews = (r.state.clientData['divine-studio'].previewPosts ?? []);
+  eq(previews.length, 1, 'one preview, not two');
+  ok(!!previews[0].cardId, 'and it is attached to the piece it belongs to');
+});
+
+test('a preview on an archived profile is refused, and no piece is left behind', () => {
+  const state = deskState();
+  state.clients = state.clients.map(c =>
+    c.id === 'resumeguru' ? { ...c, lifecycle: 'archived' as const } : c);
+  const before = JSON.stringify(state);
+  const r = makePreview(ctxFor(state), {
+    profile: 'ResumeGuru', newPiece: { title: 'One more carousel' }, links: [IMAGE],
+    canvaConfigured: false,
+  });
   ok(!r.ok, 'refused');
-  eq(JSON.stringify(ctx.state), before, 'no half-made piece, no empty preview');
+  eq(JSON.stringify(state), before, 'no half-made piece, no empty preview');
 });
 
 test('more slides than a carousel holds is refused, not silently trimmed', () => {
@@ -650,4 +712,80 @@ test('a stage MOVE is an amendment, and every counter folds it', () => {
   const now = stageCounts(r.state.clientData.resumeguru);
   eq(now.posted ?? 0, (was.posted ?? 0) + 1, 'the counter followed the move');
   eq(now.review ?? 0, (was.review ?? 0) - 1, 'and it left the stage it came from');
+});
+
+// ── The lifecycle tool ───────────────────────────────────────────────────────
+//
+// She asked the chat to unarchive something and it told her it had no setting
+// for that. It was telling the truth: there was no tool, in either chat. This is
+// the same change the "..." menu on a desk profile row makes, reached by asking.
+//
+// The point of these tests is the DOOR, not the function. A tool that returns a
+// happy object and a scope the write door then rejects is worse than no tool, so
+// each one below carries the path through `checkScopes` and `applyScopes`, the
+// exact sequence `app/api/desk-chat` runs before it saves.
+
+suite('spec 30 — a profile\'s lifecycle, asked for rather than clicked');
+
+test('archiving lands, at the address that owns profiles', () => {
+  const ctx = ctxFor();
+  const r = setLifecycle(ctx, { profile: 'Divine', to: 'archived' });
+  ok(r.ok, 'it should archive');
+  if (!r.ok) return;
+
+  eq(r.paths, [scopeKey(null, PROFILES_SCOPE)], 'one owner scope, and it is the profiles one');
+  eq(parseScope(r.paths[0]).profileId, null, 'lifecycle is not inside a profile, it is about one');
+  eq(checkScopes(r.paths).length, 0, 'the write door must accept that path');
+
+  const saved = applyScopes(ctx.state, r.state, r.paths);
+  const divine = saved.clients.find(c => c.id === 'divine-studio')!;
+  eq(divine.lifecycle, 'archived', 'and it is archived in what would be stored');
+  eq(divine.lifecycleAt, NOW, 'dated, so the desk can say since when');
+  ok(r.summary.includes('kept'), 'she is told nothing was lost');
+});
+
+test('nothing else moves when one profile is archived', () => {
+  const ctx = ctxFor();
+  const before = ctx.state.clients.find(c => c.id === 'resumeguru')!.lifecycle ?? 'active';
+  const r = setLifecycle(ctx, { profile: 'Divine', to: 'archived' });
+  ok(r.ok, 'it should archive');
+  if (!r.ok) return;
+
+  const saved = applyScopes(ctx.state, r.state, r.paths);
+  eq(saved.clients.find(c => c.id === 'resumeguru')!.lifecycle ?? 'active', before,
+    'the other profile is untouched');
+  eq(saved.clientData['divine-studio'].body, ctx.state.clientData['divine-studio'].body,
+    'and the archived profile keeps every bit of its work');
+});
+
+test('and it comes back, which is the thing she actually asked for', () => {
+  const first = ctxFor();
+  const archived = setLifecycle(first, { profile: 'Divine', to: 'archived' });
+  ok(archived.ok, 'archived first');
+  if (!archived.ok) return;
+
+  const r = setLifecycle({ ...first, state: archived.state }, { profile: 'Divine', to: 'active' });
+  ok(r.ok, 'and back to active');
+  if (!r.ok) return;
+  const saved = applyScopes(archived.state, r.state, r.paths);
+  eq(saved.clients.find(c => c.id === 'divine-studio')!.lifecycle, 'active', 'it is live again');
+});
+
+test('asking for the state it is already in changes nothing, and says so', () => {
+  const r = setLifecycle(ctxFor(), { profile: 'Divine', to: 'active' });
+  ok(!r.ok, 'an already-active profile is not re-activated');
+  if (r.ok) return;
+  ok(r.refusal.includes('already'), 'and the refusal says why');
+});
+
+test('a word that is not a lifecycle is refused, not guessed at', () => {
+  const r = setLifecycle(ctxFor(), { profile: 'Divine', to: 'deleted' });
+  ok(!r.ok, 'there is no such state');
+  if (r.ok) return;
+  ok(r.refusal.includes('Nothing was written'), 'and nothing was written');
+});
+
+test('an ambiguous name is a question, never a guess', () => {
+  const r = setLifecycle(ctxFor(), { profile: '', to: 'archived' });
+  ok(!r.ok, 'no profile named is no profile archived');
 });

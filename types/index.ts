@@ -66,6 +66,9 @@ export interface BrandOverview {
   goals: string[];
   strategy: string;
   audience: string;
+  /** What they sound like, in plain words. Optional: profiles from before this
+   *  field simply have none, and a blank box is a blank box, never an error. */
+  voice?: string;
   services: BrandService[];
 }
 

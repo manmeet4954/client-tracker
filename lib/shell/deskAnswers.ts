@@ -13,9 +13,11 @@
 // The handoff calls this a recurring bug and asks for it to be treated as a
 // rule, so the fold's label is built from `rows` and from nothing else.
 //
-// THE SEAM. Everything in this file FINDS. The desk does not act. An action —
-// move a piece, send a preview, add a seed — belongs inside a profile, and the
-// floating chat that already does it is untouched. See `askDesk` in `desk.ts`.
+// THE SEAM. Everything in this file FINDS, and it is now reached ONLY by a
+// tapped chip. The desk acts as well as finds: anything she types goes to spec
+// 30's tool loop through `runDesk` in `desk.ts`, the same harness the floating
+// chat calls. Routing typed text through the trigger table below is what made
+// the desk impossible to talk to — "I posted it today" matched `today`.
 //
 // Relative, extensioned imports: this module runs under plain Node in the tests,
 // where the `@/` alias does not exist.

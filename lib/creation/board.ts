@@ -146,7 +146,7 @@ export function bareId(value: string): string {
 /** The line under the four views. It is the only place the read-only state speaks twice. */
 export function boardNote(readOnly: boolean): string {
   return readOnly
-    ? 'Read only until Strategy is locked.'
+    ? 'Read only. This profile is resting, so nothing here moves.'
     : 'Drag a piece to move it. Review and scheduling are states, not screens.';
 }
 

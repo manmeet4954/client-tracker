@@ -75,11 +75,13 @@ export function ScreenHeader({
 }
 
 /**
- * Before the lock. Her words, from the prototype, unchanged.
+ * Before the lock.
  *
- * This is what an unlocked profile sees now that the cutover gate is gone: the
- * screen renders, it reads, and it says plainly why nothing moves. The old
- * behaviour was to hide the whole app, which told her nothing.
+ * It used to read "nothing can be written here. Read the board, but the pieces
+ * cannot move", and that was true when the lock refused every write. Her
+ * decision of 2026-08-09 changed the rule: recording what is happening always
+ * works, and only the parts that need a strategy wait for it. So the banner now
+ * says what is actually off, and says the work still saves.
  *
  * The button opens the Strategy corner over the current screen. It never
  * navigates away, because the corner is a panel and not a place.
@@ -96,8 +98,8 @@ export function LockBanner() {
         <Lock size={19} strokeWidth={1.9} />
       </span>
       <span className="min-w-[16rem] flex-1 text-sm leading-[1.5] text-text">
-        Strategy is not locked yet, so nothing can be written here. Read the board, but the pieces
-        cannot move.
+        Strategy is still to be locked, so the parts that need it are off, like drafts and briefs.
+        Everything you record here still saves.
       </span>
       <Link
         href={`${pathname}?${params.toString()}`}

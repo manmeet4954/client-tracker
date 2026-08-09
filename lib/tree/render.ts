@@ -96,19 +96,25 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
   //     seven profiles into a shell with nothing in it, which is worse than the
   //     tab bar it replaced.
   //
-  //     Her design says what happens instead, and it says it precisely: an
-  //     unlocked profile's board RENDERS and does not move. "Strategy is not
-  //     locked yet, so nothing can be written here. Read the board, but the
-  //     pieces cannot move." So before the lock these families resolve to
-  //     `history` — visible, read-only — for her and for staff.
+  //     Her design says what happens instead: an unlocked profile's board
+  //     RENDERS. So before the lock these families resolve to `history` — the
+  //     quiet, waiting shell — for her and for staff.
   //
   //     The client keeps the old answer, `hidden`. A client has no business
   //     seeing a profile's content before its strategy exists, and the workshop
   //     rule only ever gets stronger (CLAUDE.md rule 2).
   //
-  //     Writes are untouched: `refusedCreationWrites` still refuses every write
-  //     under `work-log/creation/` until the lock, server side. The lock gates
-  //     what can be WRITTEN, not which shell she is looking at.
+  //     WHAT THIS IS NOT, since 2026-08-09: it is not a rule about writing.
+  //     `refusedCreationWrites` no longer refuses anything, because recording
+  //     what is happening always works, locked or not — see
+  //     lib/strategy/derivation.ts §8.7 for her decision and why. Generation is
+  //     what needs the strategy, and each engine surface gates itself on its own
+  //     `strategyLocked` flag.
+  //
+  //     So the two places that ask whether something can be WRITTEN — the desk
+  //     chat's `guardPath` and the Creation screen — ask this resolver with the
+  //     lock set aside, and read the answer as "is this switched on, on a
+  //     profile that is still working?". Only the SHELL is decided here.
   if (!profile.strategy_locked && AFTER_LOCK_FAMILIES.includes(fam)) {
     if (role === 'client') return 'hidden';
     state = minState(state, 'history');

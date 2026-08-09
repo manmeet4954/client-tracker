@@ -24,10 +24,10 @@ import {
   acrossProfiles, findPieces, findProfile, findSeeds, findTasks, profileStatus,
 } from './read.ts';
 import {
-  addNote, addPiece, addSeedCapture, addTask, movePiece, schedulePiece, updateTask,
+  addNote, addPiece, addSeedCapture, addTask, movePiece, schedulePiece, setLifecycle, updateTask,
   type IdSource, type WriteContext,
 } from './write.ts';
-import { makePreview } from './preview.ts';
+import { classifyLink, makePreview } from './preview.ts';
 
 /** What the loop is allowed to spend on one message (spec 30 §3). */
 export const MAX_TOOL_CALLS = 12;
@@ -250,6 +250,23 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'set_lifecycle',
+    kind: 'write',
+    description:
+      'Pause a profile, mark it closing, archive it, or bring an archived or paused one back to active. '
+      + 'This is how "archive Divine" and "unarchive Divine" are done. Nothing is ever deleted: archiving '
+      + 'takes a profile out of the working list and off its client\'s login, and bringing it back restores '
+      + 'both. A profile still being set up cannot be rested and says so.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        profile: S('Profile id or name.'),
+        to: S('active, paused, closing or archived.'),
+      },
+      required: ['profile', 'to'],
+    },
+  },
+  {
     name: 'make_preview',
     kind: 'write',
     description:
@@ -281,6 +298,18 @@ export interface LoopContext {
   ids: IdSource;
   /** True only when a Canva OAuth app is configured (spec 30 §3.3). */
   canvaConfigured: boolean;
+  /**
+   * Turns ONE Canva design link into permanent image links, in page order.
+   *
+   * This is the same export-and-re-host that `/api/canva/import` runs for the
+   * preview editor, injected rather than imported so this module stays pure and
+   * testable: no fetch, no environment, no storage. Absent when Canva is not
+   * connected, and then a Canva link refuses exactly as it did before.
+   *
+   * It throws with a plain sentence when the export fails, and the caller turns
+   * that into a refusal. Nothing is half written either way.
+   */
+  importCanva?: (link: string) => Promise<string[]>;
 }
 
 export interface ToolOutcome {
@@ -332,7 +361,52 @@ const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim
  * so the model can tell her rather than trying the same thing a different way.
  * A genuine bug still throws, and the route turns it into one honest line.
  */
-export function runTool(ctx: LoopContext, name: string, input: Record<string, unknown>): ToolOutcome {
+/**
+ * Canva links become image links before `makePreview` ever sees them.
+ *
+ * The resolution happens HERE and not in `preview.ts`, because that module is
+ * pure and has to stay that way: it is the one place the shape of a preview is
+ * decided, and it is tested without a network. So the loop does the fetching and
+ * hands `makePreview` the same media links it has always understood.
+ *
+ * Any failure comes back as a refusal, never a partial set of slides. Half a
+ * carousel going to a client is the exact failure spec 30 exists to prevent.
+ */
+async function resolveCanva(
+  ctx: LoopContext, links: string[],
+): Promise<{ ok: true; links: string[] } | { ok: false; refusal: string }> {
+  if (!ctx.importCanva) return { ok: true, links };
+  const out: string[] = [];
+  for (const link of links) {
+    if (classifyLink(link) !== 'canva') {
+      out.push(link);
+      continue;
+    }
+    let pages: string[];
+    try {
+      pages = await ctx.importCanva(link);
+    } catch (e) {
+      return {
+        ok: false,
+        refusal: `I could not pull that Canva design in. ${e instanceof Error ? e.message : ''} `.trim()
+          + ' Nothing was written.',
+      };
+    }
+    if (!pages.length) {
+      return {
+        ok: false,
+        refusal: 'That Canva design came back with no pages in it, so there was nothing to preview. '
+          + 'Nothing was written.',
+      };
+    }
+    out.push(...pages);
+  }
+  return { ok: true, links: out };
+}
+
+export async function runTool(
+  ctx: LoopContext, name: string, input: Record<string, unknown>,
+): Promise<ToolOutcome> {
   const p = str(input.profile_id) ?? str(input.profile) ?? '';
 
   switch (name) {
@@ -420,13 +494,27 @@ export function runTool(ctx: LoopContext, name: string, input: Record<string, un
         profile: p, text: String(input.text ?? ''), topic: str(input.topic),
       }));
 
+    case 'set_lifecycle':
+      return fromWrite(setLifecycle(writeCtx(ctx), {
+        profile: p, to: String(input.to ?? ''),
+      }));
+
     case 'make_preview': {
       const title = str(input.new_piece_title);
+      const pasted = Array.isArray(input.links) ? input.links.map(String) : [];
+
+      // A Canva link is exported and re-hosted first, so from here down it is an
+      // ordinary set of image links. When Canva is not connected `resolveCanva`
+      // passes them through untouched and `makePreview` refuses them by name,
+      // exactly as it did before.
+      const resolved = await resolveCanva(ctx, pasted);
+      if (!resolved.ok) return { result: { ok: false, refusal: resolved.refusal }, refused: true };
+
       return fromWrite(makePreview(writeCtx(ctx), {
         profile: p,
         pieceId: str(input.piece_id),
         newPiece: title ? { title } : undefined,
-        links: Array.isArray(input.links) ? input.links.map(String) : [],
+        links: resolved.links,
         caption: str(input.caption),
         canvaConfigured: ctx.canvaConfigured,
       }));

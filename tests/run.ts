@@ -41,5 +41,7 @@ import './strategy.plain.test.ts';
 import './strategy.reading.test.ts';
 // spec 35 — the profile mockup
 import './mockup.test.ts';
+// strategy as a layer, not a gate — the eight facts
+import './strategy.facts.test.ts';
 
 process.exit(await run());

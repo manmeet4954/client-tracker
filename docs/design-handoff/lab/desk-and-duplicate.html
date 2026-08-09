@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The desk, and a duplicate of it</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #e9e5e1;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #17151a;
+    padding: 24px 22px 36px;
+  }
+  .pair { display: flex; gap: 24px; align-items: flex-start; }
+  .col { flex: 1 1 0; min-width: 0; }
+  .cap { display: flex; align-items: baseline; gap: 9px; margin: 0 0 9px 2px; }
+  .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+  .tag.live { color: #17151a; }
+  .tag.dupe { color: #b8551f; }
+  .sub { font-size: 12px; color: #857e88; }
+  .stage { width: 100%; height: 528px; overflow: hidden; border-radius: 18px; box-shadow: 0 10px 34px rgba(23,21,26,.14); background: #faf8f6; }
+  .stage.dupe { outline: 2px dashed rgba(234,71,17,.45); outline-offset: 3px; }
+  .scaler { transform-origin: top left; transform: scale(.6); }
+  .frame { width: 1240px; height: 880px; overflow: hidden; }
+
+  .desk { height: 100%; display: flex; background: #faf8f6; color: #17151a; overflow: hidden; }
+  .side { width: 262px; flex: none; background: #1c1a21; color: #fff; display: flex; flex-direction: column; padding: 22px 14px 16px; }
+  .head { padding: 0 10px 18px; }
+  .kick { font-size: 10.5px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: rgba(255,255,255,.4); }
+  .mark { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -.02em; margin-top: 7px; }
+  .plabel { font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.4); padding: 0 10px 8px; }
+  .plist { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .prow { display: flex; align-items: center; border-radius: 12px; padding-right: 4px; }
+  .prow:hover { background: rgba(255,255,255,.08); }
+  .plink { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 9px 10px; border-radius: 12px; color: rgba(255,255,255,.85); text-decoration: none; }
+  .av { width: 28px; height: 28px; flex: none; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; color: #fff; }
+  .pn { display: block; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .pl { display: block; font-size: 11.5px; margin-top: 2px; color: rgba(255,255,255,.42); }
+  .pl.alert { color: #ff8a5c; }
+  .dots { flex: none; padding: 6px; color: rgba(255,255,255,.4); display: flex; opacity: 0; }
+  .prow:hover .dots { opacity: 1; }
+  .addp { margin-top: 12px; padding: 10px; border-radius: 12px; border: 1px dashed rgba(255,255,255,.24); text-align: center; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.6); }
+  .out { margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11.5px; color: rgba(255,255,255,.35); }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .thread { flex: 1; overflow-y: auto; padding: 30px 34px 20px; }
+  .inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  .botwrap { display: flex; justify-content: flex-start; }
+  .bot { width: 100%; background: #fff; border: 1px solid rgba(23,21,26,.09); border-radius: 18px 18px 18px 5px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(23,21,26,.04); }
+  .body { font-size: 15px; line-height: 1.6; }
+  .row { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 0; border-top: 1px solid rgba(23,21,26,.07); margin-top: 2px; text-decoration: none; color: inherit; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .rt { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; }
+  .rp { font-size: 12.5px; color: #6b6570; white-space: nowrap; }
+  .rw { font-size: 12.5px; font-weight: 600; white-space: nowrap; color: #9b95a1; }
+  .rw.late { color: #c2410c; }
+  .note { font-size: 12.5px; color: #9b95a1; margin-top: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+  .chip { font-size: 13px; font-weight: 600; color: #6b6570; background: #fff; border: 1px solid rgba(23,21,26,.1); border-radius: 999px; padding: 8px 15px; }
+  .bar { flex: none; padding: 16px 34px 18px; border-top: 1px solid rgba(23,21,26,.09); background: #faf8f6; }
+  .barin { max-width: 720px; margin: 0 auto; display: flex; gap: 9px; align-items: center; }
+  .comp { flex: 1; min-width: 0; font-size: 15px; padding: 13px 16px; border: 1px solid rgba(23,21,26,.12); border-radius: 14px; background: #fff; color: #9b95a1; }
+  .send { display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; flex: none; border-radius: 14px; background: #1c1a21; color: #fff; }
+  .foot { max-width: 720px; margin: 8px auto 0; font-size: 11.5px; color: #9b95a1; }
+</style>
+</head>
+<body>
+<div class="pair">
+
+  <div class="col">
+    <div class="cap"><span class="tag live">A &nbsp;the desk</span><span class="sub">what /shelf renders today</span></div>
+    <div class="stage"><div class="scaler"><div class="frame">
+      <div class="desk">
+    <aside class="side">
+      <div class="head">
+        <div class="kick">Sunday, 9 August</div>
+        <div class="mark">The desk</div>
+      </div>
+      <div class="plabel">Profiles</div>
+      <div class="plist">
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#3b82f6">C</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Career Bubble</span>
+            <span class="pl alert">2 slipped</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#0ea5e9">D</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Divine Studio</span>
+            <span class="pl alert">Strategy not locked</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#ec4899">S</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Sonia&#39;s Crochet</span>
+            <span class="pl alert">1 slipped</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#22c55e">R</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">ResumeGuru</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#f97316">K</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">KRNL Studio</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#e879f9">F</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Freelance Projects</span>
+            <span class="pl alert">1 slipped</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#6366f1">S</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Shiva Mam</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#2dd4bf">M</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Manmeet&#39;s LinkedIn</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      </div>
+      <div class="addp">+ Add a profile</div>
+      <div class="out"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Log out</div>
+    </aside>
+    <div class="main">
+      <div class="thread">
+        <div class="inner">
+          <div class="botwrap">
+            <div class="bot">
+              <div class="body">Seven things need you today, across six profiles. Four of them have already slipped their date.</div>
+              <a class="row" href="#">
+                <span class="dot" style="background:#0ea5e9"></span>
+                <span class="rt">Divine shoot, fetch some ideas</span>
+                <span class="rp">Divine Studio</span>
+                <span class="rw late">due 15 July</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#e879f9"></span>
+                <span class="rt">Meeting with UK</span>
+                <span class="rp">Freelance Projects</span>
+                <span class="rw late">due 15 July</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#ec4899"></span>
+                <span class="rt">Crochet reel edit and shoot</span>
+                <span class="rp">Sonia&#39;s Crochet</span>
+                <span class="rw late">due 19 July</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#3b82f6"></span>
+                <span class="rt">August mix target check</span>
+                <span class="rp">Career Bubble</span>
+                <span class="rw late">due 2 August</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#6366f1"></span>
+                <span class="rt">Shiva Mam draft goes out</span>
+                <span class="rp">Shiva Mam</span>
+                <span class="rw">today</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#22c55e"></span>
+                <span class="rt">Review pattern post, chase the yes</span>
+                <span class="rp">ResumeGuru</span>
+                <span class="rw">today</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#3b82f6"></span>
+                <span class="rt">Onboarding walkthrough, record voice</span>
+                <span class="rp">Career Bubble</span>
+                <span class="rw">today</span>
+              </a>
+              <div class="note">Tap any row to land inside that profile, at that thing.</div>
+            </div>
+          </div>
+          <div class="chips"><span class="chip">What needs me today?</span><span class="chip">What is stuck waiting on a yes?</span><span class="chip">Which profiles have gone quiet?</span><span class="chip">How did last month go?</span><span class="chip">Anything not locked?</span></div>
+        </div>
+      </div>
+      <div class="bar">
+        <div class="barin">
+          <div class="comp">Ask across every profile</div>
+          <div class="send"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 14 0"/><path d="m13 6 6 6-6 6"/></svg></div>
+        </div>
+        <div class="foot">It only ever answers about your profiles, and every answer is a row you can walk into.</div>
+      </div>
+    </div></div>
+    </div></div></div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><span class="tag dupe">B &nbsp;the duplicate</span><span class="sub">identical for now, this is where changes land</span></div>
+    <div class="stage dupe"><div class="scaler"><div class="frame">
+      <div class="desk">
+    <aside class="side">
+      <div class="head">
+        <div class="kick">Sunday, 9 August</div>
+        <div class="mark">The desk</div>
+      </div>
+      <div class="plabel">Profiles</div>
+      <div class="plist">
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#3b82f6">C</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Career Bubble</span>
+            <span class="pl alert">2 slipped</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#0ea5e9">D</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Divine Studio</span>
+            <span class="pl alert">Strategy not locked</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#ec4899">S</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Sonia&#39;s Crochet</span>
+            <span class="pl alert">1 slipped</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#22c55e">R</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">ResumeGuru</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#f97316">K</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">KRNL Studio</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#e879f9">F</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Freelance Projects</span>
+            <span class="pl alert">1 slipped</span>
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#6366f1">S</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Shiva Mam</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      <div class="prow">
+        <a class="plink" href="#">
+          <span class="av" style="background:#2dd4bf">M</span>
+          <span style="flex:1;min-width:0">
+            <span class="pn">Manmeet&#39;s LinkedIn</span>
+            
+          </span>
+        </a>
+        <span class="dots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span>
+      </div>
+      </div>
+      <div class="addp">+ Add a profile</div>
+      <div class="out"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg> Log out</div>
+    </aside>
+    <div class="main">
+      <div class="thread">
+        <div class="inner">
+          <div class="botwrap">
+            <div class="bot">
+              <div class="body">Seven things need you today, across six profiles. Four of them have already slipped their date.</div>
+              <a class="row" href="#">
+                <span class="dot" style="background:#0ea5e9"></span>
+                <span class="rt">Divine shoot, fetch some ideas</span>
+                <span class="rp">Divine Studio</span>
+                <span class="rw late">due 15 July</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#e879f9"></span>
+                <span class="rt">Meeting with UK</span>
+                <span class="rp">Freelance Projects</span>
+                <span class="rw late">due 15 July</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#ec4899"></span>
+                <span class="rt">Crochet reel edit and shoot</span>
+                <span class="rp">Sonia&#39;s Crochet</span>
+                <span class="rw late">due 19 July</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#3b82f6"></span>
+                <span class="rt">August mix target check</span>
+                <span class="rp">Career Bubble</span>
+                <span class="rw late">due 2 August</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#6366f1"></span>
+                <span class="rt">Shiva Mam draft goes out</span>
+                <span class="rp">Shiva Mam</span>
+                <span class="rw">today</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#22c55e"></span>
+                <span class="rt">Review pattern post, chase the yes</span>
+                <span class="rp">ResumeGuru</span>
+                <span class="rw">today</span>
+              </a>
+              <a class="row" href="#">
+                <span class="dot" style="background:#3b82f6"></span>
+                <span class="rt">Onboarding walkthrough, record voice</span>
+                <span class="rp">Career Bubble</span>
+                <span class="rw">today</span>
+              </a>
+              <div class="note">Tap any row to land inside that profile, at that thing.</div>
+            </div>
+          </div>
+          <div class="chips"><span class="chip">What needs me today?</span><span class="chip">What is stuck waiting on a yes?</span><span class="chip">Which profiles have gone quiet?</span><span class="chip">How did last month go?</span><span class="chip">Anything not locked?</span></div>
+        </div>
+      </div>
+      <div class="bar">
+        <div class="barin">
+          <div class="comp">Ask across every profile</div>
+          <div class="send"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 14 0"/><path d="m13 6 6 6-6 6"/></svg></div>
+        </div>
+        <div class="foot">It only ever answers about your profiles, and every answer is a row you can walk into.</div>
+      </div>
+    </div></div>
+    </div></div></div>
+  </div>
+
+</div>
+
+<script>
+function fit() {
+  document.querySelectorAll(".stage").forEach(function (s) {
+    var k = s.clientWidth / 1240;
+    s.querySelector(".scaler").style.transform = "scale(" + k + ")";
+    s.style.height = (880 * k) + "px";
+  });
+}
+fit();
+window.addEventListener("resize", fit);
+if (document.fonts) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
 import { decide, parseMessage, type InboxDecision } from '@/lib/whatsappInbox';
 import { generateId, formatMonthKey } from '@/lib/utils';
+import { runDesk } from '@/lib/shell/desk';
 import { AgendaItem, AssetItem, AssetSet, ChatMessage, ContentCard, ContentStage, Observation, PersonalTask } from '@/types';
 
 // The dashboard chat (spec 18 part C, v4 brain): a floating chat on EVERY
@@ -67,14 +68,6 @@ interface BrainAnswer {
   fallback?: boolean;
   actions?: BrainAction[];
   reply?: string;
-}
-
-/** What `/api/desk-chat` answers (spec 30). `did` is what actually landed. */
-interface DeskAnswer {
-  /** True when the desk cannot run at all, e.g. no key. The old rules take over. */
-  fallback?: boolean;
-  reply?: string;
-  did?: string[];
 }
 
 export default function ChatWidget() {
@@ -275,17 +268,14 @@ function ChatWidgetInner() {
       // unreachable or its key is missing, the chat still works exactly as it
       // did yesterday rather than going dead.
       if (!sentPhoto) {
-        const desk: DeskAnswer | null = await fetch('/api/desk-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: raw,
-            recent: recentBefore,
-            today: new Date().toISOString().slice(0, 10),
-          }),
-        }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+        // ONE brain, called through ONE function, from both surfaces. `runDesk`
+        // lives in `lib/shell/desk.ts` and the desk screen calls the very same
+        // one. This used to be a second copy of the same fetch here, which is
+        // how the two chats drifted into behaving like two different products.
+        const desk = await runDesk(raw, recentBefore, new Date().toISOString().slice(0, 10))
+          .catch(() => null);
 
-        if (desk?.reply && !desk.fallback) {
+        if (desk) {
           // It wrote to the stored state directly, so the tab has to catch up.
           // Reading it back is also the honest confirmation: what she sees next
           // is what actually landed, not what the chat believes it did.
@@ -297,7 +287,7 @@ function ChatWidgetInner() {
           // debounced. So a plain LOAD here eats her own message every time the
           // chat does something. SYNC_FROM_SERVER takes the server's data and
           // keeps the thread this tab is holding.
-          if (desk.did?.length) {
+          if (desk.did.length) {
             const fresh = await fetch('/api/state')
               .then(r => (r.ok ? r.json() : null)).catch(() => null);
             if (fresh?.state) dispatch({ type: 'SYNC_FROM_SERVER', payload: fresh.state });

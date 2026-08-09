@@ -63,8 +63,8 @@ export default function StrategyLockView({ clientId }: { clientId: string }) {
           Lock the strategy
         </h2>
         <p className="text-sm text-stone-500 mt-1">
-          One action. It is the line between working out who this client is and making things for them.
-          Until it happens, nothing can be written into creation.
+          One action. It is the line between working out who this client is and having the engine
+          make things for them. Recording your work here saves either way.
         </p>
       </header>
 

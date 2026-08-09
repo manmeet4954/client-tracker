@@ -249,8 +249,8 @@ export default function ProfileFrame({
         {isOwner && (
           <p className="px-2.5 text-[11.5px] leading-[1.5] text-white/35">
             {profile.strategy_locked
-              ? 'Strategy locked. Creation is open.'
-              : 'Strategy is not locked, so Creation is read only.'}
+              ? 'Strategy locked. Everything is open.'
+              : 'Strategy is pending. Recording still saves.'}
           </p>
         )}
       </aside>

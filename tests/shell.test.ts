@@ -27,6 +27,8 @@ import { ROUTE_MAP, legacyDestination, routeFate } from '../lib/shell/routes.ts'
 import { composeCard, composeShelf, composeTodayStrip, composeWeeklyPulse } from '../lib/shell/shelf.ts';
 import { cascadeTrace } from '../lib/shell/trace.ts';
 import { resolveDeepLink } from '../lib/shell/deeplink.ts';
+import { DESK_PROMPTS, runDesk } from '../lib/shell/desk.ts';
+import { classifyQuestion } from '../lib/shell/deskAnswers.ts';
 import type { AppState } from '../types/index.ts';
 
 const NOW = '2026-07-25T12:00:00.000Z';
@@ -888,4 +890,109 @@ test('SKIPPED — 15: mobile first at 375 px, every profile screen', () => {
 
 test('SKIPPED — 17: the rendered halves of 14 and 16, at desktop and 375 px', () => {
   ok(true, 'the legacy screens before cutover, the new shell after, and the five lifecycles');
+});
+
+// ── The desk chat: what routes a message she TYPED ───────────────────────────
+//
+// The desk used to classify everything she typed through the trigger table
+// before anything else ran. The triggers include `today`, `yes`, `go`, `due`
+// and `review` as whole words, so an ordinary instruction was answered with a
+// standing list and the instruction itself was thrown away. That is why the
+// desk could not be talked to.
+//
+// Typed text now goes to spec 30's harness. The table is reached only by a
+// TAPPED CHIP, where the words are known and the match is exact.
+
+suite('the desk chat — the trigger table answers chips, never typed text');
+
+test('every chip still resolves to one of the standing questions', () => {
+  for (const p of DESK_PROMPTS) {
+    ok(classifyQuestion(p.text) !== null, `the chip "${p.text}" must still answer locally`);
+  }
+});
+
+test('the things she actually types all collide with the table', () => {
+  // Each of these is a real instruction, and each one matches a trigger. This is
+  // the evidence for the rule above: if typed text went through the table, every
+  // one of these would be answered with a list instead of being done.
+  const said: [string, string][] = [
+    ['I posted the Career Bubble reel today', 'today'],
+    ['yes, add that one to Divine', 'yes'],
+    ['go ahead and put it on the board', 'go'],
+    ['here is the link, make a preview I can send for review', 'review'],
+    ['the crochet edit is due on Friday', 'due'],
+  ];
+  for (const [text, trigger] of said) {
+    ok(classifyQuestion(text) !== null,
+      `"${text}" matches "${trigger}", so it must not be routed by the table`);
+  }
+});
+
+test('the harness reply is refused when the loop has no key', async () => {
+  // `runDesk` returning null is the signal to drop through to the older
+  // text-only brain, so the desk answers rather than going dead.
+  const real = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () => ({
+      ok: true, json: async () => ({ fallback: true }),
+    })) as unknown as typeof fetch;
+    eq(await runDesk('add a task for Divine', [], '2026-08-09'), null,
+      'a fallback answer is not an answer');
+
+    globalThis.fetch = (async () => ({
+      ok: true, json: async () => ({ reply: 'Added it.', did: ['task added'] }),
+    })) as unknown as typeof fetch;
+    const done = await runDesk('add a task for Divine', [], '2026-08-09');
+    eq(done?.reply, 'Added it.', 'the reply is hers to read');
+    eq(done?.did.length, 1, 'and `did` is what actually landed');
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+// ── One chat, two surfaces ───────────────────────────────────────────────────
+//
+// Her words, and the whole point: the desk chat and the floating bubble are the
+// same thing shown two ways, not two different products. They already shared the
+// thread. They did not share the brain: the desk called the old text-only
+// endpoint and the bubble called the harness, so the same sentence typed in two
+// places did two different things.
+//
+// These are source checks on purpose. The rule is about which door each surface
+// knocks on, and that is a fact about the files, not about a render.
+
+suite('one chat, two surfaces: the desk and the bubble share one brain');
+
+const CHAT_SURFACES = ['components/shell/Shelf.tsx', 'components/ChatWidget.tsx'];
+
+test('exactly one file in the app names the harness endpoint', () => {
+  const callers: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(join(ROOT, dir))) {
+      if (name === 'node_modules' || name === '.next' || name.startsWith('.')) continue;
+      const rel = `${dir}/${name}`;
+      if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
+      if (!/\.tsx?$/.test(name)) continue;
+      if (rel.startsWith('app/api/desk-chat')) continue;      // the route itself
+      if (readFileSync(join(ROOT, rel), 'utf8').includes("'/api/desk-chat'")) callers.push(rel);
+    }
+  };
+  for (const top of ['app', 'components', 'lib']) walk(top);
+  eq(callers, ['lib/shell/desk.ts'],
+    'only `runDesk` may call the harness, so there is one brain and not a copy per surface');
+});
+
+test('both surfaces reach it through that one function', () => {
+  for (const file of CHAT_SURFACES) {
+    const src = readFileSync(join(ROOT, file), 'utf8');
+    ok(src.includes('runDesk('), `${file} must go through runDesk`);
+  }
+});
+
+test('and both write into the one kept thread', () => {
+  for (const file of CHAT_SURFACES) {
+    const src = readFileSync(join(ROOT, file), 'utf8');
+    ok(src.includes('ADD_CHAT_MESSAGE'),
+      `${file} must add to chatLog, so the conversation is the same one from either side`);
+  }
 });
