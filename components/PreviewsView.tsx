@@ -41,7 +41,7 @@ function shareUrl(shareId: string): string {
 }
 
 export default function PreviewsView({ clientId }: { clientId: string }) {
-  const { dispatch, saveNow } = useApp();
+  const { dispatch, saveNow, role } = useApp();
   const { data } = useClient(clientId);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<PreviewPost | null>(null);
@@ -59,18 +59,41 @@ export default function PreviewsView({ clientId }: { clientId: string }) {
     setEditorOpen(true);
   }
 
-  // Persist the post and wait for the server to confirm before returning, so the
-  // public /p/[shareId] page (server-rendered) can find it the instant the link
-  // is shared. Returns false if the save didn't land.
-  async function savePost(post: PreviewPost): Promise<boolean> {
+  // Persist the post, wait for the server to confirm, then READ IT BACK and
+  // verify the preview is truly in the stored state before the link is treated
+  // as real. The read-back exists because of 2026-08-09: a save reported ok,
+  // the link went to a client, and the public page found nothing. Whatever
+  // swallows a preview between "accepted" and "stored" now gets caught here,
+  // in words, instead of in front of a client.
+  async function savePost(post: PreviewPost): Promise<{ ok: boolean; why: string }> {
     if (editingPost) {
       dispatch({ type: 'UPDATE_PREVIEW_POST', payload: { clientId, post } });
     } else {
       dispatch({ type: 'ADD_PREVIEW_POST', payload: { clientId, post } });
     }
-    const ok = await saveNow();
-    if (ok) { setEditorOpen(false); setEditingPost(null); }
-    return ok;
+    const saved = await saveNow();
+    if (!saved.ok) return saved;
+
+    // The proof: ask the server what it actually holds now.
+    try {
+      const res = await fetch('/api/state', { cache: 'no-store' });
+      const j = await res.json();
+      const held = Object.values((j?.state?.clientData ?? {}) as Record<string, { previewPosts?: PreviewPost[] }>)
+        .some(d => (d.previewPosts ?? []).some(p => p.shareId === post.shareId));
+      if (!held) {
+        return {
+          ok: false,
+          why: `The server said saved, but the preview is NOT in what it stored (signed in as ${role}). Screenshot this message.`,
+        };
+      }
+    } catch {
+      // The read-back itself failing is not proof the save failed; say so honestly.
+      return { ok: true, why: 'Saved, but could not verify. Open the link once yourself before sending it.' };
+    }
+
+    setEditorOpen(false);
+    setEditingPost(null);
+    return { ok: true, why: '' };
   }
 
   function deletePost(postId: string) {
@@ -405,7 +428,7 @@ function CanvaImport({ onImport, disabled }: { onImport: (urls: string[]) => voi
 function PostEditorModal({ post, onClose, onSave }: {
   post: PreviewPost | null;
   onClose: () => void;
-  onSave: (post: PreviewPost) => Promise<boolean>;
+  onSave: (post: PreviewPost) => Promise<{ ok: boolean; why: string }>;
 }) {
   const [name, setName] = useState(post?.name ?? '');
   const [caption, setCaption] = useState(post?.caption ?? '');
@@ -462,7 +485,7 @@ function PostEditorModal({ post, onClose, onSave }: {
     setSaveError('');
     setSaving(true);
     const now = new Date().toISOString();
-    const ok = await onSave({
+    const r = await onSave({
       id: post?.id ?? generateId(),
       shareId: post?.shareId ?? generateShareId(),
       name: name.trim(),
@@ -473,7 +496,10 @@ function PostEditorModal({ post, onClose, onSave }: {
       updatedAt: now,
     });
     setSaving(false);
-    if (!ok) setSaveError('Could not save to the server. Check your connection and try again.');
+    // The reason, in the server's words. Never again a mute failure with a
+    // copyable dead link behind it.
+    if (!r.ok) setSaveError(r.why || 'Could not save to the server. Check your connection and try again.');
+    else if (r.why) setSaveError(r.why);
   }
 
   return (

@@ -2,7 +2,7 @@
 
 ## 2026-08-09, end of day — BOTH DEPLOYS LIVE, ON HER PUSH
 
-Live head `7023757`, Vercel SUCCESS, live matches vault exactly. Two deploys,
+Live head `dfbf3cb`, Vercel SUCCESS, live matches vault exactly. Three deploys,
 both pushed by her hand after gates 1 and 2 passed here:
 
 1. `bc7c118` — one chat everywhere that acts, recording open on every profile,
@@ -10,6 +10,10 @@ both pushed by her hand after gates 1 and 2 passed here:
 2. `7023757` — month strip on the board (an empty month names where the work
    is), previews reminder folded to one line. Her feedback on the first deploy,
    fixed same day.
+3. `dfbf3cb` — intake asks the blanks: on Facts, every blank fact is a chip,
+   "Make the round" writes a sent round asking exactly those in the page's own
+   wording (`lib/intake/factsRound.ts`), and answers come back under the box
+   they were asked for with a one-tap "Use this". 923 tests.
 
 The data migration (all nine profiles carrying a body) was applied directly to
 the live database earlier today, verified by read-back, backup in
@@ -17,8 +21,8 @@ the live database earlier today, verified by read-back, backup in
 
 **Owed next, in her order:** retire the old Decide tab (Facts replaces it, she
 flagged the duplication) · Documents section on Facts (drop a brief, get
-suggestions under blank boxes, one tap to accept, never auto-filled) ·
-questionnaire generated from the blank Facts boxes.
+suggestions under blank boxes, one tap to accept, never auto-filled). The
+questionnaire from the blanks shipped in deploy 3.
 
 ## 2026-08-09, later — RECORDING NEVER WAITS FOR THE LOCK, AND ALL NINE PROFILES MIGRATED
 

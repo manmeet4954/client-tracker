@@ -1086,9 +1086,10 @@ interface CtxValue {
   windows: Record<string, ClientWindow[]>;
   logout: () => void;
   /** Persist the latest state to the server immediately and resolve once it
-   *  lands (true) or fails (false). Call right after a dispatch whose result
-   *  a server-rendered page will read — e.g. creating a shareable preview. */
-  saveNow: () => Promise<boolean>;
+   *  lands or fails. `why` is the server's own words when it did not land —
+   *  a save failure was a bare `false` until 2026-08-09, and a client-facing
+   *  link died silently because the reason was thrown away right here. */
+  saveNow: () => Promise<{ ok: boolean; why: string }>;
 }
 
 const AppContext = createContext<CtxValue | null>(null);
@@ -1111,20 +1112,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const dirtyRef = useRef(false);   // true while there are unsaved local changes
   const skipSaveRef = useRef(false); // skip the save that a fresh LOAD would trigger
   const flushRef = useRef(false);    // when set, the next save runs immediately (no debounce)
-  const flushWaiters = useRef<((ok: boolean) => void)[]>([]);
+  const flushWaiters = useRef<((r: { ok: boolean; why: string }) => void)[]>([]);
 
   // Persist immediately and resolve when done. Used before revealing a public
   // share link so the post is guaranteed to be in the DB, not waiting on the
   // 1s debounce. Relies on a state change (the dispatch) having just fired the
   // save effect; a 6s fallback guarantees the promise never hangs.
-  function saveNow(): Promise<boolean> {
+  function saveNow(): Promise<{ ok: boolean; why: string }> {
     flushRef.current = true;
-    return new Promise<boolean>(resolve => {
-      const done = (ok: boolean) => resolve(ok);
+    return new Promise<{ ok: boolean; why: string }>(resolve => {
+      const done = (r: { ok: boolean; why: string }) => resolve(r);
       flushWaiters.current.push(done);
       setTimeout(() => {
         const i = flushWaiters.current.indexOf(done);
-        if (i >= 0) { flushWaiters.current.splice(i, 1); resolve(false); }
+        if (i >= 0) {
+          flushWaiters.current.splice(i, 1);
+          resolve({ ok: false, why: 'The save never ran. The app may still be loading, or this session may have signed out.' });
+        }
       }, 6000);
     });
   }
@@ -1170,7 +1174,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dirtyRef.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
 
-    const doSave = () =>
+    const doSave = (): Promise<{ ok: boolean; why: string }> =>
       fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1179,34 +1183,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // system both keep their work.
         body: JSON.stringify({ state, paths: changedScopes(syncedRef.current, state) }),
       })
-        .then(res => {
+        .then(async res => {
           if (res.status === 401) {
             // Session expired while editing — show the gate so changes aren't silently lost.
             loadedRef.current = false;
             setStatus('needsAuth');
-            return false;
+            return { ok: false, why: 'Signed out. Sign in again and retry.' };
           }
-          if (res.status === 409) {
-            // The door refused this tab's save. If it is the stale-tab refusal,
-            // this bundle is older than the server and must not keep trying:
-            // reload once, so the tab comes back on the current code with the
-            // authoritative state. (2026-08-01: a stale tab's pathless save is
-            // what erased two previews.)
-            res.json().then(j => { if (j?.error === 'stale-tab') window.location.reload(); }).catch(() => {});
-            return false;
+          if (res.ok) {
+            dirtyRef.current = false;
+            syncedRef.current = state;
+            return { ok: true, why: '' };
           }
-          if (!res.ok) return false; // server error (e.g. Supabase write failed)
-          dirtyRef.current = false;
-          syncedRef.current = state;
-          return true;
+          // Refused or failed: KEEP THE SERVER'S WORDS. Collapsing this to a
+          // boolean is how a dead client link got diagnosed by guesswork.
+          const j = await res.json().catch(() => null);
+          if (res.status === 409 && j?.error === 'stale-tab') {
+            // This bundle is older than the server and must not keep trying:
+            // reload once, so the tab comes back on the current code.
+            window.location.reload();
+            return { ok: false, why: 'This tab was out of date and is reloading. Try again when it comes back.' };
+          }
+          return {
+            ok: false,
+            why: [j?.detail, j?.error, `server said ${res.status}`].filter(Boolean).join(' — '),
+          };
         })
-        .catch(() => false); // offline — next change will retry
+        .catch(() => ({ ok: false, why: 'No connection to the server. Check the internet and retry.' }));
 
     if (flushRef.current) {
       flushRef.current = false;
       const waiters = flushWaiters.current;
       flushWaiters.current = [];
-      doSave().then(ok => waiters.forEach(w => w(ok)));
+      doSave().then(r => waiters.forEach(w => w(r)));
     } else {
       saveTimer.current = setTimeout(doSave, 1000);
     }
