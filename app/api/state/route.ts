@@ -201,6 +201,19 @@ export async function POST(req: Request) {
       }, { status: 409 });
     }
 
+    // ── 2026-08-09 diagnostic: a preview died twice in front of a client and
+    // every layer swore it was fine. Until that is understood, any save that
+    // declares a review scope logs what actually happened to the previews,
+    // in one line vercel logs can show. Counts and ids only, never content.
+    for (const key of paths) {
+      if (!key.includes('work-log/creation/review')) continue;
+      const pid = key.split(':')[0];
+      const before = (base.clientData?.[pid]?.previewPosts ?? []).length;
+      const inc = (incoming?.clientData?.[pid]?.previewPosts ?? []).length;
+      const after = (next.clientData?.[pid]?.previewPosts ?? []).length;
+      console.log(`[preview-save] role=${role} profile=${pid} stored_before=${before} incoming=${inc} stored_after=${after} paths=${paths.length}`);
+    }
+
     await writeState(next);
     return NextResponse.json({ ok: true, scoped: !!paths });
   } catch (e) {

@@ -78,7 +78,32 @@ export default async function PreviewPage({ params }: { params: { shareId: strin
     if (branch.branch === 'revoked') return <NotAvailable dbError={false} />;
   }
 
-  if (!found) return <NotAvailable dbError={dbError} />;
+  if (!found) {
+    // Owner-only truth line (2026-08-09): when the person looking at a dead
+    // link is HER, signed in, the page reports what the store actually holds
+    // instead of the shrug the public sees. The public page is unchanged.
+    if (sessionRole() === 'owner') {
+      const raw = await readState().catch(() => null);
+      const lines: string[] = [];
+      if (!raw) lines.push('Could not read the database at all.');
+      else {
+        for (const [cid, cd] of Object.entries(raw.clientData ?? {})) {
+          const pp = (cd as { previewPosts?: { shareId?: string; updatedAt?: string }[] }).previewPosts ?? [];
+          if (pp.length) lines.push(`${cid}: ${pp.length} previews, newest ${pp[pp.length - 1]?.updatedAt?.slice(0, 16) ?? '?'}`);
+        }
+        if (lines.length === 0) lines.push('No profile in the store holds any preview at all.');
+        lines.push(`This link (…${params.shareId.slice(-6)}) is not among them.`);
+      }
+      return (
+        <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center p-6 text-center">
+          <p className="font-semibold text-[#262626] mb-1">This preview isn&apos;t available</p>
+          <p className="text-sm text-[#8e8e8e] mb-4">Only you can see the lines below. Screenshot them.</p>
+          {lines.map((l, i) => <p key={i} className="text-xs font-mono text-[#555]">{l}</p>)}
+        </div>
+      );
+    }
+    return <NotAvailable dbError={dbError} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#fafafa] flex flex-col items-center sm:py-8">
