@@ -19,13 +19,14 @@ import { ChevronLeft, Eye } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { clientView } from '@/lib/access/clientPreview';
 import {
-  BrandWindow, ClientIntakeWindow, ContentWindow, ResultsWindow,
+  AnalysisWindow, BrandWindow, ClientIntakeWindow,
 } from '@/components/shell/ClientWindows';
-import AssetsView from '@/components/AssetsView';
+import Board from '@/components/creation/Board';
+import { accentFor } from '@/lib/shell/profile';
 
 export default function ClientPreviewPage({ params }: { params: { id: string } }) {
   const { state, role } = useApp();
-  const { client } = useClient(params.id);
+  const { client, data } = useClient(params.id);
   const [picked, setPicked] = useState<string | null>(null);
 
   if (role !== 'owner') notFound();
@@ -76,13 +77,17 @@ export default function ClientPreviewPage({ params }: { params: { id: string } }
             ))}
           </div>
 
-          {/* The window itself, the client's own component, hands off. */}
+          {/* The window itself, the client's own component, hands off.
+              2026-08-16: the windows are her folders now — Creation previews
+              the real board read only, Analysis the approved publication. */}
           <div className="pointer-events-none select-none" aria-hidden="true">
             {active?.id === 'brand' && <BrandWindow profileId={params.id} />}
             {active?.id === 'intake' && <ClientIntakeWindow profileId={params.id} />}
-            {active?.id === 'content' && <ContentWindow profileId={params.id} />}
-            {active?.id === 'assets' && <AssetsView clientId={params.id} />}
-            {active?.id === 'results' && <ResultsWindow profileId={params.id} />}
+            {active?.id === 'creation' && (
+              <Board profileId={params.id} hue={accentFor(client, data)} readOnly
+                onOpenPiece={() => undefined} />
+            )}
+            {active?.id === 'analysis' && <AnalysisWindow profileId={params.id} />}
           </div>
         </>
       )}

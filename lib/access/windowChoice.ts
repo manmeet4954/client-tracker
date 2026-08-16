@@ -22,7 +22,11 @@
 import type { PathState } from '../tree/contract.ts';
 import { resolveSwitch } from '../tree/switches.ts';
 
-export type WindowKey = 'brand' | 'intake' | 'content' | 'assets' | 'results';
+// 2026-08-16, her verdict: the client sees HER dashboard, filtered — the same
+// folders and the same names, cut down to what she ticked. So the rows below
+// are her folders: Brand, Intake, Creation, Analysis. Assets stopped being a
+// window and became a part of Creation, which is where she keeps it.
+export type WindowKey = 'brand' | 'intake' | 'creation' | 'analysis';
 
 /**
  * A window with more than one thing in it splits into PARTS (2026-08-11).
@@ -65,7 +69,7 @@ export const WINDOW_CHOICES: WindowChoice[] = [
     // now refuses — the toggle wrote a forbidden position, and OFF would have
     // cascaded into her own board. `strategy.client_brand` is the window's own
     // movable switch, default active, so the toggle finally does what it says.
-    key: 'brand', label: 'Their brand',
+    key: 'brand', label: 'Brand',
     line: 'The positioning, audience and voice you locked. Read only.',
     switches: ['strategy.client_brand'],
   },
@@ -74,55 +78,67 @@ export const WINDOW_CHOICES: WindowChoice[] = [
     // this window (2026-08-11: her toggle was OFF and the Intake tab showed
     // anyway - the toggle moved one switch while windowsForBinding granted on
     // either of two).
-    key: 'intake', label: 'Questions for them',
-    line: 'The blanks you ask them to fill, and anything they want to send you.',
+    key: 'intake', label: 'Intake',
+    line: 'The questions you sent them, answered in their own dashboard.',
     switches: ['intake.questionnaire', 'intake.finding_session'],
     anyOf: true,
   },
   {
-    key: 'content', label: 'Content and approvals',
-    line: 'What is coming up, and the posts waiting on their approval.',
-    switches: ['creation.review', 'creation.scheduling'],
+    // Her folder, with her tabs as its parts (2026-08-16). Every part rides
+    // the switch it always rode; nothing new is granted, only regrouped.
+    key: 'creation', label: 'Creation',
+    line: 'The real board and its tabs, read only, exactly as you see it.',
+    switches: ['creation.review', 'creation.scheduling', 'assets.client_upload', 'references.from_client'],
     parts: [
       {
-        key: 'approvals', label: 'Approvals', switch: 'creation.review',
-        line: 'Posts waiting on their sign-off.',
+        key: 'board', label: 'Board', switch: 'creation.scheduling',
+        line: 'The board as it stands, from review to posted.',
       },
       {
-        key: 'upcoming', label: 'Upcoming posts', switch: 'creation.scheduling',
-        line: 'What is approved, scheduled and posted.',
+        key: 'approvals', label: 'Approvals', switch: 'creation.review',
+        line: 'They can approve a piece or ask for a revision, on the piece itself.',
+      },
+      {
+        key: 'assets', label: 'Assets', switch: 'assets.client_upload',
+        line: 'They can upload photos and video for you to use.',
+      },
+      {
+        key: 'references', label: 'References', switch: 'references.from_client',
+        line: 'The references kept for this brand, and theirs to add to.',
       },
     ],
   },
   {
-    key: 'assets', label: 'Sending you material',
-    line: 'They can upload photos and video for you to use.',
-    switches: ['assets.client_upload'],
-  },
-  {
-    key: 'results', label: 'Results',
+    key: 'analysis', label: 'Analysis',
     line: 'The performance summary, but only the ones you have approved to send.',
     switches: ['analysis.digest_client', 'analysis.client_publication'],
   },
 ];
 
-/** The presets, so the common cases are one tap rather than five decisions. */
-export const ACCESS_PRESETS: { id: string; label: string; line: string; windows: WindowKey[] }[] = [
+/** The presets, so the common cases are one tap rather than five decisions.
+ *  `partsOn` narrows a window to some of its parts: the window is on, the
+ *  unnamed parts are off. Absent means the whole window. */
+export const ACCESS_PRESETS: {
+  id: string; label: string; line: string; windows: WindowKey[];
+  partsOn?: Partial<Record<WindowKey, string[]>>;
+}[] = [
   {
     id: 'closed', label: 'Nothing yet', windows: [],
     line: 'They cannot open anything. Use this while you are still setting them up.',
   },
   {
-    id: 'approvals', label: 'Approvals only', windows: ['content'],
-    line: 'They see what is coming and approve posts. Nothing else.',
+    id: 'approvals', label: 'Approvals only', windows: ['creation'],
+    partsOn: { creation: ['board', 'approvals'] },
+    line: 'They see the board and approve posts. Nothing else.',
   },
   {
-    id: 'onboarding', label: 'Onboarding', windows: ['intake', 'assets'],
-    line: 'They answer your questions and send you material. No content yet.',
+    id: 'onboarding', label: 'Onboarding', windows: ['intake', 'creation'],
+    partsOn: { creation: ['assets'] },
+    line: 'They answer your questions and send you material. No board yet.',
   },
   {
-    id: 'full', label: 'Everything', windows: ['brand', 'intake', 'content', 'assets', 'results'],
-    line: 'The full client view, results included.',
+    id: 'full', label: 'Everything', windows: ['brand', 'intake', 'creation', 'analysis'],
+    line: 'The full client view, analysis included.',
   },
 ];
 
@@ -189,12 +205,26 @@ export function moveFor(key: WindowKey, on: boolean): { id: string; state: PathS
   return findWindow(key).switches.map(id => ({ id, state: on ? 'active' : 'hidden' }));
 }
 
-/** Every move a preset implies: the named windows on, all the others off. */
-export function movesForPreset(windows: WindowKey[]): { id: string; state: PathState }[] {
+/** Every move a preset implies: the named windows on, all the others off.
+ *  `partsOn` (2026-08-16) narrows a named window to some of its parts, so a
+ *  preset like Onboarding can open Creation's Assets tab without the board. */
+export function movesForPreset(
+  windows: WindowKey[], partsOn?: Partial<Record<WindowKey, string[]>>,
+): { id: string; state: PathState }[] {
   const wanted = new Set(windows);
   const out: { id: string; state: PathState }[] = [];
   const seen = new Set<string>();
   for (const w of WINDOW_CHOICES) {
+    const narrow = wanted.has(w.key) ? partsOn?.[w.key] : undefined;
+    if (narrow && w.parts) {
+      for (const p of w.parts) {
+        const [move] = movePart(w.key, p.key, narrow.includes(p.key));
+        if (seen.has(move.id) && move.state !== 'active') continue;
+        if (move.state === 'active') seen.add(move.id);
+        out.push(move);
+      }
+      continue;
+    }
     for (const move of moveFor(w.key, wanted.has(w.key))) {
       // A switch shared by two windows must not be turned off by the second
       // after the first turned it on. On wins, always: the safe direction here

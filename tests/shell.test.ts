@@ -520,17 +520,18 @@ test('9b. on one of hers it renders', () => {
 suite('spec 28 §17.10 — the windows are exactly the doors');
 
 test('10. every window is granted by a door and removed with it', () => {
+  // RESHAPED 2026-08-16, her verdict: the client sees HER dashboard filtered,
+  // so `content` and `assets` are one window now — Creation, her folder, with
+  // Board, Assets and References as its tabs. The grant is the same `.some`
+  // over the same switches; turning every one of them off removes the window.
   const state = shellState();
   const before = windowsForBinding(state, 'merushri', 'career-bubble').map(w => w.id);
-  ok(before.includes('content'), 'the content window is granted');
-  ok(before.includes('assets'), 'and assets');
-  const off = allOff(state, 'career-bubble', ['assets.client_upload']);
+  ok(before.includes('creation'), 'the creation window is granted');
+  const off = allOff(state, 'career-bubble', [
+    'creation.review', 'creation.scheduling', 'assets.client_upload', 'references.from_client',
+  ]);
   const after = windowsForBinding(off, 'merushri', 'career-bubble').map(w => w.id);
-  ok(!after.includes('assets'), 'revoking the switch removes the window');
-  // And the data goes with it: the payload no longer carries the path.
-  const served = filterStateForRole(off, 'merushri');
-  ok(!Object.keys(served.clientData['career-bubble'].body?.paths ?? {}).includes('work-log/assets/sets'),
-    'and its data left the payload too');
+  ok(!after.includes('creation'), 'revoking every switch removes the window');
 });
 
 test('10b. no switch position renders the workshop for a client', () => {
@@ -559,11 +560,13 @@ test('10b. no switch position renders the workshop for a client', () => {
   }
 });
 
-test('10c. the window list never grows past the five', () => {
+test('10c. the window list never grows past her folders', () => {
+  // Five windows when written; four since 2026-08-16 — Brand, Intake,
+  // Creation, Analysis, her names — with Assets folded into Creation.
   const state = shellState();
   const ids = windowsForBinding(state, 'merushri', 'career-bubble').map(w => w.id);
   for (const id of ids) {
-    ok(['brand', 'intake', 'content', 'assets', 'results'].includes(id), `${id} is not a window`);
+    ok(['brand', 'intake', 'creation', 'analysis'].includes(id), `${id} is not a window`);
   }
 });
 

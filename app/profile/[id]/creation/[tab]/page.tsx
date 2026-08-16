@@ -28,7 +28,7 @@ import Logs from '@/components/creation/Logs';
 import AssetsScreen from '@/components/creation/AssetsScreen';
 import ReferencesScreen from '@/components/creation/ReferencesScreen';
 import CostumeView from '@/components/CostumeView';
-import { ContentWindow } from '@/components/shell/ClientWindows';
+import { ClientPiecePanel } from '@/components/shell/ClientWindows';
 
 interface Section { id: string; label: string; switch: string; render: () => React.ReactNode }
 
@@ -49,18 +49,22 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
   const seedId = search?.get('seed') ?? '';
   const pieceId = search?.get('piece') ?? '';
 
-  // The client's Creation — settled with her on 2026-08-11, in her words:
-  // "we want brand and content section, right from the dashboard, excluding
-  // the things I asked you to exclude." So a client gets the REAL board, read
-  // only, plus Approvals and References, and the uploader on the assets tab.
-  // Engine and Logs stay a hard 404; her tasks never reach a client login at
-  // all (the server hands them an empty personalTasks).
+  // The client's Creation — reshaped 2026-08-16 on her verdict: the client
+  // sees HER dashboard, the same folders and the same names, cut down to what
+  // she ticked. So Creation carries her tabs — Board, Assets, References —
+  // each shown only when its switch is on, at the same addresses she uses.
+  // A verdict on a Review piece lives ON the piece, in the panel a tapped
+  // card opens; the Approvals digest tab is gone. Engine and Logs stay a hard
+  // 404; her tasks never reach a client login at all (the server hands them
+  // an empty personalTasks).
   if (kind !== 'owner') {
-    if (params.tab === 'board') {
-      return <ClientCreation profileId={params.id} accent={accent} pieceId={pieceId} />;
-    }
-    if (params.tab === 'assets') return <AssetsView clientId={params.id} />;
-    notFound();
+    if (!['board', 'assets', 'references'].includes(params.tab)) notFound();
+    return (
+      <ClientCreation
+        profileId={params.id} accent={accent} pieceId={pieceId} tab={params.tab}
+        path={path} search={search?.toString() ?? ''}
+      />
+    );
   }
 
   /**
@@ -225,43 +229,75 @@ const SECTIONS: Record<string, (a: SectionArgs) => Section[]> = {
 
 
 /**
- * What a client sees under Content: the board as it stands, read only, with
- * their two working surfaces beside it. The board is HER component with every
- * write disabled, because a second board drawn specially for clients would
- * drift from the real one within a week.
+ * The client's Creation: her folder, her tabs, filtered by her switches
+ * (2026-08-16). The board is HER component with every write disabled, because
+ * a second board drawn specially for clients would drift from the real one
+ * within a week. Tapping a card opens the client piece panel, and a
+ * Review-stage piece carries its verdict controls there — the Approvals
+ * digest tab that stood beside the board is gone. The tabs are real
+ * addresses (/creation/board, /creation/assets, /creation/references), so
+ * anything bookmarked keeps working.
  */
-function ClientCreation({ profileId, accent, pieceId }: {
+function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
   profileId: string;
   accent: string;
   pieceId?: string;
+  tab: string;
+  path: string;
+  search: string;
 }) {
-  const [tab, setTab] = useState('board');
+  const { state, role } = useApp();
+  const router = useRouter();
+  const profile = renderProfile(state, profileId, role);
+  const on = (s: string) => renderState(profile, s, 'client') === 'active';
+
+  // Board shows when either of its switches is on: with only Approvals ticked
+  // the board is still where the waiting piece lives.
   const tabs = [
-    { id: 'board', label: 'Board' },
-    { id: 'approvals', label: 'Approvals' },
-    { id: 'references', label: 'References' },
+    ...(on('creation.scheduling') || on('creation.review') ? [{ id: 'board', label: 'Board' }] : []),
+    ...(on('assets.client_upload') ? [{ id: 'assets', label: 'Assets' }] : []),
+    ...(on('references.from_client') ? [{ id: 'references', label: 'References' }] : []),
   ];
+  const current = tabs.some(t => t.id === tab) ? tab : tabs[0]?.id;
+
+  function openPiece(cardId: string) {
+    const next = new URLSearchParams(search);
+    next.set('piece', cardId);
+    router.replace(`${path}?${next.toString()}`, { scroll: false });
+  }
+
+  function closePiece() {
+    const next = new URLSearchParams(search);
+    next.delete('piece');
+    const q = next.toString();
+    router.replace(q ? `${path}?${q}` : path, { scroll: false });
+  }
 
   return (
     <Screen>
-      <div className="flex gap-1.5">
-        {tabs.map(t => (
-          <button key={t.id} type="button" onClick={() => setTab(t.id)}
-            className={`rounded-[10px] px-[13px] py-[7px] text-[12.5px] font-semibold ${
-              t.id === tab ? 'bg-ink text-white' : 'bg-control text-muted'
-            }`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {tabs.length > 1 && (
+        <Segmented
+          segments={tabs.map(t => ({
+            id: t.id, label: t.label, href: `/profile/${profileId}/creation/${t.id}`,
+          }))}
+          active={current ?? ''}
+        />
+      )}
 
       <div className="-mx-4 md:-mx-7">
-        {tab === 'board' && (
-          <Board profileId={profileId} hue={accent} readOnly onOpenPiece={() => undefined} />
+        {current === 'board' && (
+          <Board profileId={profileId} hue={accent} readOnly onOpenPiece={openPiece} />
         )}
-        {tab === 'approvals' && <ContentWindow profileId={profileId} pieceId={pieceId} />}
-        {tab === 'references' && <ReferencesScreen profileId={profileId} />}
+        {current === 'assets' && <AssetsView clientId={profileId} />}
+        {current === 'references' && <ReferencesScreen profileId={profileId} />}
+        {!current && (
+          <p className="p-8 text-sm text-faint">Nothing here is open for you yet.</p>
+        )}
       </div>
+
+      {pieceId && (
+        <ClientPiecePanel profileId={profileId} pieceId={pieceId} onClose={closePiece} />
+      )}
     </Screen>
   );
 }

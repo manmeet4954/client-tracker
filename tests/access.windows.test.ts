@@ -52,12 +52,13 @@ test('every switch a window needs is named in the access rules for that window',
 });
 
 test('a window is on only when ALL its switches are on', () => {
-  // Results needs two. One is not enough, and showing a tick for it would be
-  // the exact lie this screen exists to prevent.
-  eq(windowsOn({ 'analysis.digest_client': 'active' }).includes('results'), false, 'half is not on');
+  // Analysis (Results until 2026-08-16, renamed to her folder's name) needs
+  // two. One is not enough, and showing a tick for it would be the exact lie
+  // this screen exists to prevent.
+  eq(windowsOn({ 'analysis.digest_client': 'active' }).includes('analysis'), false, 'half is not on');
   eq(
     windowsOn({ 'analysis.digest_client': 'active', 'analysis.client_publication': 'active' })
-      .includes('results'),
+      .includes('analysis'),
     true,
     'both is on',
   );
@@ -70,38 +71,54 @@ test('nothing set reads as the defaults, which is what the client actually gets'
   // for a bound client, so an all-off Settings screen said one thing while the
   // client saw another — her exact complaint. A switch with no position now
   // reads as its suggested default, the same first step effectiveState takes.
-  eq(windowsOn({}).sort().join(','), 'assets,brand,content,intake',
+  // RESHAPED 2026-08-16, her verdict: the windows are her folders now, and
+  // assets folded into Creation as a part — so the defaults read as three.
+  eq(windowsOn({}).sort().join(','), 'brand,creation,intake',
     'the suggested defaults, exactly what the server grants a bound client');
   eq(accessLine([]), 'This client cannot open anything yet.', 'the empty line still reads plainly');
 });
 
 test('one tick moves every switch that window needs, and only those', () => {
-  const on = moveFor('results', true);
-  eq(on.length, 2, 'results carries two switches');
+  const on = moveFor('analysis', true);
+  eq(on.length, 2, 'analysis carries two switches');
   eq(on.every(m => m.state === 'active'), true, 'ticking turns them on');
-  const off = moveFor('results', false);
+  const off = moveFor('analysis', false);
   eq(off.every(m => m.state === 'hidden'), true, 'unticking turns them off');
-  eq(moveFor('assets', true).length, 1, 'assets carries one');
+  // Creation absorbed Assets and References as parts (2026-08-16), so the
+  // master toggle moves all four of its tabs at once.
+  eq(moveFor('creation', true).length, 4, 'creation carries its four tabs');
 });
 
 test('a preset turns the named windows on and everything else off', () => {
-  const moves = movesForPreset(['content']);
+  const moves = movesForPreset(['creation']);
   const byId = Object.fromEntries(moves.map(m => [m.id, m.state]));
-  eq(byId['creation.review'], 'active', 'content is on');
+  eq(byId['creation.review'], 'active', 'creation is on');
   eq(byId['intake.questionnaire'], 'hidden', 'intake is off');
-  eq(byId['analysis.digest_client'], 'hidden', 'results is off');
+  eq(byId['analysis.digest_client'], 'hidden', 'analysis is off');
   // And the round trip: applying those positions reads back as exactly that.
-  eq(windowsOn(byId), ['content'], 'reads back as content only');
+  eq(windowsOn(byId), ['creation'], 'reads back as creation only');
 });
 
 test('every preset round-trips to the windows it promises', () => {
   for (const preset of ACCESS_PRESETS) {
-    const byId = Object.fromEntries(movesForPreset(preset.windows).map(m => [m.id, m.state]));
+    const byId = Object.fromEntries(
+      movesForPreset(preset.windows, preset.partsOn).map(m => [m.id, m.state]),
+    );
     const got = windowsOn(byId);
-    // Brand is the one window that needs a locked strategy on top of switches,
-    // and windowsOn does not know about locking, so switches alone must match.
     eq(got.sort().join(','), [...preset.windows].sort().join(','), `preset ${preset.id}`);
   }
+});
+
+test('a preset can open a window part-way, and the unnamed parts are off', () => {
+  // Onboarding (2026-08-16): Creation opens on the Assets tab alone — they
+  // send material, no board yet. The narrowing writes every part explicitly.
+  const byId = Object.fromEntries(
+    movesForPreset(['intake', 'creation'], { creation: ['assets'] }).map(m => [m.id, m.state]),
+  );
+  eq(byId['assets.client_upload'], 'active', 'the assets tab is on');
+  eq(byId['creation.scheduling'], 'hidden', 'the board is off');
+  eq(byId['creation.review'], 'hidden', 'approvals are off');
+  eq(byId['references.from_client'], 'hidden', 'references are off');
 });
 
 test('a shared switch is never turned off by a window she left unticked', () => {
@@ -129,10 +146,11 @@ test('no window waits for the lock any more', () => {
 });
 
 test('the line reads as a sentence, in her words, with no em dash', () => {
-  eq(accessLine(['content']), 'They can open content and approvals.', 'one window');
+  // 2026-08-16: her words for the windows are her folders' names now.
+  eq(accessLine(['creation']), 'They can open creation.', 'one window');
   eq(
-    accessLine(['intake', 'assets']),
-    'They can open questions for them and sending you material.',
+    accessLine(['intake', 'analysis']),
+    'They can open intake and analysis.',
     'two windows joined with and',
   );
   for (const w of WINDOW_CHOICES) {
@@ -163,7 +181,7 @@ test('an archived profile shows a client nothing, and every reason says why', as
   };
   const view = clientView(state, id);
   eq(view.nothing, true, 'archived closes every door');
-  eq(view.closed.length, WINDOW_CHOICES.length, 'all five explained');
+  eq(view.closed.length, WINDOW_CHOICES.length, 'every window explained');
   for (const w of view.closed) {
     ok(w.why.length > 0, `${w.key} has a reason`);
     ok(!w.why.includes('—'), 'no em dash in a line she reads');
@@ -225,7 +243,10 @@ function applyMoves(state: AppState, moves: { id: string; state: PathState }[]):
 
 suite('her toggles are the whole law — end to end, on an unlocked profile');
 
-test('each of the five windows follows its toggle, lock or no lock', () => {
+// (Five windows when written; four since 2026-08-16, when her verdict folded
+// Assets into Creation. The loop reads the table, so it pins whatever shape
+// the table holds.)
+test('each window follows its toggle, lock or no lock', () => {
   const { state, role } = guestOnUnlockedProfile();
   // The same reading `strategy_locked` derives from (lib/shell/profile.ts).
   ok(typeof state.clientData[PROFILE].body!.strategy_version !== 'number',
@@ -248,9 +269,12 @@ test('the binding IS the login: nothing ever wrote client_access.login', () => {
   const { state, role } = guestOnUnlockedProfile();
   const stored = switchConfigFromBody(state.clientData[PROFILE].body!);
   eq(stored['client_access.login'], undefined, 'the switch has no stored position');
-  const on = applyMoves(state, moveFor('assets', true));
-  ok(windowsForBinding(on, role, PROFILE).some(w => w.id === 'assets'),
-    'and Assets still follows its toggle, because the binding derives the login');
+  // The sharpest cut (2026-08-16 shape): ONLY the assets part on, everything
+  // else explicitly off. assets.client_upload requires the login, so this
+  // grant exists only because the binding derives it.
+  const on = applyMoves(state, movesForPreset(['creation'], { creation: ['assets'] }));
+  ok(windowsForBinding(on, role, PROFILE).some(w => w.id === 'creation'),
+    'the assets tab alone opens Creation, because the binding derives the login');
   // No binding, no login: a role that reaches nothing derives nothing.
   eq(windowsForBinding(on, 'guest:nobody' as Role, PROFILE), [], 'unbound grants nothing');
 });
@@ -265,8 +289,8 @@ test('a granted window\'s data travels: not the same lie one layer down', () => 
       id: 'set-cb', type: 'asset_set', data: { name: 'August shoot' },
     }, { writer: 'owner', now: NOW }),
   };
-  const granted = applyMoves(withAsset, moveFor('assets', true));
-  ok(windowsForBinding(granted, role, PROFILE).some(w => w.id === 'assets'), 'the window renders');
+  const granted = applyMoves(withAsset, movesForPreset(['creation'], { creation: ['assets'] }));
+  ok(windowsForBinding(granted, role, PROFILE).some(w => w.id === 'creation'), 'the window renders');
   const served = filterStateForRole(granted, role);
   ok(Object.keys(served.clientData[PROFILE].body?.paths ?? {}).includes('work-log/assets/sets'),
     'and the served payload carries the sets the window shows');
@@ -289,7 +313,7 @@ test('a never-touched profile reads exactly what a bound client sees', () => {
 test('every preset round-trips through the real grant, not just the read-back', () => {
   const { state, role } = guestOnUnlockedProfile();
   for (const preset of ACCESS_PRESETS) {
-    const applied = applyMoves(state, movesForPreset(preset.windows));
+    const applied = applyMoves(state, movesForPreset(preset.windows, preset.partsOn));
     const got = windowsForBinding(applied, role, PROFILE).map(w => w.id);
     eq(got.sort().join(','), [...preset.windows].sort().join(','),
       `preset ${preset.id} grants exactly what it promises`);
@@ -342,18 +366,22 @@ test('no switch a window hangs on is fixed, and every one can be shown AND hidde
 
 test('a window with parts is on when ANY part is, exactly as the server grants it', async () => {
   const { movePart } = await import('../lib/access/windowChoice.ts');
+  // All four parts explicitly placed, so the read is about the parts named —
+  // since 2026-08-16 an unset part reads as its default, and Creation carries
+  // Assets and References as parts beside Board and Approvals.
+  const rest: Record<string, PathState> = {
+    'assets.client_upload': 'hidden', 'references.from_client': 'hidden',
+  };
   // Only approvals on: the window must read as on, because windowsForBinding
   // grants it on `.some` — an off-toggle over an open window would lie.
-  eq(windowsOn({ 'creation.review': 'active', 'creation.scheduling': 'hidden' }).includes('content'),
+  eq(windowsOn({ ...rest, 'creation.review': 'active', 'creation.scheduling': 'hidden' }).includes('creation'),
     true, 'one part is enough');
-  eq(windowsOn({ 'creation.review': 'hidden', 'creation.scheduling': 'active' }).includes('content'),
+  eq(windowsOn({ ...rest, 'creation.review': 'hidden', 'creation.scheduling': 'active' }).includes('creation'),
     true, 'either part');
-  // Both EXPLICITLY off — since 2026-08-16 an unset part reads as its default,
-  // so "off" here has to be her position, not an absence.
-  eq(windowsOn({ 'creation.review': 'hidden', 'creation.scheduling': 'hidden' }).includes('content'),
-    false, 'both off is off');
+  eq(windowsOn({ ...rest, 'creation.review': 'hidden', 'creation.scheduling': 'hidden' }).includes('creation'),
+    false, 'all four off is off');
   // A part moves only its own switch.
-  eq(movePart('content', 'approvals', false), [{ id: 'creation.review', state: 'hidden' }], 'one switch, no more');
-  // The master still moves both.
-  eq(moveFor('content', false).length, 2, 'the window toggle closes both parts');
+  eq(movePart('creation', 'approvals', false), [{ id: 'creation.review', state: 'hidden' }], 'one switch, no more');
+  // The master still moves all of them.
+  eq(moveFor('creation', false).length, 4, 'the window toggle closes every part');
 });

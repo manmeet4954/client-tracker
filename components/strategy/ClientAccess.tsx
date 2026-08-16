@@ -78,7 +78,7 @@ export default function ClientAccess({ profileId }: { profileId: string }) {
           const isOn = [...p.windows].sort().join(',') === [...on].sort().join(',');
           return (
             <button key={p.id} type="button" title={p.line}
-              onClick={() => apply(movesForPreset(p.windows), `Set to ${p.label.toLowerCase()}.`)}
+              onClick={() => apply(movesForPreset(p.windows, p.partsOn), `Set to ${p.label.toLowerCase()}.`)}
               className={`rounded-[10px] px-[13px] py-[7px] text-[12.5px] font-semibold ${
                 isOn ? 'bg-ink text-white' : 'bg-control text-muted hover:text-text'
               }`}>

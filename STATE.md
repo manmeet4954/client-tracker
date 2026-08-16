@@ -1,5 +1,104 @@
 # STATE - Client Dashboard
 
+## 2026-08-16, later — THE CLIENT SEES HER DASHBOARD, FILTERED
+
+1014 tests. Typecheck clean. NOT deployed — the deploy is hers to call.
+
+HER VERDICT, seeing the client view live: it had the WRONG SHAPE. The client
+sees HER dashboard — the same folders, the same features, the same names —
+just cut down to what she ticked. Not a parallel "client experience" with its
+own boxes and names. Rejected by name: the "Share an idea" box as the intake
+window, the "Approvals"/"Upcoming" digest tabs, the "Suggest a topic" box, and
+"Content" as the name for what she calls Creation.
+
+THE CLIENT SHELL NOW — four windows, her folders, her names, her icons:
+ - Brand: untouched (the strategy summary, strategy.client_brand).
+ - Intake: ONLY the real intake — the round she sent, through ClientForm and
+   give:intake. When she has sent nothing: "Nothing to answer right now."
+ - Creation (was "Content"): her tab pattern, filtered by her switches —
+   Board (the real board, read only; shown when creation.scheduling OR
+   creation.review is on), Assets (the upload window, assets.client_upload),
+   References (references.from_client). The tabs are the real addresses
+   (/creation/board, /creation/assets, /creation/references), so bookmarks
+   keep working. Engine and Logs stay a hard 404 for clients.
+ - Analysis (was "Results"): content unchanged — the approved publication,
+   publishedOnly exactly as it was.
+
+DELETED: the "Share an idea" box (both mounts), the "Suggest a topic" box,
+the "Approvals" and "Upcoming" digest tabs (ContentWindow, whole). The
+creation.seed_input_client switch stays registered; only its client surface
+went. lib/intake/suggestions.ts and her "Topics they suggested" view are
+untouched — the client route into it is what she rejected.
+
+MOVED: a client's verdict on a Review piece now lives ON the piece — tapping
+a board card opens ClientPiecePanel, and a Review-stage piece carries the
+same verdict buttons, note and perception line the Approvals tab had. The
+WRITES ARE UNCHANGED: the same review_record through give:review, the same
+optional perception through give:perception, gated by creation.review.
+
+THE TABLES: WINDOWS in lib/access.ts and WINDOW_CHOICES in windowChoice.ts
+reshaped to Brand / Intake / Creation / Analysis; `assets` stopped being a
+window and became a part of Creation beside Board, Approvals and References.
+The GRANT LOGIC IS UNTOUCHED: same switches, same doors, same lifecycle,
+windowsForBinding still the only authority, no new doors, the four
+give-points exactly as declared. Presets learned `partsOn` so Onboarding can
+open Creation on the Assets tab alone (board off) — every part written
+explicitly, nothing implied. The Settings screen keeps the toggle→switch
+wiring built earlier today (moveFor / readPosition / the derived login) and
+just wears the new rows.
+
+REFERENCES, the note: the client References tab rides
+`references.from_client` — the registered client-audience references switch
+(give:assets door, S19-clean). A dedicated "see her references" switch does
+NOT exist and was NOT invented; the from-client lane is the closest registered
+truth, and whether References deserves its own switch (or its own window, per
+the 2026-08-12 "decided but not done" note) stays hers to decide.
+
+TESTS: shell tests 10 and 10c and the windowChoice suite rewritten to the new
+shape with the date and her verdict quoted; the toggle round-trip suite (all
+windows, presets, derived login, payload) passes against the new table; one
+new test pins part-way presets. 1013 → 1014.
+
+---
+
+
+## 2026-08-16, evening — DEPLOYED: THE TOGGLES RULE, AND THE ROGUE ROLLBACK FOUND
+
+Live and verified in a real browser: the /login gate renders on the public
+address, and the deployed JS carries the new code (checked inside the served
+chunks, not by status codes). Head 29e847c, 1013 tests. origin/main and
+client-tracker/main both hold it; the repos are reconciled again.
+
+WHAT SHIPPED: the 2026-08-12 defect, all three coats (see the two entries
+below): the dead lock rule's fourth home in render.ts, Brand's own movable
+switch, the fixed-switch write guard, login derived from the live binding,
+and toggles that read position-or-default.
+
+FOUND DURING THE DEPLOY, worth remembering:
+ - On 2026-08-15 ~22:00, six production deploys put an OLD dashboard build
+   live (pre-/login). They coincided with the crochet-catalog session. That
+   rollback, not only the toggle defect, is why her link-and-code tests
+   failed so completely on 08-16.
+ - Vercel builds were coming from the STALE client-tracker GitHub repo, which
+   had not been pushed since the hook died on 08-10. CLI uploads from this
+   machine repeatedly produced old builds; pushing the graft to
+   client-tracker/main (DEPLOY.md step 4) is what actually shipped. The
+   GitHub hook appears to be ALIVE again - a push now builds.
+ - Two junk Vercel projects exist from accidental unlinked CLI runs:
+   ct-deploy (08-16) and cli-deploy (08-15). Safe to delete in the Vercel
+   dashboard.
+ - Verification lesson, again: Next embeds the not-found text in every page,
+   so grepping HTML for it proves nothing. Verify a deploy by fetching the
+   served chunks and grepping for a string only the new code contains, or by
+   rendering in a real browser.
+
+STILL HERS: the SMG re-test (Settings -> toggles -> private window),
+"posted left" column order, the dedicated References window, Riti, the
+Instagram restart.
+
+---
+
+
 ## 2026-08-16 — THE TOGGLES RULE: THE DEAD RULE'S FOURTH HOME, AND THE BRAND TOGGLE THAT WROTE A FORBIDDEN POSITION
 
 1013 tests, up from 1005. Typecheck clean. NOT deployed — the deploy is hers

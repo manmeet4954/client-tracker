@@ -46,12 +46,13 @@ const APP_ICON: Record<string, LucideIcon> = {
   analysis: BarChart3,
 };
 
+// 2026-08-16, her verdict: the client's rail mirrors HERS — the same names,
+// the same icons, cut down to what she ticked. Brand keeps its own icon.
 const WINDOW_ICON: Record<string, LucideIcon> = {
   brand: SlidersHorizontal,
   intake: MessageCircle,
-  content: PenLine,
-  assets: PenLine,
-  results: BarChart3,
+  creation: PenLine,
+  analysis: BarChart3,
 };
 
 interface Item {
@@ -87,7 +88,10 @@ function itemsForClient(profileId: string, windows: ClientWindow[]): Item[] {
     href: `/profile/${profileId}${w.route}`,
     icon: WINDOW_ICON[w.id] ?? PenLine,
     badge: '',
-    match: w.route,
+    // The window's route may land inside its folder (/creation/board); the
+    // rail item is the FOLDER, so it stays lit on every tab inside it
+    // (2026-08-16, the client rail mirrors hers).
+    match: w.route === '' ? '' : `/${w.route.split('/')[1]}`,
   }));
 }
 

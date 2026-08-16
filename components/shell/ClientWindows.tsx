@@ -13,12 +13,12 @@
 // reads an owner path.
 
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import type { ProfileBody } from '@/lib/tree/body';
 import { putEntry } from '@/lib/tree/body';
 import type { BodyEntry, ReviewVerdict } from '@/lib/tree/objects';
 import { fileAnswer } from '@/lib/intake/rounds';
-import { fileSuggestion } from '@/lib/intake/suggestions';
 import { applySkip, openFormFor, writeSkipped } from '@/lib/intake/form';
 import ClientForm from '@/components/intake/ClientForm';
 import { accentFor, renderProfile } from '@/lib/shell/profile';
@@ -31,9 +31,6 @@ const PERCEPTION = 'work-log/analysis/client-perception';
 const DIGESTS = 'work-log/analysis/digests';
 const STRATEGY = 'context/content-strategy';
 const OBLIGATIONS = 'context/content-strategy/obligations';
-
-/** The stages a client may ever see. The server has already made this true. */
-const SHOWN_STAGES = ['review', 'approved', 'scheduled', 'posted'];
 
 const DEFAULT_VERDICTS: ReviewVerdict[] = ['approve', 'in-scope-revision'];
 
@@ -145,14 +142,17 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
   // Spec 33 §4. Everything the form knows comes from lib/intake/form.ts; this
   // window only reads the open round and files what the form hands back.
   //
-  // TWO 2026-08-11 RULINGS LIVE HERE:
-  //  - A round is servable to a CLIENT only if she authored its questions
-  //    (a built form or the brand facts). The 53-parameter bank was retired
-  //    as a route, but rounds sent from it in the old days still sat open in
-  //    profile bodies, and a client login met "1 OF 53". History keeps them;
-  //    clients are never asked them again.
-  //  - "This should have been a place to give ideas": Ideas is the standing
-  //    half of this window, form or no form.
+  // A 2026-08-11 RULING LIVES HERE: a round is servable to a CLIENT only if
+  // she authored its questions (a built form or the brand facts). The
+  // 53-parameter bank was retired as a route, but rounds sent from it in the
+  // old days still sat open in profile bodies, and a client login met
+  // "1 OF 53". History keeps them; clients are never asked them again.
+  //
+  // The "Share an idea" box LIVED HERE and is gone (2026-08-16, her verdict on
+  // the client view: the client sees HER dashboard filtered, not a parallel
+  // UI with boxes of its own). Intake is the real intake — the questions she
+  // sent — and nothing else. `creation.seed_input_client` stays registered;
+  // only this surface went.
   const rawOpen = body ? openFormFor(body) : null;
   const open = rawOpen && rawOpen.round.parameters.some(
     pid => pid.startsWith('own.') || pid.startsWith('fact.'),
@@ -160,12 +160,7 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
   if (!body || !open) {
     return (
       <div className="mx-auto max-w-3xl p-4 md:p-8">
-        <Section title="Share an idea">
-          <p className="mb-2.5 text-sm text-stone-500">
-            A post idea, a topic, something you want covered. It goes straight to the planning board.
-          </p>
-          <SuggestTopic profileId={profileId} />
-        </Section>
+        <Empty>Nothing to answer right now.</Empty>
       </div>
     );
   }
@@ -236,144 +231,139 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
         onAnswer={answer}
         onSkip={skip}
       />
-      <div className="mx-auto max-w-3xl p-4 pt-0 md:px-8">
-        <Section title="Share an idea">
-          <SuggestTopic profileId={profileId} />
-        </Section>
-      </div>
     </>
   );
 }
 
-// ── Content — upcoming, the calendar, the review queue, the perception question ─
+// ── The piece panel, client side — the verdict lives ON the piece ────────────
+//
+// The "Approvals" and "Upcoming" digest tabs LIVED HERE as ContentWindow and
+// are gone (2026-08-16, her verdict: the client sees HER dashboard filtered,
+// not a parallel UI). The client reads the REAL board; tapping a card opens
+// this panel, and a Review-stage piece carries its verdict controls right
+// here — the act happens where the thing is. The writes are UNCHANGED: the
+// same review_record through give:review, the same optional perception line
+// through give:perception, exactly what the Approvals tab filed.
 
-export function ContentWindow({ profileId, pieceId }: { profileId: string; pieceId?: string }) {
+export function ClientPiecePanel({ profileId, pieceId, onClose }: {
+  profileId: string; pieceId: string; onClose: () => void;
+}) {
   const { state, role, dispatch } = useApp();
   const { client, data } = useClient(profileId);
-  const [note, setNote] = useState<Record<string, string>>({});
+  const [note, setNote] = useState('');
+  const [feel, setFeel] = useState('');
+  const [saidTo, setSaidTo] = useState('');
   const accent = accentFor(client, data);
   const body = data.body;
 
-  const pieces = (body?.paths?.[PIECES] ?? []).filter(e => {
-    const stage = String((e.data as { stage?: unknown })?.stage ?? '');
-    return SHOWN_STAGES.includes(stage);
-  });
-  // The deep link lands here at a piece (§10). It only ever ORDERS the queue:
-  // the link is a delivery route into the review door, never an extra grant.
-  const waiting = pieces
-    .filter(p => String((p.data as { stage?: string }).stage) === 'review')
-    .sort((a, b) => Number(b.id === pieceId) - Number(a.id === pieceId));
-  const upcoming = pieces.filter(p => ['approved', 'scheduled'].includes(String((p.data as { stage?: string }).stage)));
+  // The board draws from the cards; the tree's piece carries the same id for
+  // everything migrated (lib/tree/migrate.ts writes pieces as card.id). Read
+  // whichever is present, prefer the tree.
+  const entry = (body?.paths?.[PIECES] ?? []).find(e => e.id === pieceId);
+  const card = (data.contentCards ?? []).find(c => c.id === pieceId);
+  if (!entry && !card) return null;
+  const title = entry ? titleOf(entry) : String(card?.title ?? 'Untitled');
+  const stage = entry
+    ? String((entry.data as { stage?: unknown })?.stage ?? '')
+    : String(card?.stage ?? '');
 
-  // Each section obeys ITS OWN switch, so the finer toggles in Settings are
-  // real: Approvals rides creation.review, Upcoming rides creation.scheduling.
   const rp = renderProfile(state, profileId, role);
-  const showReview = renderState(rp, 'creation.review', 'client') === 'active';
-  const showUpcoming = renderState(rp, 'creation.scheduling', 'client') === 'active';
+  const mayReview = stage === 'review'
+    && renderState(rp, 'creation.review', 'client') === 'active';
 
   const cfg = (body?.paths?.['context/content-strategy/working-mode'] ?? [])
     .map(e => (e.data as { value?: { allowed_verdicts?: ReviewVerdict[] } })?.value)
     .find(v => Array.isArray(v?.allowed_verdicts));
   const verdicts = cfg?.allowed_verdicts?.length ? cfg.allowed_verdicts : DEFAULT_VERDICTS;
 
-  function record(pieceId: string, verdict: ReviewVerdict) {
+  function record(verdict: ReviewVerdict) {
     if (!body) return;
     const now = new Date().toISOString();
     let next: ProfileBody = putEntry(body, REVIEW, {
       id: generateId(), type: 'review_record',
-      data: { piece_id: pieceId, verdict, note: note[pieceId] ?? '', by: role, at: now },
+      data: { piece_id: pieceId, verdict, note, by: role, at: now },
     }, { writer: 'client', now });
     // Give-point 4, captured at the verdict (PLAN §4). Optional, never a chore.
-    const feeling = note[`${pieceId}:feel`];
-    if (feeling) {
+    if (feel) {
       next = putEntry(next, PERCEPTION, {
         id: generateId(), type: 'perception',
-        data: { piece_id: pieceId, moment: 'client-review', words: feeling, by: role, at: now },
+        data: { piece_id: pieceId, moment: 'client-review', words: feel, by: role, at: now },
       }, { writer: 'client', now });
     }
     dispatch({ type: 'SET_BODY', payload: { clientId: profileId, body: next } });
-    setNote(n => ({ ...n, [pieceId]: '', [`${pieceId}:feel`]: '' }));
+    setNote('');
+    setFeel('');
+    setSaidTo(VERDICT_WORDS[verdict].toLowerCase());
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4 md:p-8">
-      {showReview && (
-      <Section title="Awaiting your review">
-        {waiting.length === 0
-          ? <Empty>Nothing awaiting your review.</Empty>
-          : (
-            <div className="space-y-3">
-              {waiting.map(p => (
-                <div key={p.id} className="rounded-xl border border-stone-200 bg-white p-4">
-                  <p className="text-sm font-medium text-stone-900">{titleOf(p)}</p>
-                  <input
-                    value={note[p.id] ?? ''}
-                    onChange={e => setNote(n => ({ ...n, [p.id]: e.target.value }))}
-                    placeholder="Add a note (optional)"
-                    className="mt-2 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
-                  />
-                  <input
-                    value={note[`${p.id}:feel`] ?? ''}
-                    onChange={e => setNote(n => ({ ...n, [`${p.id}:feel`]: e.target.value }))}
-                    placeholder="How do you expect this to perform? (optional)"
-                    className="mt-2 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
-                  />
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {verdicts.map(v => (
-                      <button key={v} type="button" onClick={() => record(p.id, v)}
-                        className="rounded-full border px-3 py-1.5 text-xs"
-                        style={{ borderColor: accent, color: accent }}>
-                        {VERDICT_WORDS[v]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+    <div className="fixed inset-0 z-50 flex justify-end bg-[rgba(23,21,26,.34)]" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-stone-900">{title}</p>
+            <p className="mt-0.5 text-xs uppercase tracking-wide text-stone-400">{stageLine(stage)}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="flex text-stone-400 hover:text-stone-700">
+            <X size={19} strokeWidth={2.2} />
+          </button>
+        </div>
+
+        {mayReview && !saidTo && (
+          <div className="mt-4">
+            <input
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="Add a note (optional)"
+              className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
+            />
+            <input
+              value={feel}
+              onChange={e => setFeel(e.target.value)}
+              placeholder="How do you expect this to perform? (optional)"
+              className="mt-2 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
+            />
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {verdicts.map(v => (
+                <button key={v} type="button" onClick={() => record(v)}
+                  className="rounded-full border px-3 py-1.5 text-xs"
+                  style={{ borderColor: accent, color: accent }}>
+                  {VERDICT_WORDS[v]}
+                </button>
               ))}
             </div>
-          )}
-      </Section>
-      )}
-
-      {/* "They can upload references or add topics for me" (2026-08-11).
-          A suggestion is an intake ANSWER on the client-ideas lane (spec 22
-          §7.5), through the same give door as every questionnaire answer. */}
-      <Section title="Suggest a topic">
-        <SuggestTopic profileId={profileId} />
-      </Section>
-
-      {showUpcoming && (
-      <Section title="Upcoming">
-        {upcoming.length === 0
-          ? <Empty>Nothing scheduled yet.</Empty>
-          : (
-            <ul className="space-y-1.5">
-              {upcoming
-                .sort((a, b) => dateOf(a).localeCompare(dateOf(b)))
-                .map(p => (
-                  <li key={p.id} className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3">
-                    <span className="text-sm text-stone-800">{titleOf(p)}</span>
-                    <span className="text-xs text-stone-500">{dateOf(p) || 'No date set'}</span>
-                  </li>
-                ))}
-            </ul>
-          )}
-      </Section>
-      )}
+          </div>
+        )}
+        {saidTo && (
+          <p className="mt-4 text-sm text-stone-600">Recorded: {saidTo}. Thank you.</p>
+        )}
+      </div>
     </div>
   );
+}
+
+function stageLine(stage: string): string {
+  switch (stage) {
+    case 'review': return 'Waiting on your review';
+    case 'approved': return 'Approved';
+    case 'scheduled': return 'Scheduled';
+    case 'posted': return 'Posted';
+    default: return stage;
+  }
 }
 
 function titleOf(e: BodyEntry): string {
   return String((e.data as { title?: unknown })?.title ?? 'Untitled');
 }
 
-function dateOf(e: BodyEntry): string {
-  return String((e.data as { scheduled_date?: unknown })?.scheduled_date ?? '');
-}
+// ── Analysis — the latest approved publication, never a live query ───────────
+// Renamed from ResultsWindow on 2026-08-16: her name for the folder is
+// Analysis, and the client's window carries her names. Content unchanged.
 
-// ── Results — the latest approved publication, never a live query ────────────
-
-export function ResultsWindow({ profileId }: { profileId: string }) {
+export function AnalysisWindow({ profileId }: { profileId: string }) {
   const { data } = useClient(profileId);
   const published = (data.body?.paths?.[DIGESTS] ?? [])
     .filter(e => (e.data as { published?: boolean })?.published === true)
@@ -400,46 +390,6 @@ export function ResultsWindow({ profileId }: { profileId: string }) {
           </ul>
         </Section>
       ))}
-    </div>
-  );
-}
-
-
-function SuggestTopic({ profileId }: { profileId: string }) {
-  const { role, dispatch } = useApp();
-  const { data } = useClient(profileId);
-  const [text, setText] = useState('');
-  const [sent, setSent] = useState(false);
-  const body = data.body;
-  if (!body) return null;
-
-  function send() {
-    if (!body || !text.trim()) return;
-    const next = fileSuggestion(body, {
-      text, by: role, now: new Date().toISOString(), writer: 'client',
-    });
-    dispatch({ type: 'SET_BODY', payload: { clientId: profileId, body: next } });
-    setText('');
-    setSent(true);
-    setTimeout(() => setSent(false), 2500);
-  }
-
-  return (
-    <div>
-      <div className="flex gap-1.5">
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') send(); }}
-          placeholder="A post idea, a topic, something you want covered"
-          className="min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm"
-        />
-        <button type="button" onClick={send}
-          className="rounded-lg bg-stone-900 px-3.5 py-2 text-sm font-medium text-white">
-          Send
-        </button>
-      </div>
-      {sent && <p className="mt-1.5 text-xs text-stone-500">Sent. It goes straight to the planning board.</p>}
     </div>
   );
 }

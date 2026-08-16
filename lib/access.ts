@@ -398,7 +398,14 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
 // through, and a window whose door is shut is simply not in the list. CLAUDE.md
 // rule 2 stands — filtering only gets stronger.
 
-export type ClientWindowId = 'brand' | 'intake' | 'content' | 'assets' | 'results';
+// 2026-08-16, her verdict on the client view, seeing it live: the client sees
+// HER dashboard — the same folders, the same names — cut down to what she
+// ticked. Not a parallel "client experience". So `content` became `creation`
+// (her name), `results` became `analysis`, and `assets` stopped being a window
+// of its own: it is a tab inside Creation, exactly where she keeps it. The
+// GRANT logic below is untouched — switches, doors, lifecycle — only the
+// shape changed.
+export type ClientWindowId = 'brand' | 'intake' | 'creation' | 'analysis';
 
 export interface ClientWindow {
   id: ClientWindowId;
@@ -436,18 +443,19 @@ const WINDOWS: {
     clientSwitches: ['intake.questionnaire', 'intake.finding_session'],
   },
   {
-    id: 'content', label: 'Content', route: '/creation/board',
-    doors: ['see:upcoming', 'give:review', 'give:perception'],
-    clientSwitches: ['creation.review', 'creation.scheduling'],
+    // Her folder, her name (2026-08-16). One window, four tabs inside it —
+    // Board, Assets, References — each riding the switch it always rode. The
+    // window opens when ANY of its tabs is on, which is the same `.some` this
+    // table has always granted on. The routes are the same addresses she uses
+    // and the same ones clients may have bookmarked.
+    id: 'creation', label: 'Creation', route: '/creation/board',
+    doors: ['see:upcoming', 'give:review', 'give:perception', 'give:assets'],
+    clientSwitches: ['creation.review', 'creation.scheduling', 'assets.client_upload', 'references.from_client'],
   },
   {
-    id: 'assets', label: 'Assets', route: '/creation/assets', doors: ['give:assets'],
-    clientSwitches: ['assets.client_upload'],
-  },
-  {
-    id: 'results', label: 'Results', route: '/analysis', doors: ['see:analysis'],
+    id: 'analysis', label: 'Analysis', route: '/analysis', doors: ['see:analysis'],
     clientSwitches: ['analysis.digest_client'],
-    // The Results window renders an approved PUBLICATION, never a live query
+    // The Analysis window renders an approved PUBLICATION, never a live query
     // (spec 27 §14). The publication flow is hers, so it is checked as hers.
     ownerSwitches: ['analysis.client_publication'],
   },
