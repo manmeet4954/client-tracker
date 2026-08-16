@@ -103,6 +103,8 @@ export const PLAIN_SWITCHES: Record<string, PlainSwitch> = {
     'Nothing they wrote reaches strategy until you have read it and written it up.', 'we-do'),
 
   // Strategy.
+  'strategy.client_brand': P('Their brand window',
+    'They can open the strategy summary as it stands, read only.', 'they-see'),
   'strategy.visual_branding': P('Their brand kit',
     'Colours, type and logos live with this profile.', 'gets'),
   'strategy.profile_mockup': P('Their profile mockup',

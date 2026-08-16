@@ -156,7 +156,7 @@ export function typicalOf(rows: SliceRow[], metric: MetricSpec): Measured {
   if (m === null) {
     return {
       state: 'too-early', n: 0, window: metric.window, metric_id: metric.metric_id,
-      owed: 'no piece here carries a reading in this window yet',
+      owed: 'no readings in this window yet',
     };
   }
   return { state: 'value', value: m, n: values.length, window: metric.window, metric_id: metric.metric_id };
@@ -210,7 +210,7 @@ export function liftOf(typical: Measured, baseline: Measured): Measured {
   if (baseline.state !== 'value' || !baseline.value) {
     return {
       state: 'too-early', n: typical.n,
-      owed: 'there is no account baseline to compare against yet',
+      owed: 'no account baseline available to compare against yet',
     };
   }
   return {
@@ -243,14 +243,14 @@ export function sufficiencyOf(
     const owe = thresholds.minPieces - n;
     return {
       sufficient: false, n, reason: 'too-few-pieces',
-      owed: `${owe} more ${owe === 1 ? 'post' : 'posts'} here`,
+      owed: `${owe} more ${owe === 1 ? 'post' : 'posts'} needed`,
     };
   }
   const thin = rows.filter(r => (r.row.metrics[thresholds.exposureMetric] ?? 0) < thresholds.minExposure);
   if (thin.length) {
     return {
       sufficient: false, n, reason: 'below-exposure',
-      owed: `${thin.length} of these ${n} are still under ${thresholds.minExposure} ${thresholds.exposureMetric}`,
+      owed: `${thin.length} of these ${n} are still below ${thresholds.minExposure} ${thresholds.exposureMetric}`,
     };
   }
   return { sufficient: true, n };
@@ -340,23 +340,23 @@ export function coverageFor(
   };
 }
 
-/** The gap, in her language (§5, §16). A stall and a decision never read alike. */
+/** The gap, stated plainly (§5, §16). A stall and a decision never read alike. */
 export function gapWords(gaps: CoverageGap[]): string {
   return gaps.map(g => {
     const days = daysBetween(g.from, g.to);
     const why = gapReasonWords(g.reason);
-    return `${why} from ${g.from} to ${g.to}. ${days} ${days === 1 ? 'day' : 'days'} missing. These numbers stop there.`;
+    return `${why}: ${g.from} to ${g.to}. ${days} ${days === 1 ? 'day' : 'days'} missing from these figures.`;
   }).join(' ');
 }
 
 export function gapReasonWords(reason: CoverageGap['reason']): string {
   switch (reason) {
-    case 'sync-stalled': return 'The pipe stopped';
-    case 'switched-off': return 'You turned this off';
-    case 'not-yet-tracked': return 'Before we started collecting';
-    case 'platform-error': return 'The platform refused us';
-    case 'not-connected': return 'The account was not connected';
-    default: return 'We do not know why we stopped';
+    case 'sync-stalled': return 'Sync stalled';
+    case 'switched-off': return 'Collection paused';
+    case 'not-yet-tracked': return 'Before tracking began';
+    case 'platform-error': return 'Platform error';
+    case 'not-connected': return 'Account not connected';
+    default: return 'Not collected for an unknown reason';
   }
 }
 

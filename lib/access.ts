@@ -7,13 +7,22 @@ import type { Lifecycle } from './tree/objects.ts';
 import { LIFECYCLE_POLICY, doorsOpenAt } from './tree/objects.ts';
 import { pathState } from './tree/switches.ts';
 import { renderState } from './tree/render.ts';
-import { switchConfigFromBody } from './strategy/derivation.ts';
+import { switchConfigFromBody, withDerivedLogin } from './strategy/derivation.ts';
 import { isCutOver, renderProfile, staysOnLegacy } from './shell/profile.ts';
 import { clientMayWrite, clientMayRead, clientMayWriteAt, clientMayReadAt } from './tree/validate.ts';
 import { findDeclaration } from './tree/declarations.ts';
 import { deriveLegacyBindings } from './tree/legacyBindings.ts';
 
-export type Role = 'owner' | 'intern' | 'sonia' | 'shiva' | 'merushri';
+/**
+ * The five fixed logins, plus any number of INVITED ones.
+ *
+ * 2026-08-11: `guest:<invite id>` was added because the five were written into
+ * the code and could only grow by a deploy. Her words: "I cannot register
+ * everyone's password every time." A guest role behaves like any other
+ * restricted role everywhere below; it is only its ORIGIN that differs, being
+ * a row she made rather than an environment variable.
+ */
+export type Role = 'owner' | 'intern' | 'sonia' | 'shiva' | 'merushri' | `guest:${string}`;
 
 /** Roles that belong to a client brand (they see only their own workspace,
  *  with a reduced tab set). */
@@ -119,6 +128,14 @@ export function normalizeState(state: AppState): AppState {
     // First normalize after the restructure: write down the access the name
     // rules were already granting, then never consult a name again (§6).
     bindings: state.bindings ?? deriveLegacyBindings(clients),
+    // 2026-08-11, and this line is a bug fix with a bruise behind it. This
+    // function rebuilds the state BY ENUMERATION, so a slice missing from the
+    // list is silently stripped on every save. `invites` was missing: she made
+    // an invite, sent the code, and the client's sign-in said "incorrect"
+    // because the server never held the invite at all. The compile-time
+    // completeness check on the scope maps did not cover this hand-built
+    // object; a test now pins it instead.
+    invites: state.invites ?? [],
     // Spec 25 §9.2: the owner-zone taste store. Empty until she accepts a rule.
     tasteRules: state.tasteRules ?? [],
   };
@@ -228,9 +245,16 @@ function publishedOnly(
 // and suggestions are never applied as her decision. That is also why an
 // unwalked profile is untouched here rather than stripped by defaults.
 
-function applySwitchStates(body: ProfileBody, paths: ProfileBody['paths']): ProfileBody['paths'] {
-  const config = switchConfigFromBody(body);
-  if (Object.keys(config).length === 0) return paths;   // she has set nothing yet
+function applySwitchStates(
+  body: ProfileBody, paths: ProfileBody['paths'], kind: 'client' | 'staff',
+): ProfileBody['paths'] {
+  const stored = switchConfigFromBody(body);
+  if (Object.keys(stored).length === 0) return paths;   // she has set nothing yet
+  // 2026-08-16: a live client binding IS the login, and this function only
+  // runs for a login that holds one — so the payload resolves with the same
+  // derived truth the window grant does (`windowsForBinding` via
+  // `renderProfile`). One helper, both sites; they can never disagree.
+  const config = kind === 'client' ? withDerivedLogin(stored, '') : stored;
   const out: ProfileBody['paths'] = {};
   for (const p of Object.keys(paths)) {
     let state: 'active' | 'history' | 'hidden';
@@ -277,7 +301,7 @@ function filterBodyForNonOwner(
   }
   // her sort queue is never client-facing; and a switch she has set to hidden
   // takes its paths out of the payload entirely (§6).
-  return { ...body, paths: applySwitchStates(body, paths), sort_queue: [] };
+  return { ...body, paths: applySwitchStates(body, paths, kind), sort_queue: [] };
 }
 
 /** Only the four give-points may come back from any non-owner login (S19), and
@@ -395,8 +419,17 @@ const WINDOWS: {
   needsLockedStrategy?: boolean;
 }[] = [
   {
+    // needsLockedStrategy came OFF on 2026-08-11, her order. The window shows
+    // whatever summary exists; before a lock it says the summary is coming,
+    // which the window already knew how to say.
+    //
+    // 2026-08-16: the switch here was `strategy.fixed`, which is FIXED — so
+    // her Brand toggle wrote a position the registry forbids, and OFF would
+    // have cascaded into everything requiring strategy. The window now hangs
+    // on its own movable switch, default active, so nothing visible changed
+    // and the toggle became real.
     id: 'brand', label: 'Brand', route: '', doors: ['see:strategy', 'see:obligations'],
-    clientSwitches: ['strategy.fixed'], needsLockedStrategy: true,
+    clientSwitches: ['strategy.client_brand'],
   },
   {
     id: 'intake', label: 'Intake', route: '/intake', doors: ['give:intake'],
@@ -433,10 +466,15 @@ export function windowsForBinding(state: AppState, role: Role, profileId: string
   const profile = renderProfile(norm, profileId, role);
   const out: ClientWindow[] = [];
   for (const w of WINDOWS) {
-    if (w.needsLockedStrategy && !profile.strategy_locked) continue;
     const theirs = w.clientSwitches.some(s => renderState(profile, s, 'client') === 'active');
     if (!theirs) continue;
-    const hers = (w.ownerSwitches ?? []).every(s => renderState(profile, s, 'owner') === 'active');
+    // "Is her flow switched ON", not "what does her shell draw right now" — so
+    // the lock is set aside, exactly as the desk's guardPath and the Creation
+    // screen ask it (lib/desk/write.ts). Before 2026-08-16 the lock dropped
+    // her side of an unlocked profile to `history` here too, which silently
+    // vetoed Results however she set the switches.
+    const hers = (w.ownerSwitches ?? [])
+      .every(s => renderState({ ...profile, strategy_locked: true }, s, 'owner') === 'active');
     if (!hers) continue;
     out.push({ id: w.id, label: w.label, route: w.route, doors: w.doors });
   }

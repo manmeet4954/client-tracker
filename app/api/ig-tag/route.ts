@@ -6,6 +6,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 import type { Role } from '@/lib/access';
 
+// Next caches fetch() by URL and supabase-js rides on fetch; long-lived query
+// URLs get served from the data cache at random. That one behavior ate previews
+// for eight days (see lib/supabaseServer.ts). Every server client pins no-store.
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: 'no-store' });
+
+
 // Spec 06: the reading layer. Reads each fetched Instagram post's actual
 // content (carousel slides + caption; reel cover + caption) and tags it with
 // the locked tag list. Runs after the nightly sync (see vercel.json), or
@@ -74,7 +80,7 @@ function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase env vars missing');
-  return createClient(url, key);
+  return createClient(url, key, { global: { fetch: noStoreFetch } });
 }
 
 // Same lazy never-crash-the-build pattern for the Anthropic client.

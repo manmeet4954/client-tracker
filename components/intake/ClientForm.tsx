@@ -103,7 +103,7 @@ export default function ClientForm(props: ClientFormProps) {
   }
 
   if (model.total === 0) {
-    return <Note>Nothing to answer right now. Thank you.</Note>;
+    return <Note>No questions to answer right now.</Note>;
   }
 
   if (sent) {
@@ -111,7 +111,7 @@ export default function ClientForm(props: ClientFormProps) {
       <div className="mx-auto w-full max-w-2xl p-4 md:p-8">
         <div className="rounded-card border border-hairline bg-white p-5 md:p-7">
           <p className="font-display text-[21px] font-bold leading-[1.25] tracking-[-.02em] text-text">
-            Thank you. That is everything.
+            Thank you. Your responses have been submitted.
           </p>
           <p className="mt-2 text-sm leading-[1.6] text-muted">{model.progressLine}</p>
           <button
@@ -119,7 +119,7 @@ export default function ClientForm(props: ClientFormProps) {
             onClick={() => { setSent(false); setCursor(model.total); }}
             className="mt-4 rounded-xl border border-[rgba(23,21,26,.14)] px-4 py-2 text-[13px] font-semibold text-text"
           >
-            Look at it again
+            View your answers
           </button>
         </div>
       </div>
@@ -231,7 +231,7 @@ function Question({ step, draft, accent, onDraft, onAttach }: {
       {step.state === 'skipped' && (
         <p className="mb-3 flex items-center gap-1.5 text-[12px] font-semibold text-accent-text">
           <Clock size={13} strokeWidth={2.2} />
-          You said you would come back to this one.
+          Marked for later.
         </p>
       )}
 
@@ -258,8 +258,8 @@ function Question({ step, draft, accent, onDraft, onAttach }: {
         >
           <Paperclip size={14} strokeWidth={2.1} />
           {step.attachments > 0
-            ? `Attach something else here (${step.attachments} so far)`
-            : 'Attach something here instead'}
+            ? `Attach another file (${step.attachments} attached)`
+            : 'Attach a file'}
         </button>
       )}
     </section>
@@ -272,11 +272,11 @@ function Kept({ step }: { step: FormStep }) {
     <div className="mt-4">
       <div className="rounded-[14px] bg-control px-4 py-3.5">
         <p className="m-0 whitespace-pre-wrap text-sm leading-[1.6] text-muted">
-          {step.notSaid ? 'You chose not to answer this one.' : step.answer}
+          {step.notSaid ? 'You chose not to answer this question.' : step.answer}
         </p>
       </div>
       <p className="mt-2 text-[12px] text-faint">
-        This one is sent. It stays exactly as you wrote it.
+        Submitted. Answers cannot be edited after they are sent.
       </p>
     </div>
   );
@@ -323,7 +323,7 @@ function Field({ step, draft, accent, onDraft }: {
           value={draft}
           onChange={e => onDraft(e.target.value)}
           rows={2}
-          placeholder={step.freeTextLane ?? 'Or say it in your own words'}
+          placeholder={step.freeTextLane ?? 'Or type your own answer'}
           className={box}
         />
       </div>
@@ -336,7 +336,7 @@ function Field({ step, draft, accent, onDraft }: {
         value={draft}
         onChange={e => onDraft(e.target.value)}
         inputMode="numeric"
-        placeholder="A number"
+        placeholder="Enter a number"
         className={box}
       />
     );
@@ -358,7 +358,7 @@ function Field({ step, draft, accent, onDraft }: {
       value={draft}
       onChange={e => onDraft(e.target.value)}
       rows={5}
-      placeholder="Say it however you would say it out loud"
+      placeholder="Type your answer"
       className={box}
     />
   );
@@ -395,7 +395,7 @@ function Footer({ model, draft, accent, onBack, onNext, onSkip }: {
   const step = model.current!;
   const has = draft.trim().length > 0;
   const last = step.index === model.total - 1;
-  const nextWords = has ? 'Save and next' : last ? 'Last look' : 'Next';
+  const nextWords = has ? 'Save and continue' : last ? 'Review' : 'Next';
 
   return (
     <div className="sticky bottom-0 -mx-4 mt-1 border-t border-hairline bg-paper px-4 pb-4 pt-3 md:mx-0 md:rounded-card md:border md:px-4">
@@ -427,7 +427,7 @@ function Footer({ model, draft, accent, onBack, onNext, onSkip }: {
           onClick={onSkip}
           className="mt-2 w-full rounded-xl py-2 text-[13px] font-semibold text-muted"
         >
-          I&apos;ll come back to this
+          Answer later
         </button>
       )}
     </div>
@@ -481,7 +481,7 @@ function ListSheet({ model, onClose, onJump }: {
           onClick={() => onJump(model.total)}
           className="border-t border-divider px-4 py-3.5 text-left text-[13.5px] font-semibold text-text"
         >
-          Go to the last look
+          Go to review
         </button>
       </div>
     </div>
@@ -501,13 +501,13 @@ function Review({ model, accent, onJump, onSend }: {
   return (
     <section className="rounded-card border border-hairline bg-white p-5 md:p-7">
       <p className="font-display text-[21px] font-bold leading-[1.25] tracking-[-.02em] text-text md:text-[26px]">
-        Before you send it
+        Review your answers
       </p>
       <p className="mt-2 text-sm leading-[1.6] text-muted">{model.sendLine}</p>
 
-      <Group title="What you answered" steps={model.review.answered} onJump={onJump} />
-      <Group title="What you left to come back to" steps={model.review.skipped} onJump={onJump} />
-      <Group title="What is still blank" steps={model.review.blank} onJump={onJump} />
+      <Group title="Answered" steps={model.review.answered} onJump={onJump} />
+      <Group title="Marked for later" steps={model.review.skipped} onJump={onJump} />
+      <Group title="Not answered" steps={model.review.blank} onJump={onJump} />
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <button
@@ -517,7 +517,7 @@ function Review({ model, accent, onJump, onSend }: {
           className="rounded-xl px-5 py-2.5 text-[13.5px] font-semibold text-white disabled:opacity-35"
           style={{ background: accent }}
         >
-          Send it
+          Submit
         </button>
         {first !== null && (
           <button
@@ -525,7 +525,7 @@ function Review({ model, accent, onJump, onSend }: {
             onClick={() => onJump(first)}
             className="rounded-xl border border-[rgba(23,21,26,.14)] px-4 py-2.5 text-[13.5px] font-semibold text-text"
           >
-            Go to the first one left
+            Go to the first remaining question
           </button>
         )}
       </div>
@@ -559,7 +559,7 @@ function Group({ title, steps, onJump }: {
               <span className="block text-sm leading-[1.45] text-text">{s.text}</span>
               {s.state === 'answered' && (
                 <span className="mt-0.5 block whitespace-pre-wrap text-[12.5px] leading-[1.5] text-faint">
-                  {s.notSaid ? 'You chose not to answer this one.' : s.answer}
+                  {s.notSaid ? 'You chose not to answer this question.' : s.answer}
                 </span>
               )}
             </span>

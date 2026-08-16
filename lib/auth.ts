@@ -57,7 +57,12 @@ export function verifyToken(token: string | undefined | null): Role | null {
   if (dot < 0) return null;
   const role = token.slice(0, dot) as Role;
   const sig = token.slice(dot + 1);
-  if (!ALL_ROLES.includes(role)) return null;
+  // A guest role is `guest:<invite id>` and is NOT in ALL_ROLES: those five come
+  // from the environment, and a guest comes from a row she made (2026-08-11).
+  // The signature is still what proves it, so an unknown id is harmless: it
+  // resolves to no binding and therefore reaches nothing.
+  const known = ALL_ROLES.includes(role) || role.startsWith('guest:');
+  if (!known) return null;
   const expected = crypto.createHmac('sha256', secret()).update(role).digest('hex');
   if (sig.length !== expected.length) return null;
   try {

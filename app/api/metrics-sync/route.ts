@@ -16,6 +16,12 @@ import { resolvePostLinks } from '@/lib/tree/postLinks';
 import type { JoinablePiece } from '@/lib/tree/postLinks';
 import type { MetricObservation, SyncRun } from '@/lib/tree/objects';
 
+// Next caches fetch() by URL and supabase-js rides on fetch; long-lived query
+// URLs get served from the data cache at random. That one behavior ate previews
+// for eight days (see lib/supabaseServer.ts). Every server client pins no-store.
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: 'no-store' });
+
+
 // The metric collector — spec 26 §6. One daily-and-forever pipe per connected
 // channel, generalized from "Instagram" to "any platform this profile publishes
 // on". This route IS the old `/api/ig-sync`, looping over connectors instead of
@@ -45,7 +51,7 @@ function getSupabase(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase env vars missing');
-  return createClient(url, key);
+  return createClient(url, key, { global: { fetch: noStoreFetch } });
 }
 
 interface ConnectionRow {

@@ -50,9 +50,9 @@ const FIELD =
 const LABEL = 'mb-1 block text-[11.5px] font-bold uppercase tracking-[.09em] text-muted';
 
 const KINDS: { id: DocumentKind; label: string; icon: typeof FileText }[] = [
-  { id: 'file', label: 'A file', icon: FileText },
-  { id: 'link', label: 'A link', icon: Link2 },
-  { id: 'text', label: 'Some words', icon: Type },
+  { id: 'file', label: 'File', icon: FileText },
+  { id: 'link', label: 'Link', icon: Link2 },
+  { id: 'text', label: 'Text', icon: Type },
 ];
 
 /** Ask the server for permission, then send the file STRAIGHT to storage. */
@@ -103,7 +103,7 @@ export default function Documents({
     <section className="border-t border-divider px-[18px] py-3.5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-[11.5px] font-bold uppercase tracking-[.09em] text-muted">
-          What they handed over
+          Files received
         </h3>
         <p className="m-0 min-w-[12rem] flex-1 text-[12.5px] leading-[1.5] text-faint">
           {documentsLine(docs)}
@@ -135,7 +135,7 @@ export default function Documents({
       ) : (
         <button type="button" onClick={() => setAdding(true)} className={`${BTN_GHOST} mt-2.5`}>
           <Plus size={15} strokeWidth={2.2} />
-          Add something they handed over
+          Add file
         </button>
       )}
     </section>
@@ -169,7 +169,7 @@ function DocumentRow({ doc, question }: { doc: IntakeDocumentRecord; question?: 
           <p className="mt-1 text-[11.5px] text-faint">{sourceWords(doc)}</p>
           {question && (
             <p className="mt-1 text-[11.5px] leading-[1.45] text-faint">
-              Given for: {question}
+              In answer to: {question}
             </p>
           )}
         </div>
@@ -296,7 +296,7 @@ function AddForm({ body, round, questions, defaultGivenBy, writer, onDone, onCan
       <div className="mt-3 flex flex-col gap-3">
         {kind === 'file' && (
           <div>
-            <span className={LABEL}>The file</span>
+            <span className={LABEL}>File</span>
             <input
               ref={picker}
               type="file"
@@ -310,7 +310,7 @@ function AddForm({ body, round, questions, defaultGivenBy, writer, onDone, onCan
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" className={BTN_GHOST} onClick={() => picker.current?.click()}>
                 <Upload size={15} strokeWidth={2.2} />
-                {file ? 'Pick a different one' : 'Pick a file'}
+                {file ? 'Replace file' : 'Choose file'}
               </button>
               {file && (
                 <span className="min-w-0 flex-1 break-words text-[12.5px] text-muted">{file.name}</span>
@@ -356,7 +356,7 @@ function AddForm({ body, round, questions, defaultGivenBy, writer, onDone, onCan
 
         <div className="flex flex-wrap gap-3">
           <div className="min-w-[12rem] flex-1">
-            <span className={LABEL}>Call it</span>
+            <span className={LABEL}>Name</span>
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -366,13 +366,13 @@ function AddForm({ body, round, questions, defaultGivenBy, writer, onDone, onCan
           </div>
 
           <div className="min-w-[12rem] flex-1">
-            <span className={LABEL}>Given for</span>
+            <span className={LABEL}>Attach to</span>
             <select
               value={parameter}
               onChange={e => setParameter(e.target.value)}
               className={FIELD}
             >
-              <option value="">This round as a whole</option>
+              <option value="">General</option>
               {questions.map(q => (
                 <option key={q.parameterId} value={q.parameterId}>{q.text}</option>
               ))}
@@ -381,8 +381,8 @@ function AddForm({ body, round, questions, defaultGivenBy, writer, onDone, onCan
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[12.5px] text-muted">Who gave it</span>
-          {([['client', 'They did'], ['owner', 'I did']] as const).map(([id, label]) => (
+          <span className="text-[12.5px] text-muted">Source</span>
+          {([['client', 'Client'], ['owner', 'Internal']] as const).map(([id, label]) => (
             <button
               key={id}
               type="button"
@@ -407,10 +407,10 @@ function AddForm({ body, round, questions, defaultGivenBy, writer, onDone, onCan
         <div className="flex flex-wrap items-center gap-2.5">
           <button type="button" onClick={add} disabled={!ready || busy} className={BTN_DARK}>
             <Paperclip size={15} strokeWidth={2.2} />
-            {busy ? 'Keeping it' : 'Keep it'}
+            {busy ? 'Saving' : 'Save'}
           </button>
           <span className="min-w-[12rem] flex-1 text-[11.5px] leading-[1.5] text-faint">
-            Nothing is kept until you press this, and nothing is ever changed after it.
+            Saved as received. Stored files are never altered.
           </span>
         </div>
       </div>

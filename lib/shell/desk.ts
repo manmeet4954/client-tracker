@@ -244,14 +244,17 @@ export function answerReview(state: AppState): DeskAnswer {
 
 /** "Anything not locked?" — the profiles whose Strategy has not locked yet. */
 export function answerLocks(state: AppState): DeskAnswer {
+  // Reads the LOCK, not the shelf's attention line: that line was removed on
+  // 2026-08-11 because it blocks nothing and nagged on every profile. The
+  // question is still worth answering when she asks it directly.
   const rows: DeskRow[] = indexed(state)
-    .filter(i => i.card.attention === 'Strategy not locked')
+    .filter(i => typeof state.clientData?.[i.card.id]?.body?.strategy_version !== 'number')
     .map(({ card, hue }) => ({
       key: `lock-${card.id}`,
       profile_id: card.id,
       title: 'Strategy is not locked',
       profile_name: card.name,
-      when: 'blocks Creation',
+      when: 'not locked',
       late: true,
       hue,
       href: card.href,

@@ -25,7 +25,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, ChevronLeft, List, MessageCircle, PenLine, SlidersHorizontal, X } from 'lucide-react';
+import {
+  BarChart3, ChevronLeft, List, MessageCircle, PanelLeftClose, PanelLeftOpen, PenLine,
+  SlidersHorizontal, X,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import type { ClientWindow } from '@/lib/access';
@@ -173,46 +176,79 @@ export default function ProfileFrame({
   // The phone bar holds three items and never a fourth. For her that is
   // automatic; a client login can hold up to five windows, so the third item
   // carries whatever the first two did not.
+  const [railOpen, setRailOpen] = useState(true);
+  useEffect(() => {
+    try { setRailOpen(localStorage.getItem('rail-open') !== 'no'); } catch { /* private mode */ }
+  }, []);
+  function toggleRail() {
+    setRailOpen(open => {
+      try { localStorage.setItem('rail-open', open ? 'no' : 'yes'); } catch { /* private mode */ }
+      return !open;
+    });
+  }
+
   const capped = items.length > 3 ? items.slice(0, 2) : items;
   const grouped = items.length > 3 ? items.slice(2) : [];
   const groupedOn = grouped.some(i => i.id === activeId);
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-paper text-text">
-      {/* Desktop: the rail is the three apps. NEVER the profile list. */}
+      {/* Desktop: the rail is the three apps. NEVER the profile list.
+          It collapses since 2026-08-11, her request: a bar to open and close
+          the sidebar that carries the client's name. The choice is remembered,
+          because a rail that reopens on every navigation is not collapsible. */}
       <aside
-        className="hidden w-56 shrink-0 flex-col bg-ink text-white md:flex"
-        style={{ padding: '20px 14px 16px' }}
+        className={`hidden shrink-0 flex-col bg-ink text-white md:flex ${railOpen ? 'w-56' : 'w-[62px]'}`}
+        style={{ padding: railOpen ? '20px 14px 16px' : '20px 10px 16px' }}
       >
-        {canLeave ? (
-          <Link
-            href="/shelf"
-            className="flex items-center gap-2 px-2 pb-[18px] pt-0.5 text-[11.5px] font-bold uppercase tracking-[.13em] text-white/55 hover:text-white"
+        <div className={`flex items-center pb-[14px] ${railOpen ? 'justify-between' : 'flex-col gap-2'}`}>
+          {canLeave ? (
+            <Link
+              href="/shelf"
+              className="flex items-center gap-2 px-2 pt-0.5 text-[11.5px] font-bold uppercase tracking-[.13em] text-white/55 hover:text-white"
+            >
+              <ChevronLeft size={15} strokeWidth={2.3} />
+              {railOpen && (isOwner ? 'The desk' : 'Your profiles')}
+            </Link>
+          ) : (
+            <span />
+          )}
+          {/* The visible toggle (2026-08-11). The chip already collapsed the
+              rail, and she asked for the option while it existed, which is the
+              proof an invisible control is not a control. */}
+          <button
+            type="button"
+            onClick={toggleRail}
+            aria-label={railOpen ? 'Hide the sidebar' : 'Show the sidebar'}
+            title={railOpen ? 'Hide the sidebar' : 'Show the sidebar'}
+            className="rounded-lg p-1.5 text-white/45 hover:bg-white/[.08] hover:text-white"
           >
-            <ChevronLeft size={15} strokeWidth={2.3} />
-            {isOwner ? 'The desk' : 'Your profiles'}
-          </Link>
-        ) : (
-          <div className="pb-[18px]" />
-        )}
+            {railOpen ? <PanelLeftClose size={16} strokeWidth={2} /> : <PanelLeftOpen size={16} strokeWidth={2} />}
+          </button>
+        </div>
 
         <div
-          className="mb-1.5 flex items-center gap-[11px] px-2 pb-5"
+          className="mb-1.5 flex items-center gap-[11px] px-1 pb-5"
           style={{ borderBottom: '1px solid rgba(255,255,255,.12)' }}
         >
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-sm font-bold text-white"
+          <button
+            type="button"
+            onClick={toggleRail}
+            aria-label={railOpen ? 'Close the sidebar' : 'Open the sidebar'}
+            title={railOpen ? 'Close the sidebar' : client.name}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-sm font-bold text-white hover:opacity-80"
             style={{ backgroundColor: hue }}
-            aria-hidden="true"
           >
             {client.name.charAt(0)}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-base font-semibold leading-[1.2] tracking-[-.01em]">
-              {client.name}
+          </button>
+          {railOpen && (
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-base font-semibold leading-[1.2] tracking-[-.01em]">
+                {client.name}
+              </span>
+              <span className="mt-0.5 block text-[11.5px] text-white/55">{kindLine(kind, client.ownerKind)}</span>
             </span>
-            <span className="mt-0.5 block text-[11.5px] text-white/55">{kindLine(kind, client.ownerKind)}</span>
-          </span>
+          )}
         </div>
 
         <nav className="flex flex-col gap-[3px] pt-3">
@@ -223,15 +259,18 @@ export default function ProfileFrame({
               <Link
                 key={item.id}
                 href={item.href}
-                className={`flex items-center gap-[11px] rounded-[13px] px-3 py-[11px] text-[14.5px] font-semibold tracking-[-.01em] ${
+                title={railOpen ? undefined : item.label}
+                className={`flex items-center gap-[11px] rounded-[13px] py-[11px] text-[14.5px] font-semibold tracking-[-.01em] ${
+                  railOpen ? 'px-3' : 'justify-center px-0'
+                } ${
                   on ? 'bg-white text-text' : 'text-white/[.82] hover:bg-white/[.06]'
                 }`}
               >
                 <span className="flex items-center" style={{ color: on ? '#ea4711' : 'rgba(255,255,255,.7)' }}>
                   <Icon size={18} strokeWidth={1.9} />
                 </span>
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.badge && (
+                {railOpen && <span className="flex-1 text-left">{item.label}</span>}
+                {railOpen && item.badge && (
                   <span
                     className="tnum text-[11.5px] font-bold"
                     style={{ color: on ? '#9b95a1' : 'rgba(255,255,255,.55)' }}
@@ -246,13 +285,11 @@ export default function ProfileFrame({
 
         <div className="flex-1" />
 
-        {isOwner && (
-          <p className="px-2.5 text-[11.5px] leading-[1.5] text-white/35">
-            {profile.strategy_locked
-              ? 'Strategy locked. Everything is open.'
-              : 'Strategy is pending. Recording still saves.'}
-          </p>
-        )}
+        {/* The lock's standing state used to be printed here on every screen of
+            every profile, next to the same thing on the shelf and a banner on
+            the board: three sightings of one fact that blocks nothing since
+            2026-08-09. Removed 2026-08-11. The Lock panel says whether it is
+            locked, because that is the screen where it matters. */}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

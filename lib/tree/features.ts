@@ -30,6 +30,17 @@ export const FEATURES: FeatureDeclaration[] = [
     note: 'Rewritten (§6): derives from bindings + switch audience + client_door + lifecycle.',
   }),
   F({
+    // 2026-08-11. Her ceiling: "I cannot register everyone's password every
+    // time." The five logins were environment variables, so every new client
+    // cost a code change and a deploy. An invite is a row she makes, and it
+    // grants through the SAME bindings above; nothing downstream learned a new
+    // idea. See lib/access/invites.ts.
+    id: 'access.invites', today: 'new', writes: 'shelf/profiles',
+    reads: ['shelf/profiles'],
+    switch: 'spine.fixed', state: 'active', slices: ['state.invites'],
+    note: 'People she invited, with the profiles each one opens. Never grants owner; a test pins that.',
+  }),
+  F({
     id: 'access.legacy_name_matchers', today: 'RESTRICTED_MATCHERS name regexes',
     writes: null, reads: [], switch: 'frozen.legacy', state: 'deleted',
     note: 'Deleted — access binds by profile id. The regexes survive only as one-time migration seed.',

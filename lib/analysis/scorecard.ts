@@ -211,18 +211,18 @@ export function forClient(cards: PillarCard[]): ClientPillarCard[] {
 
 function clientVerdictWords(card: PillarCard): string {
   switch (card.state) {
-    case 'earning': return 'Doing its job';
+    case 'earning': return 'Performing';
     case 'steady': return 'Holding steady';
-    case 'dragging': return 'Not landing yet';
-    case 'coverage-gap': return 'We were not collecting for part of this period';
+    case 'dragging': return 'Underperforming';
+    case 'coverage-gap': return 'Data collection was incomplete for this period';
     case 'blocked':
     case 'not-measurable': return 'Not measured this period';
-    default: return 'Too early to judge';
+    default: return 'Insufficient data';
   }
 }
 
 /** The line under a band, for her side only. */
 export function liftWords(card: PillarCard): string {
   if (card.lift.state !== 'value' || card.lift.value === undefined) return 'no lift yet';
-  return `${percent(card.lift.value)} against your own normal, on ${card.lift.n} pieces`;
+  return `${percent(card.lift.value)} against this account's typical, on ${card.lift.n} pieces`;
 }

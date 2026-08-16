@@ -324,13 +324,13 @@ function stringsOf(words: VerdictWords): [string, string][] {
 // ── The run ──────────────────────────────────────────────────────────────────
 
 export const WORDS_WITHHELD_LINE =
-  'The engine’s numbers are here; its wording did not pass the check.';
+  'Computed results are available. The written summary did not pass validation and is withheld.';
 
 export const NO_KEY_LINE =
-  'The engine’s numbers are here. The written summary needs an API key, and there is none set.';
+  'Computed results are available. The written summary requires an API key, and none is set.';
 
 export const WORDS_OFF_LINE =
-  'The engine’s numbers are here. The written summary is switched off for this profile.';
+  'Computed results are available. The written summary is switched off for this profile.';
 
 export interface WordingResult {
   verdict: Verdict;
@@ -399,7 +399,7 @@ export async function wordVerdict(
     // stop_reason is read BEFORE the content is trusted (§12.1).
     if (response.stop_reason === 'refusal') {
       return {
-        ...withheld('The model declined this one. The numbers are here; the wording is not.'),
+        ...withheld('The model declined to write this summary. Computed results are unaffected.'),
         stop_reason: 'refusal', usage, cost_estimate_usd: estimateCostUsd(usage),
       };
     }
@@ -450,7 +450,7 @@ export async function wordVerdict(
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     return {
-      ...withheld('That did not go through. The numbers are here and nothing was lost.', violations, error),
+      ...withheld('The summary request failed. Computed results are unaffected and nothing was lost.', violations, error),
       usage, cost_estimate_usd: estimateCostUsd(usage), stop_reason: 'error',
     };
   }
@@ -468,7 +468,7 @@ export function computedWords(verdict: Verdict): VerdictWords {
   return {
     headline: `${input.cycle} verdict, ${input.period_start} to ${input.period_end}.`,
     coverage_note: input.coverage.gaps.length
-      ? `Collected ${input.coverage.days_covered} of ${input.coverage.days_expected} days. The rest is a gap, not a dip.`
+      ? `Collected ${input.coverage.days_covered} of ${input.coverage.days_expected} days. The remaining days are collection gaps, not declines.`
       : `Collected all ${input.coverage.days_expected} days of this period.`,
     patterns: sufficient.map(p => ({
       pattern_ref: p.id,
@@ -480,8 +480,8 @@ export function computedWords(verdict: Verdict): VerdictWords {
       words: call.reason,
     },
     cannot_say_note: input.cannot_say.length
-      ? `${input.cannot_say.length} patterns are not there yet. ${input.cannot_say.slice(0, 3).map(c => `${c.dimension} "${c.value}" needs ${c.owed}`).join('; ')}.`
-      : 'Nothing was held back for want of data.',
+      ? `${input.cannot_say.length} patterns lack sufficient data. ${input.cannot_say.slice(0, 3).map(c => `${c.dimension} "${c.value}" needs ${c.owed}`).join('; ')}.`
+      : 'All patterns had sufficient data.',
     one_suggestion: call.right_call === 'yes'
       ? 'Keep the leading pattern going and let the next cycle confirm it.'
       : 'Nothing to change on the numbers alone this cycle.',

@@ -9,8 +9,9 @@ import {
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
   ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData, Topic, ClientGoal,
-  Observation, ChatMessage, ProfileOwnerKind,
+  Observation, ChatMessage, ProfileOwnerKind, ProfileBinding,
 } from '@/types';
+import type { Invite } from '@/lib/access/invites';
 import { migrateToContentCards } from '@/lib/migrateContent';
 import { changedScopes } from '@/lib/tree/scopes';
 import type { ProfileBody } from '@/lib/tree/body';
@@ -199,7 +200,14 @@ export type Action =
   // and any write at history), and hand the whole object back here. The save
   // door still scopes by path — changedScopes diffs body paths one by one.
   | { type: 'SET_BODY'; payload: { clientId: string; body: ProfileBody } }
-  | { type: 'SET_LIFECYCLE'; payload: { clientId: string; lifecycle: Lifecycle } };
+  | { type: 'SET_LIFECYCLE'; payload: { clientId: string; lifecycle: Lifecycle } }
+  /**
+   * 2026-08-11: people she invited. One action for the whole set, because an
+   * invite and the BINDINGS it implies must land together: an invite without
+   * its bindings opens nothing, and a binding without its invite is a login
+   * with no code. Splitting them would make a half-granted state reachable.
+   */
+  | { type: 'SET_INVITES'; payload: { invites: Invite[]; bindings: ProfileBinding[] } };
 
 function reducer(state: AppState, action: Action): AppState {
   const cd = (id: string) => state.clientData[id] ?? defaultClientData();
@@ -937,6 +945,9 @@ function reducer(state: AppState, action: Action): AppState {
             ? { ...c, lifecycle: action.payload.lifecycle, lifecycleAt: new Date().toISOString() }
             : c),
       };
+
+    case 'SET_INVITES':
+      return { ...state, invites: action.payload.invites, bindings: action.payload.bindings };
 
     case 'ADD_TASK':
       return { ...state, personalTasks: [action.payload.task, ...(state.personalTasks ?? [])] };

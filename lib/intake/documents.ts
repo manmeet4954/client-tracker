@@ -440,7 +440,7 @@ export function sourceWords(doc: IntakeDocument): string {
  * the moment it is drawn.
  */
 export function documentsLine(docs: Pick<IntakeDocument, 'extraction_state'>[]): string {
-  if (docs.length === 0) return 'Nothing handed over on this round yet.';
+  if (docs.length === 0) return 'No files received yet.';
   const read = docs.filter(d => d.extraction_state === 'ok').length;
   const notRead = docs.length - read;
   const head = `${docs.length} ${plural(docs.length, 'thing', 'things')} handed over.`;

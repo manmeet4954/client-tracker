@@ -94,7 +94,7 @@ export default function MockupScreen({ profileId }: { profileId: string }) {
   // ── The list ──────────────────────────────────────────────────────────────
   if (!current) {
     return (
-      <div className="mx-auto max-w-3xl p-4 md:p-8">
+      <div className="w-full max-w-5xl p-4 md:p-8">
         <p className="text-[13.5px] leading-[1.6] text-muted">
           How their profile will look once you have optimised it. Build it, show it to them, and
           keep the old one so you can put the two side by side.

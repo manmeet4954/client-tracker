@@ -102,13 +102,13 @@ function ScreenBlock({
       const json = await res.json();
       if (!res.ok) {
         setPayload(null);
-        setError(json.detail ?? json.error ?? 'Could not load this.');
+        setError(json.detail ?? json.error ?? 'Could not load this section.');
       } else {
         setPayload(json);
       }
     } catch {
       setPayload(null);
-      setError('Could not reach the engine. Nothing was lost.');
+      setError('Could not connect. No data has been lost.');
     } finally {
       setLoading(false);
     }
@@ -133,7 +133,7 @@ function ScreenBlock({
 
       {screen.state === 'history' ? (
         <HistoryLine>
-          This one is switched off and kept. Everything below reads, and nothing new is computed.
+          Data collection is paused for this section. Existing data remains available.
         </HistoryLine>
       ) : null}
 
@@ -145,7 +145,7 @@ function ScreenBlock({
         </div>
       ) : null}
 
-      {loading && !payload ? <Empty>Reading what was collected.</Empty> : null}
+      {loading && !payload ? <Empty>Loading&hellip;</Empty> : null}
 
       {payload ? (
         <>

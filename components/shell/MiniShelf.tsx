@@ -56,7 +56,7 @@ function MiniCard({
         <p className="text-sm font-semibold text-stone-900">{client?.name}</p>
         {waiting > 0 && (
           <p className="mt-1 text-xs text-stone-500">
-            {waiting} waiting for your review.
+            {waiting} awaiting your review.
           </p>
         )}
       </div>

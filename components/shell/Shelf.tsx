@@ -19,7 +19,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronDown, LogOut, Menu, MoreHorizontal, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, LogOut, Menu, MoreHorizontal, X, SlidersHorizontal } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import Modal from '@/components/Modal';
 import type { DeskAnswer, DeskProfile, DeskRow } from '@/lib/shell/desk';
@@ -307,7 +307,7 @@ export default function Shelf() {
       )}
 
       <Modal open={addOpen} onClose={() => { setAddOpen(false); setName(''); }} title="New profile" size="sm">
-        <div className="space-y-4 p-6">
+        <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-stone-500">Name</label>
             <input autoFocus value={name} onChange={e => setName(e.target.value)}
@@ -360,7 +360,42 @@ export default function Shelf() {
  * Archiving asks once, because it reads as final even though it is not.
  */
 function ProfileRow({ p, onRest }: { p: DeskProfile; onRest: (id: string, to: Lifecycle) => void }) {
+  const { dispatch } = useApp();
   const [menu, setMenu] = useState(false);
+  // Renaming, 2026-08-11: "when we tap on the three dots for each client to
+  // edit, so I can edit their name if needed, like if I misspell anything".
+  // It renames in place rather than opening a dialog, because a typo in a name
+  // is a two-second fix and a modal would be the longer half of it.
+  //
+  // Safe by construction: access binds by profile ID, never by name (spec 21
+  // §6), so renaming can no longer open or cut off a login the way it once did.
+  const [renaming, setRenaming] = useState<string | null>(null);
+
+  function saveName() {
+    const name = (renaming ?? '').trim();
+    if (name && name !== p.name) dispatch({ type: 'RENAME_CLIENT', payload: { id: p.id, name } });
+    setRenaming(null);
+  }
+
+  if (renaming !== null) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl bg-white/[.08] px-[10px] py-[7px]">
+        <input
+          autoFocus
+          value={renaming}
+          onChange={e => setRenaming(e.target.value)}
+          onBlur={saveName}
+          onKeyDown={e => {
+            if (e.key === 'Enter') saveName();
+            if (e.key === 'Escape') setRenaming(null);
+          }}
+          aria-label={`Rename ${p.name}`}
+          className="min-w-0 flex-1 rounded-lg bg-white/10 px-2.5 py-1.5 text-[14px] font-semibold text-white outline-none ring-1 ring-white/20 focus:ring-white/50"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="group relative flex items-center rounded-xl pr-1 hover:bg-white/[.08]">
       <Link href={p.href}
@@ -388,6 +423,8 @@ function ProfileRow({ p, onRest }: { p: DeskProfile; onRest: (id: string, to: Li
 
       {menu && (
         <div className="absolute right-1 top-[calc(100%-4px)] z-30 w-[184px] overflow-hidden rounded-xl bg-white py-1 shadow-panel">
+          <MenuItem label="Rename" sub="Fix a spelling"
+            onClick={() => { setRenaming(p.name); setMenu(false); }} />
           {p.resting ? (
             <MenuItem label="Bring it back" onClick={() => { onRest(p.id, 'active'); setMenu(false); }} />
           ) : (
@@ -463,6 +500,14 @@ function ProfileList({ profiles, labelled, onAdd, onLogout, onRest }: {
         className="mt-3 rounded-xl border border-dashed border-white/[.24] p-[10px] text-center text-[13px] font-semibold text-white/60">
         + Add a profile
       </button>
+      {/* Settings had no way in until 2026-08-11. It was built, deployed, and
+          reachable only by typing the address, so from her side it did not
+          exist. A screen with no door is not a shipped screen. */}
+      <a href="/settings"
+        className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-white/[.14] p-[10px] text-[12.5px] font-semibold text-white/70 hover:text-white">
+        <SlidersHorizontal size={13} strokeWidth={2.2} />
+        Settings and access
+      </a>
       <button type="button" onClick={onLogout}
         className="mt-3 flex items-center justify-center gap-1.5 text-[11.5px] text-white/35">
         <LogOut size={13} />

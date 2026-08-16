@@ -153,6 +153,20 @@ export const SWITCHES: SwitchDeclaration[] = [
 
   // ── Strategy-owned parameters ─────────────────────────────────────────────
   S({
+    // 2026-08-16. "Their brand" on the What-they-see screen used to hang on
+    // `strategy.fixed`, which is FIXED and a prerequisite of half the board:
+    // the toggle wrote a position the registry forbids, and OFF would have
+    // dragged creation down for HER too. This is the real, movable switch for
+    // the client's Brand window and nothing else — the strategy layer itself
+    // stays fixed. It follows spec 22 §9.2's pattern: `owns: []`, and the
+    // strategy paths keep naming their own governor.
+    id: 'strategy.client_brand', owns: [], requires: ['strategy.fixed'],
+    dependents: [], audience: 'client',
+    allowed_states: ['active', 'hidden'], suggested_default: 'active',
+    derived_from: 'what she ticks on the What-they-see screen',
+    note: 'The client’s Brand window: the strategy summary as it stands, read only. Suggested active because Brand showed for every client before this switch existed; the toggle now makes that a real choice.',
+  }),
+  S({
     id: 'strategy.visual_branding', owns: ['context/content-strategy/visual-branding'],
     requires: ['strategy.fixed'], dependents: [], audience: 'both',
     allowed_states: ['active'], suggested_default: 'active', fixed: true,
@@ -937,6 +951,9 @@ export const SWITCH_DOOR: Record<string, ClientDoor> = {
   // already holds. A third ROUTE in, never a fifth door (S19).
   'intake.documents': 'give:intake',
   'strategy.profile_mockup': 'see:strategy',
+  // 2026-08-16: the client Brand window's own switch. Same door the strategy
+  // summary already reaches through — a new switch, never a new door (S19).
+  'strategy.client_brand': 'see:strategy',
   'intake.reminders': 'give:intake',
   'creation.seed_input_client': 'give:intake',
   'assets.client_upload': 'give:assets',

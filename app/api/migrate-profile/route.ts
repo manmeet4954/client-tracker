@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { readState, writeState } from '@/lib/supabaseServer';
+import { readState, writeStateScoped } from '@/lib/supabaseServer';
 import { normalizeState, type Role } from '@/lib/access';
 import { migrateProfile, reportToText } from '@/lib/tree/migrate';
 import { applyScopes, changedScopes } from '@/lib/tree/scopes';
@@ -82,7 +82,9 @@ export async function POST(req: Request) {
     clientData: { ...state.clientData, [profileId]: { ...data, body } },
   };
   const scopes = changedScopes(state, next);
-  await writeState(applyScopes(state, next, scopes));
+  // CAS (2026-08-09): the migration's slices land on a fresh base, and cannot
+  // erase anything that arrived while the report was being built.
+  await writeStateScoped(next, scopes);
 
   return NextResponse.json({ applied: true, report, text: reportToText(report), scopes: scopes.length });
 }

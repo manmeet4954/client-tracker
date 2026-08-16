@@ -319,27 +319,17 @@ test('11. a client writes through give:intake and nowhere else', () => {
   ok(!clientMayWrite('context/content-strategy/positioning'), 'nor any strategy folder');
 });
 
-test('12. a profile at setup opens intake, and nothing else', () => {
-  const state = setupProfile();
-  eq(allowedClientIds(normalizeState(state), 'merushri'), ['career-bubble'],
-    'setup is exactly the phase intake exists for, so the login works');
-  eq(doorsOpenAt('setup'), ['give:intake'], 'one door');
-
-  const seen = filterStateForRole(state, 'merushri');
-  const paths = Object.keys(seen.clientData['career-bubble'].body!.paths);
-  ok(paths.includes('context/intake/answers'), 'they can answer');
-  ok(!paths.includes('work-log/assets/sets'), 'not assets');
-  ok(!paths.includes('work-log/creation/review'), 'not review');
-  ok(!paths.includes('work-log/analysis/client-perception'), 'not perception');
-  ok(!paths.some(p => p.startsWith('context/content-strategy')), 'and not one see-point');
-  ok(!clientMayReadAt('work-log/assets/sets', doorsOpenAt('setup')), 'the resolver says the same thing');
-
-  // And once the profile is active, the summary appears — the LOCKED version only.
-  const active = { ...state, clients: state.clients.map(c => c.id === 'career-bubble' ? { ...c, lifecycle: 'active' as const } : c) };
-  const seenActive = filterStateForRole(active, 'merushri');
-  const strategy = seenActive.clientData['career-bubble'].body!.paths['context/content-strategy/positioning'];
-  ok(Array.isArray(strategy), 'the strategy summary is a window they now have');
-  eq(strategy.length, 0, 'and her working edit is invisible until she locks it (§8.8)');
+test('12. a profile at setup opens the same doors as active, and lifecycle still closes the rest', () => {
+  // REWRITTEN 2026-08-11. Spec 22 acceptance test 12 pinned setup to
+  // give:intake alone, and her order removed that rule: "get rid of this rule
+  // that they can't use or see anything without a set strategy for clients."
+  // Her switches are now the one authority on what a client sees; what this
+  // pins instead is the half of lifecycle that SURVIVES, because paused,
+  // closing and archived closing every door is what makes pausing real.
+  eq(doorsOpenAt('setup'), doorsOpenAt('active'), 'setup no longer narrows the doors');
+  eq(doorsOpenAt('paused'), [], 'paused still closes everything');
+  eq(doorsOpenAt('closing'), [], 'and so does closing');
+  eq(doorsOpenAt('archived'), [], 'and archived');
 });
 
 suite('spec 22 §14.17 — retirement and reopen');

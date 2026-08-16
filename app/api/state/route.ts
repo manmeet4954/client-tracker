@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, signRole, SESSION_COOKIE, cookieOptionsForRole } from '@/lib/auth';
-import { readState, writeState } from '@/lib/supabaseServer';
+import { mutateState, readState, writePreviewMirror, writeState } from '@/lib/supabaseServer';
 import {
   filterStateForRole, mergeRoleWrite, normalizeState, emptyState, windowsForRole, type Role,
 } from '@/lib/access';
@@ -158,63 +158,91 @@ export async function POST(req: Request) {
   }
 
   try {
-    const current = await readState();
+    // ── The compare-and-swap door (2026-08-09) ─────────────────────────────
+    //
+    // The server's own log caught the store going 4 → 5 → 3 → 4 previews as
+    // consecutive saves each read-modify-wrote from whatever copy of the row
+    // their read happened to return. A save built on a stale copy silently
+    // erased everything newer — that is what ate every preview after 1 August.
+    //
+    // So the whole read → merge → guard → write sequence now runs inside
+    // `mutateState`: every attempt re-reads a FRESH base and the write applies
+    // only if the row still carries the version that base came from. A write
+    // built on a stale copy matches nothing, changes nothing, and retries.
+    let refusal: NextResponse | null = null;
 
-    if (!current) {
+    const result = await mutateState(current => {
+      const base = normalizeState(current);
+      // Role filtering first, always — a restricted role's write can only reach
+      // its own bound profiles (CLAUDE.md rule 2), and only then is it narrowed
+      // to the paths this save declared.
+      const merged = role === 'owner' ? normalizeState(incoming) : mergeRoleWrite(base, incoming, role);
+      const next = applyScopes(base, merged, paths);
+
+      const refused = creationRefusals(base, next);
+      if (refused.length) {
+        refusal = NextResponse.json({
+          error: 'creation-locked',
+          detail: 'Strategy has not locked on this profile yet, so nothing can be written into creation.',
+          refused,
+        }, { status: 409 });
+        return null;
+      }
+
+      const legacyRefused = legacyCreationRefusals(base, next);
+      if (legacyRefused.length) {
+        refusal = NextResponse.json({
+          error: 'creation-locked',
+          detail: 'Strategy has not locked on this profile yet, so nothing can be written into creation.',
+          refused: legacyRefused,
+        }, { status: 409 });
+        return null;
+      }
+
+      const engineRefused = engineRefusals(base, next);
+      if (engineRefused.length) {
+        refusal = NextResponse.json({
+          error: 'engine-guard',
+          detail: engineRefused[0].reasons[0],
+          refused: engineRefused,
+        }, { status: 409 });
+        return null;
+      }
+
+      // Diagnostic kept until the stale reads themselves are explained: any
+      // save touching a review scope logs what happened to the previews.
+      for (const key of paths) {
+        if (!key.includes('work-log/creation/review')) continue;
+        const pid = key.split(':')[0];
+        const before = (base.clientData?.[pid]?.previewPosts ?? []).length;
+        const inc = (incoming?.clientData?.[pid]?.previewPosts ?? []).length;
+        const after = (next.clientData?.[pid]?.previewPosts ?? []).length;
+        console.log(`[preview-save] role=${role} profile=${pid} stored_before=${before} incoming=${inc} stored_after=${after} paths=${paths.length}`);
+      }
+
+      return next;
+    });
+
+    if (refusal) return refusal;
+
+    // The preview mirror rides every successful save that touched previews, so
+    // the public page never depends on the giant row being read fresh.
+    if (typeof result === 'object' && paths.some(k => k.includes('work-log/creation/review'))) {
+      await writePreviewMirror(result);
+    }
+
+    if (result === 'no-row') {
       // Nothing stored yet: there is nothing to merge against.
       if (role !== 'owner') return NextResponse.json({ error: 'no-state' }, { status: 409 });
       await writeState(normalizeState(incoming));
       return NextResponse.json({ ok: true, scoped: false });
     }
-
-    const base = normalizeState(current);
-    // Role filtering first, always — a restricted role's write can only reach
-    // its own bound profiles (CLAUDE.md rule 2), and only then is it narrowed
-    // to the paths this save declared.
-    const merged = role === 'owner' ? normalizeState(incoming) : mergeRoleWrite(base, incoming, role);
-    const next = applyScopes(base, merged, paths);
-
-    const refused = creationRefusals(base, next);
-    if (refused.length) {
-      return NextResponse.json({
-        error: 'creation-locked',
-        detail: 'Strategy has not locked on this profile yet, so nothing can be written into creation.',
-        refused,
-      }, { status: 409 });
+    if (result === 'aborted') {
+      // A guard refused without setting a response: should not happen, but a
+      // silent 200 here would be the exact lie this rewrite exists to end.
+      return NextResponse.json({ error: 'refused' }, { status: 409 });
     }
 
-    const legacyRefused = legacyCreationRefusals(base, next);
-    if (legacyRefused.length) {
-      return NextResponse.json({
-        error: 'creation-locked',
-        detail: 'Strategy has not locked on this profile yet, so nothing can be written into creation.',
-        refused: legacyRefused,
-      }, { status: 409 });
-    }
-
-    const engineRefused = engineRefusals(base, next);
-    if (engineRefused.length) {
-      return NextResponse.json({
-        error: 'engine-guard',
-        detail: engineRefused[0].reasons[0],
-        refused: engineRefused,
-      }, { status: 409 });
-    }
-
-    // ── 2026-08-09 diagnostic: a preview died twice in front of a client and
-    // every layer swore it was fine. Until that is understood, any save that
-    // declares a review scope logs what actually happened to the previews,
-    // in one line vercel logs can show. Counts and ids only, never content.
-    for (const key of paths) {
-      if (!key.includes('work-log/creation/review')) continue;
-      const pid = key.split(':')[0];
-      const before = (base.clientData?.[pid]?.previewPosts ?? []).length;
-      const inc = (incoming?.clientData?.[pid]?.previewPosts ?? []).length;
-      const after = (next.clientData?.[pid]?.previewPosts ?? []).length;
-      console.log(`[preview-save] role=${role} profile=${pid} stored_before=${before} incoming=${inc} stored_after=${after} paths=${paths.length}`);
-    }
-
-    await writeState(next);
     return NextResponse.json({ ok: true, scoped: !!paths });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'write failed';

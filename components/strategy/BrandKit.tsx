@@ -21,10 +21,13 @@
 // and every count read off the array it describes.
 
 import { useRef, useState } from 'react';
-import { Download, Image as ImageIcon, Loader2, Palette, Pencil, Plus, Trash2, Type } from 'lucide-react';
+import {
+  Download, FileText, Image as ImageIcon, Link as LinkIcon, Loader2, Palette, Pencil, Plus,
+  Trash2, Type, X,
+} from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
-import type { BrandColor, BrandFont, BrandKit as BrandKitShape, BrandLogo } from '@/types';
+import type { BrandColor, BrandFile, BrandFont, BrandKit as BrandKitShape, BrandLogo } from '@/types';
 import {
   BRAND_KIT_PURPOSE, brandKitCounts, brandKitEmpty, brandKitSummary,
 } from '@/lib/strategy/reading';
@@ -78,6 +81,7 @@ export default function BrandKit({ profileId }: { profileId: string }) {
         <Colors colors={kit.colors} onUpdate={colors => update({ colors })} />
         <Fonts fonts={kit.fonts} onUpdate={fonts => update({ fonts })} />
         <Logos logos={kit.logos ?? []} onUpdate={logos => update({ logos })} />
+        <Files files={kit.files ?? []} onUpdate={files => update({ files })} />
       </div>
     </div>
   );
@@ -184,7 +188,7 @@ function ColorModal({ existing, onClose, onSave }: {
 
   return (
     <Modal open onClose={onClose} title={existing ? 'Change this colour' : 'Add a colour'} size="sm">
-      <div className="space-y-4 p-5">
+      <div className="space-y-4">
         <div className="flex items-center gap-4">
           <input
             type="color"
@@ -314,7 +318,7 @@ function FontModal({ existing, onClose, onSave }: {
 
   return (
     <Modal open onClose={onClose} title={existing ? 'Change this face' : 'Add a face'} size="sm">
-      <div className="space-y-4 p-5">
+      <div className="space-y-4">
         <div>
           <label className={LABEL}>The name, as Google Fonts has it</label>
           <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Manrope" className={FIELD} />
@@ -436,6 +440,134 @@ function Logos({ logos, onUpdate }: { logos: BrandLogo[]; onUpdate: (l: BrandLog
         </div>
       )}
       {error && <p className="mt-2 text-[12.5px] text-accent-text">{error}</p>}
+    </Section>
+  );
+}
+
+
+/**
+ * Brand files and links — 2026-08-11.
+ *
+ * Her gap, found by looking: "Brand Book is fine. I don't see an option to
+ * include any file or something like that." Logos were the only thing that
+ * could go in, and only as images.
+ *
+ * A LINK is offered beside a file rather than under it, because most of what
+ * she actually has lives in Canva and can never be uploaded. A brand book that
+ * can hold the PDF but not the Canva link would be half a brand book.
+ */
+function Files({ files, onUpdate }: { files: BrandFile[]; onUpdate: (f: BrandFile[]) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const [linking, setLinking] = useState(false);
+  const [url, setUrl] = useState('');
+  const [name, setName] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function upload(picked: FileList) {
+    setUploading(true);
+    setError('');
+    try {
+      const added: BrandFile[] = [];
+      for (const file of Array.from(picked)) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('bucket', 'assets');
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.url) throw new Error(json.error || 'That file did not go up');
+        added.push({
+          id: generateId(), name: file.name, url: json.url, kind: 'file',
+          addedAt: new Date().toISOString(),
+        });
+      }
+      onUpdate([...files, ...added]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That file did not go up');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function addLink() {
+    const href = url.trim();
+    if (!href) return;
+    onUpdate([...files, {
+      id: generateId(),
+      name: name.trim() || href.replace(/^https?:\/\//, '').split('/')[0],
+      url: /^https?:\/\//i.test(href) ? href : `https://${href}`,
+      kind: 'link',
+      addedAt: new Date().toISOString(),
+    }]);
+    setUrl('');
+    setName('');
+    setLinking(false);
+  }
+
+  return (
+    <Section
+      icon={<FileText size={16} strokeWidth={1.9} className="text-muted" />}
+      title="Files and links"
+      count={files.length}
+      action={
+        <div className="flex items-center gap-1.5">
+          <button type="button" onClick={() => setLinking(v => !v)} className={BTN_GHOST}>
+            <LinkIcon size={13} strokeWidth={2.2} />
+            Link
+          </button>
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className={BTN_GHOST}>
+            {uploading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} strokeWidth={2.2} />}
+            {uploading ? 'Sending' : 'File'}
+          </button>
+        </div>
+      }
+    >
+      <input ref={fileRef} type="file" multiple className="hidden"
+        onChange={e => { if (e.target.files?.length) void upload(e.target.files); e.target.value = ''; }} />
+
+      {linking && (
+        <div className="mb-2 flex flex-col gap-1.5 sm:flex-row">
+          <input value={url} onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addLink(); }}
+            placeholder="Paste the Canva or Drive link" autoFocus
+            className="min-w-0 flex-1 rounded-xl border border-[rgba(23,21,26,.12)] px-3 py-2 text-[13px] text-text placeholder:text-faint focus:border-accent focus:outline-none" />
+          <input value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addLink(); }}
+            placeholder="What is it?"
+            className="min-w-0 rounded-xl border border-[rgba(23,21,26,.12)] px-3 py-2 text-[13px] text-text placeholder:text-faint focus:border-accent focus:outline-none sm:w-40" />
+          <button type="button" onClick={addLink} disabled={!url.trim()}
+            className="rounded-xl bg-ink px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-40">
+            Add
+          </button>
+        </div>
+      )}
+
+      {error && <p className="mb-2 text-[12.5px] font-semibold text-accent-text">{error}</p>}
+
+      {files.length === 0 ? (
+        <p className="text-[13px] text-faint">
+          The brand guide, the Canva file, the font licence. Anything that belongs to this brand.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {files.map(f => (
+            <li key={f.id} className="flex items-center gap-2.5 rounded-xl bg-chip px-3 py-2.5">
+              {f.kind === 'link'
+                ? <LinkIcon size={14} strokeWidth={2.1} className="flex-none text-muted" />
+                : <FileText size={14} strokeWidth={2.1} className="flex-none text-muted" />}
+              <a href={f.url} target="_blank" rel="noopener noreferrer"
+                className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-text hover:text-accent">
+                {f.name}
+              </a>
+              <button type="button" aria-label={`Remove ${f.name}`}
+                onClick={() => onUpdate(files.filter(x => x.id !== f.id))}
+                className="flex-none text-faint hover:text-text">
+                <X size={14} strokeWidth={2.2} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Section>
   );
 }

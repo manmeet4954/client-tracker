@@ -1,5 +1,640 @@
 # STATE - Client Dashboard
 
+## 2026-08-16 — THE TOGGLES RULE: THE DEAD RULE'S FOURTH HOME, AND THE BRAND TOGGLE THAT WROTE A FORBIDDEN POSITION
+
+1013 tests, up from 1005. Typecheck clean. NOT deployed — the deploy is hers
+to call, per rule 6.
+
+THE 2026-08-12 OPEN DEFECT IS RESOLVED BY THIS ENTRY. Her Settings toggles
+(the five client windows) now decide what a client actually sees, and the
+whole wire is test-pinned. Two causes, both real:
+
+ 1. THE FOURTH HOME OF THE DEAD RULE. `lib/tree/render.ts` step 4 still held
+    `if (role === 'client') return 'hidden'` for every after-lock family
+    (creation, analysis, assets, references, logs, platforms) on an unlocked
+    profile. Her order of 2026-08-11 — "get rid of this rule that they can't
+    use or see anything without a set strategy for clients" — killed three
+    homes of that rule the same day; this one survived behind a comment
+    restating the rule as its own justification. Since no real client profile
+    has ever locked, the client answer for creation.review, creation.scheduling,
+    assets.client_upload and analysis.digest_client was `hidden` whatever the
+    switches said — which is exactly why her SMG test showed Brand + Intake
+    only with Content and Assets ON. Removed: for a client the lock plays NO
+    part in visibility. Her side keeps the quiet waiting shell (history before
+    the lock) exactly as before. `windowsForBinding`'s owner-side check
+    (Results' publication flow) now asks the resolver with the lock set aside,
+    the desk's established pattern, or Results stayed silently vetoed on every
+    unlocked profile.
+
+ 2. THE BRAND TOGGLE WROTE A FORBIDDEN POSITION. "Their brand" hung on
+    `strategy.fixed` — FIXED, allowed_states ['active'], and a prerequisite of
+    half the switchboard (creation.board included). The toggle wrote
+    `strategy.fixed = hidden`, a position the registry forbids, and the cascade
+    would have obeyed it FOR HER TOO: one tick of Brand-off and her own board
+    goes dark. No validator ran on that write. Now: a new, genuinely movable
+    switch `strategy.client_brand` (audience client, active/hidden, suggested
+    default ACTIVE so nothing visible changed today) carries the window in
+    BOTH tables (`WINDOWS` in lib/access.ts, `WINDOW_CHOICES` in
+    lib/access/windowChoice.ts), reaching through see:strategy — a new switch,
+    never a new door. And `setSwitchPosition` now REFUSES any fixed switch at
+    the one write door, so this class of bug cannot regrow. The other six
+    window switches audited CLEAN: intake.questionnaire, intake.finding_session,
+    creation.review, creation.scheduling, assets.client_upload,
+    analysis.digest_client, analysis.client_publication — none fixed, all hold
+    both positions.
+
+PINNED (tests/access.windows.test.ts, new suite): for a guest binding on an
+UNLOCKED cut-over profile, each of the five windows follows its toggle through
+moveFor → setSwitchPosition → windowsForBinding, on and off; every preset
+round-trips the same wire; Brand-off changes nothing the owner renders; a
+fixed switch throws at the write door; no window switch is fixed. Shell test
+14b rewritten with the reason and the date, like acceptance test 12 before it.
+
+SPEC-DRIFT NOTE for whoever reads specs 21–28 later: spec 22 §8.7's "creation
+and analysis cannot open before strategy locks" and spec 28's resolver step 4
+now govern OWNER and STAFF rendering only. For a client the lock gates
+nothing, by her 2026-08-11 order. The switches on Settings remain the single
+authority on client visibility, bounded only by paused/closing/archived. And
+the Brand window's switch is `strategy.client_brand`, not `strategy.fixed`,
+anywhere a spec names it.
+
+TWO MORE, FOUND AND FIXED THE SAME DAY — the first draft of this entry listed
+them as "deliberately not changed", and both were the same defect wearing a
+different coat, so they went the same way:
+
+ 3. A BINDING IS THE LOGIN (derived, never stored). `client_access.login` was
+    declared derived from the start ("profile lifecycle + working-mode") and
+    NOTHING in the app has ever written it — the raw switchboard that could
+    have was cut from the rail on 2026-08-11. So on every real profile it sat
+    at its hidden default and vetoed assets.client_upload and
+    analysis.digest_client however she set her toggles: her exact complaint,
+    one layer down. Now `withDerivedLogin` (lib/strategy/derivation.ts) is the
+    one copy of the rule, applied at BOTH resolution sites: `renderProfile`
+    (lib/shell/profile.ts — covers windowsForBinding, windowsForRole and the
+    Settings preview through their shared path) overlays it when the role
+    holds a live non-staff binding to the profile, and `applySwitchStates`
+    (lib/access.ts) overlays it for any client-kind payload, which only ever
+    runs for a bound login. Derived it cannot drift: guest bindings are
+    rebuilt from live invites, so a revoke takes the login with it, and SMG's
+    existing binding needs no backfill. Owner and staff answers unchanged; the
+    deep link still demands her explicit, non-suggested position before it
+    redirects (spec 21 §9.6 stands). Also correctly reaches
+    creation.review_deeplink, client_access.mini_shelf,
+    creation.seed_input_client and intake.reminders — a bound client factually
+    has a login.
+
+ 4. THE TOGGLE READS HER CHOICE, DEFAULTS INCLUDED. `windowsOn` read explicit
+    positions only, so on a never-touched profile a default-active window
+    (Brand, Intake, Content, Assets) rendered for the client while its toggle
+    read OFF — the read-back half of "Settings say one thing, the client sees
+    another". `readPosition` (lib/access/windowChoice.ts) is the one copy:
+    position-or-suggested-default per switch, used by windowsOn and the parts
+    row in ClientAccess. The requires-cascade is deliberately NOT folded in:
+    with the login derived, cascade truth for a bound client matches
+    position-or-default across all five windows, and an unbound profile's
+    screen already says "nobody has a login yet" in words. Pinned: a
+    never-touched profile's toggles read exactly what a bound client is
+    granted, window by window; and the test fixture no longer pre-sets the
+    login switch, because the real app never does.
+
+DELIBERATELY UNTOUCHED, so nobody "fixes" them in passing: the client's
+strategy payload still serves locked versions only (lockedOnly, spec 22 §10),
+and Results content still serves approved publications only (spec 27 §14).
+Those are content rules, not visibility rules, and they are hers.
+
+---
+
+
+## 2026-08-12, small hours — THE LEDGER, AND ONE OPEN DEFECT (RESOLVED 2026-08-16, see the entry above)
+
+Live head `fa74839`. 1005 tests. Everything committed is deployed; live build
+verified identical to the repo.
+
+THE ONE OPEN DEFECT, not solved, top of the next session:
+The client sidebar does not reflect her window toggles. Her private-window
+test as SMG's client shows Brand + Intake only, while her Settings show
+Content and Assets ON. Suspects, in order:
+ 1. The client's window list is fetched at sign-in (GET /api/state computes
+    windowsForRole once); toggles changed after their login may not appear
+    until a full reload or re-login. Her test window predates several deploys.
+ 2. "Their brand" maps to strategy.fixed, which is a FIXED switch; the toggle
+    writes a position the resolver may ignore, so Brand may show regardless of
+    the toggle and the toggle may read OFF regardless of reality.
+ 3. SMG's toggle writes may not have persisted; needs checking against the
+    stored body's toolset entries.
+Diagnose against live data BEFORE changing code: ask what windowsForRole
+returns for a guest bound to SMG, then work backwards.
+
+DONE AND LIVE TONIGHT despite the mess: /login (the door the invite flow
+shipped without); the invites-stripped-on-save bug (normalizeState, one line,
+test-pinned, with the client-never-receives-codes pin beside it); the client's
+Brand window shows the strategy AS IT STANDS; a client's Intake is Share-an-
+idea (the 53-question bank can never be served to a client again); a client's
+Content is the REAL board read-only plus Approvals and References; the phone
+board can Add; Table view removed as Board's second name.
+
+DECIDED BUT NOT DONE: "posted left" (ambiguous, awaiting her word on column
+order); a dedicated References window in the client nav (References currently
+rides inside the client's Content tabs); Riti's access and the Instagram
+restart remain hers.
+
+---
+
+
+## 2026-08-11, last entry — WHAT A CLIENT CAN REACH, VERIFIED, AND TOPIC SUGGESTIONS
+
+Live head `ad5b8b5`. 1004 tests.
+
+Her boundary list for clients was mostly already structural, and this time it
+was VERIFIED in code before answering, not assured: the chat renders null for
+any role but owner; the client creation route 404s Engine, Logs and References
+and maps board/assets to the two client windows; client intake is the form
+only; Results is an off-by-default toggle showing only approved publications.
+
+Built new: topic suggestions. Client side, a box on their Content window;
+her side, "Topics they suggested" on the intake front, one tap to an Idea
+card, "On the board" once taken. It rides the client-ideas lane spec 22 §7.5
+declared, through give:intake - no new door, test-pinned.
+
+Also this stretch: previews attach FROM the orphans strip (piece picker in
+place of directions to one); board columns flex to fill the screen; piece
+panel gained Edit details; "From her" off the asset tiles; Content window
+split into Approvals/Upcoming parts with per-part switches the client window
+actually obeys; Settings got a back link; the Creation header collapsed from
+six bars to two; Rejected stage; parked Approved/Scheduled columns.
+
+THE DAY IN ONE LINE for the next session: she used the dashboard for real all
+day, on real clients (Riti, SMG), and nearly everything she hit was either a
+rule that had outlived its repeal, a control that existed but was invisible,
+or directions-to-a-control where the control should have been.
+
+---
+
+
+## 2026-08-11, late — THE BOARD RESHAPED, AND THE LAST STRATEGY GATE ON CLIENTS REMOVED
+
+Live head `9faa5f4`. 999 tests. Two deploys, both verified Ready.
+
+THE BOARD, from her first real session on it:
+ - REJECTED is a seventh stage ("if something gets rejected in the review, it
+   gets rejected"), drawn only when occupied, one-tap Reject on Review cards.
+   In the tree a rejection stays a review VERDICT; a rejected board card
+   migrates as back-in-build.
+ - Approved and Scheduled are parked: hidden while empty, drawn the moment
+   they hold a piece. Data never disappears behind a preference (test-pinned).
+ - Pillars are a responsive grid now, not 206px columns floating in the width.
+ - The sidebar collapse got a VISIBLE button. It existed all day on the profile
+   chip and she asked for the feature while it existed: an invisible control
+   is not a control.
+ - The Client profile and fact boxes read at full height with a pencil to
+   edit; a filled box is a thing to READ.
+ - Goals take her own entries; the closed three-goal union widened to string.
+ - The client profile takes PDF/doc attachments, filed as ordinary intake
+   documents tagged client-profile, so they also appear under Files.
+
+THE GATE, her order verbatim: "get rid of this rule that they can't use or see
+anything without a set strategy for clients." Removed in all three places it
+lived: setup's one-door policy (spec 22 acceptance test 12, rewritten), the
+renderState setup branch, and the Brand window's needsLockedStrategy. Paused,
+closing and archived still close every door - that half of lifecycle is what
+makes pausing real, and the rewritten tests pin it. A guard test pins that no
+window can quietly regrow a lock precondition.
+
+SPEC-DRIFT NOTE for whoever reads specs 21-28 later: acceptance test 12 and
+§11.1's setup-narrows-doors rule are DEAD BY HER ORDER, as is the lock's grip
+on anything client-facing. The switches on Settings are the single authority
+on client visibility, bounded only by resting lifecycles.
+
+---
+
+
+## 2026-08-11, night — ONE FORM, THE STRATEGY FRONT, DELEGATED COPY, AND THE CLIENT-VIEW PREVIEW
+
+Live head `ea1dc56`. 999 tests. Four deploys this evening, each verified Ready.
+
+INTAKE, third rework, on her sharpest note yet: "Questionnaire" and "Build a
+form" were two tabs that both asked questions. ONE form now; the eight brand
+questions are prefills inside it, each carrying its fact id so answers land
+under the brand boxes. The FRONT of intake is the strategy taking shape: a
+Client profile box (recorded, never generated - her explicit rule: "I only
+want things to get recorded correctly and in proper place rather than making
+up something"), the eight boxes filling as answers arrive, and now PDF/doc
+attachments filed as ordinary intake documents tagged client-profile. She can
+record answers herself in Responses (owner-recorded), so calls and WhatsApp
+replies are not second-class.
+
+SETTINGS gained "If they logged in right now": clientView() asks
+windowsForBinding against a temporary binding - the preview IS the real rules,
+and closed windows carry the reason. This is the answer to "I have to properly
+share access and see what they are able to see".
+
+TWO DELEGATED COPY PASSES, both reviewed line-by-line before commit (both were
+pure string swaps, 74/74 and 180/180, honesty rules intact):
+ - Client-facing surfaces: Sign in / access code, the form (Answer later,
+   Review your answers, Submit), verdict labels (Approve, Request a revision,
+   Decline...), public preview errors.
+ - Analysis: Coverage / Comparison / Verdicts register; "Sync stalled" for
+   "The pipe stopped"; every third-person "her" out of client-visible strings.
+
+GOALS are hers to invent: the closed three-goal union widened to string, the
+three stay as suggestions, anything she types is a chip of equal standing.
+
+WORTH KNOWING NEXT SESSION: she is now actually USING it (Riti's profile is
+filled in). The delegated-agent pattern worked: strict brief (copy only, tests
+updated not deleted, honesty rules named), then line-by-line diff review in
+the main session before commit. Both agents were clean on first review.
+
+---
+
+
+## 2026-08-11 — MARGINS, A COLLAPSIBLE RAIL, RENAMING, AND THE ADD-A-POST CARD
+
+Live head `a4c7a03`. 997 tests.
+
+MARGINS, corrected. Removing the width cap earlier in the day, I cut the padding
+with it, and the board ended up clipped against both edges. Full width means no
+CAP, not no MARGIN. That distinction is now written in Screen.tsx so it is not
+made again.
+
+THE RAIL COLLAPSES, and the profile chip is the control, so one thing does both
+jobs. Remembered in localStorage, because a rail that reopens on every
+navigation is not collapsible.
+
+RENAMING a profile, from the three dots on the desk. In place, not a dialog: a
+typo is a two-second fix. Safe because access binds by profile ID and never by
+name (spec 21 §6) - renaming can no longer open or cut off a login.
+
+THE ADD-A-POST CARD, rebuilt the same day it shipped, and this is the entry
+worth reading later. That morning I ASKED her what "add" should do and she
+picked title, pillar and format. I built exactly that, inline in the column.
+Seeing it beside what she used to have, she was right that it was the wrong
+shape: a piece is born with a pillar, a topic, a date, a link and usually the
+client's draft, and a three-field row cannot hold a pasted carousel script. It
+quietly taught her to add a title now and fill the rest later, which is how a
+board fills with cards nobody can act on.
+
+THE LESSON: her answer to a narrow question is not a specification. She answered
+what I asked; I should have asked what the card had to HOLD. A date now also
+decides the month a piece files under, beating the month on the table, because a
+piece dated 3 September belongs to September.
+
+---
+
+
+## 2026-08-11 — THE QUESTIONNAIRE BUILDER
+
+Live head `c30bcdd`. 997 tests.
+
+Her ask: it should work "like how we make it on Google Forms". Three tabs, and
+the third is the one that earns its keep, because a form you can build and send
+but cannot read the answers to is a mailing list.
+ - BUILD: a type per question (Paragraph, Short answer, Choose one, Choose any,
+   Yes or no, Number), options for the choice types, reorder, remove.
+ - PREVIEW: drawn from the STORED questions once a form is out, never from the
+   drafts on screen. A preview of something other than what was sent is a lie
+   with good intentions.
+ - RESPONSES: every question with its answer, and every UNANSWERED question
+   shown rather than hidden.
+
+SMALLER THAN IT LOOKS, and this is the useful part for whoever reads next:
+ClientForm could ALREADY draw all six shapes, because the 53-parameter bank
+used them. What was missing was any way for her to CHOOSE one; `openOwnRound`
+hardcoded 'long-text'. Most of what looks missing in this app is a control over
+something that already works.
+
+A REAL BUG THE TESTS CAUGHT, already live before today. Archiving a round set
+the entry state to 'history' and left the round's own `status` saying 'sent'.
+`readRounds` reads data and ignores entry state, so "which round is open?" saw
+every round ever sent and took the FIRST. A second questionnaire would have
+left her reading the first one while the client answered the second. One shared
+`closeOpenRounds` now closes both facts together, for all three senders.
+
+REMOVED THE SAME DAY IT SHIPPED: `YourOwnQuestions`, the one-textarea stopgap.
+A second way to ask a question is the duplication she spent the day cutting.
+
+STILL OPEN: Riti and the Instagram collection restart, both of which she has
+taken on herself.
+
+---
+
+
+## 2026-08-11, end of day — THE CUT-DOWN CONTINUED, AND TWO DEAD RULES FOUND
+
+Live head `d143c28`. 985 tests. Live code verified identical to main.
+
+A whole day of her opening screens and finding things. The pattern that emerged
+is worth more than the list: MOST OF WHAT ANNOYED HER WAS A RULE THAT HAD
+ALREADY BEEN OVERTURNED, still being enforced by code nobody had revisited.
+
+TWO DEAD RULES, both traced to her 2026-08-09 ruling that the lock refuses
+nothing and recording always works:
+
+ 1. "Strategy not locked" was printed on six of her eight profiles, in the
+    shelf, in the sidebar footer, in a board banner and in the Strategy panel
+    line. Its justification, written in the code, was that an unlocked profile
+    has a READ-ONLY Creation. It had not for two days. Removed everywhere. The
+    desk question "Anything not locked?" still answers, and now reads the lock
+    directly rather than a shelf line that no longer exists.
+
+ 2. A profile in `setup` hid Creation and Analysis FROM HER, on the same dead
+    grounds. That is why Subhash Mangat had a sidebar with Intake alone and she
+    could not reach its board. Her side is open now; a CLIENT on a setup profile
+    still sees intake only, and the test pins both halves.
+
+ALSO CUT: the month chips (added that morning, removed the same day, because
+the arrows already moved months and two controls for one job is the clutter she
+has been cutting); the max-w cap on every app screen, which fought the sidebar
+and left wide empty gutters.
+
+INTAKE became four features behind a segmented control, her structure:
+Questionnaire, Custom questions, Meeting notes, Files.
+
+LANGUAGE, and she had to say it twice. The upload form read like a person
+narrating a favour: "A file", "Some words", "Call it", "Given for", "Who gave
+it: They did / I did", "Keep it". Now: File, Link, Text, Name, Attach to,
+Source, Save.
+
+NOT DONE, and she was told plainly rather than left to find out: the
+questionnaire is a tab holding a question list, NOT a form builder. She asked
+for something that works "like how we make it on Google Forms" - build it,
+preview it, open it, see responses laid out. That is the next real piece of
+work. Riti still does not exist, though she can now create the login herself.
+Instagram collection still stalled since 12 July.
+
+THE RULE THIS DAY EARNED, twice over: when a rule changes, the code enforcing
+it does not change with it. A ruling is not applied until every place that
+quoted the old rule has been found and removed.
+
+---
+
+
+## 2026-08-11 — THE STRATEGY 404, AND HOW IT SURVIVED A "FIX"
+
+Live head `d8fa562`. 985 tests.
+
+Deleting the Facts tab broke the Strategy button on every profile. It then
+stayed broken through a fix, a deploy, and a message telling her it was fixed.
+That is the part worth recording.
+
+WHY IT SURVIVED:
+ - THREE lists of panels existed for one room: lib/shell/nav, Room.tsx and
+   StrategyPanel.tsx. Two were updated. Room.tsx already carried a comment
+   warning that a second list had caused exactly this before, when the Profile
+   mockup panel silently did not draw. It happened again because a third copy
+   was never found.
+ - The Strategy BUTTON reads DEFAULT_STRATEGY_TAB, which was still the string
+   'facts'. Fixing the /strategy landing redirect fixed a page she does not use.
+ - The panel route called notFound() on anything unrecognised, so a stale link
+   died rather than landing.
+ - IT WAS VERIFIED WITH CURL. curl returned 200 for a page that 404s in the
+   browser a moment later, because the refusal happens client side. The check
+   could not have caught the bug it was run to catch.
+
+FIXED AT THE CAUSE:
+ - STRATEGY_TABS is DERIVED from ROOM_PANELS. One list.
+ - the default is a panel that exists.
+ - an unrecognised panel FALLS BACK to the default instead of 404ing, so a
+   stale link, bookmark or cached button lands somewhere useful. A renamed
+   panel is our problem, not hers. This also means a browser still running the
+   old bundle cannot produce a 404 any more.
+
+tests/shell.panels.test.ts pins all of it, and the guard was checked by putting
+the bug back: it fails with "the Strategy button opens facts, which is not a
+panel". It also pins that every panel in the rail has a renderer, and that
+Settings is linked from something clickable, because Settings shipped linked
+from nowhere and therefore did not exist from her side.
+
+THE RULE THIS EARNED: a status code is not a verification. For anything that
+renders client side, verify the RENDER or verify STRUCTURALLY with a test that
+fails when the bug is reintroduced. Never report a fix on the strength of a 200.
+
+ALSO IN THIS PASS: the board's chrome was cut (lock banner is a line, the empty
+"Needs you today" card is hidden, the posted reading is a line) and columns went
+170px to 440px; the copy was rewritten to agency language (Client
+questionnaire, Custom questions, Meeting notes, Client uploads, "Brand profile
+6 of 8 complete").
+
+---
+
+
+## 2026-08-11, later — PEOPLE BECAME DATA, and intake got its two missing routes
+
+Live head `ac43660`, deployed by CLI. Verified after: settings loads, her Divine
+link loads, a wrong invite code is refused 401.
+
+THE CEILING THAT CAME DOWN. Her words: "I cannot register everyone's password
+every time." She was right, and it was structural. `lib/auth.ts` mapped five
+ROLES to five ENVIRONMENT VARIABLES, so a person was a line of code plus a
+server setting: every client cost a change and a deploy. That is the real
+reason Riti never existed.
+
+Now: Settings -> People. A name, a tick per profile, and the app makes a code.
+An invite writes the SAME bindings every other login uses, always kind
+'client', so nothing downstream learned a new idea. An invite decides WHO and
+WHICH PROFILES; the switches still decide WHAT.
+
+Pinned by tests, because this is the security surface:
+ - an invite can never mint 'owner' or any of the five environment roles
+   (guest roles are namespaced `guest:<id>`),
+ - it reaches only the profiles ticked, and an invite with none reaches nothing,
+ - revoking shuts the door in the SAME write that kills the code, because guest
+   bindings are rebuilt from live invites only.
+
+Her own passcode deliberately stays in the environment: her login must never
+depend on a database read.
+
+ONE CHOICE AGAINST INSTINCT, recorded so nobody "fixes" it later: the code is
+shown permanently rather than once. The real failure mode here is not someone
+reading it off her screen, it is her client losing it and her having no way to
+read it back, which would force a reissue and make her first message a lie.
+Take back is one tap and immediate.
+
+THE DECLARATION CONTRACT EARNED ITS KEEP. Adding `invites` to AppState failed
+the build twice until it had a feature, an address and a scope. Spec 21 working
+exactly as designed, catching a real omission with no human involved.
+
+INTAKE'S TWO MISSING ROUTES, from her question the same day:
+ - Her own questionnaire NEVER EXISTED. Intake could send the eight blank facts
+   or a round from a 53-parameter bank nobody chose. She writes questions now,
+   one per line, and answers come back under the question asked.
+ - Meeting notes existed and I DELETED THEM that morning: the route lived only
+   on the Rounds screen, and taking Rounds off Intake took it too. Restored,
+   and now carrying who said it. A meeting round opens ALREADY curated so it
+   never sits there looking like a question waiting on a client.
+
+THE PDF READER. Documents open in place, list left and the file right. No pdf
+library: browsers already draw PDFs and the file is a URL on storage the app
+serves, so an iframe is the whole implementation. A LINK ending .pdf stays a
+link, because Canva and Drive refuse to be framed and a permanently blank box
+reads as a broken app.
+
+SPACING, first pass only. Board columns 206 to 240 (268 wide), Strategy rail
+212 to 172. She has not reviewed it yet.
+
+STILL OPEN: Riti does not exist (she can now create the login herself, which
+was the blocker). Instagram collection still stalled since 12 July, so the new
+posted bar shows counts and refuses to show performance. The four legacy
+logins stay in server config and are not listed in People.
+
+---
+
+
+## 2026-08-11, deployed — THE CUT-DOWN. Live on her go.
+
+Live head `daabe45`, deployed by CLI (the GitHub hook has been dead since 08-10).
+Both client-facing links verified after: the SMG mockup and the Divine carousel.
+
+Her framing, and the one to keep: "We have built a lot, and a lot of this is
+very unnecessary. To make it usable, we now have to cut down things." Every
+change below REMOVES something. That is the direction of travel now.
+
+WHAT WENT
+- Intake's Rounds and Curation screens, and the 53-question bank as her route in.
+- Strategy's Facts tab (the same eight boxes with six fewer of them).
+- Decide from the rail; it survives only as the editor a row on The brand opens.
+- Gates (it polices machine drafts, and the Engine is parked).
+- Switches (91 toggles of plumbing; "What they see" is the half she wanted).
+- The fact boxes off Intake entirely. Her first and sharpest complaint.
+
+WHAT ARRIVED
+- The brand: one page, five headings, the whole brand read top to bottom.
+- Settings as its own group: What they see, Lifecycle, Intake history.
+- Brand book takes files AND links (Canva cannot be uploaded, so a link is a
+  first-class member, not a lesser case).
+- Board: every month holding work is a chip; add an entry with title, pillar
+  and format on every column; a posted-so-far bar.
+- Engine moved last in Creation.
+- USPs and Demographics, declared and outside the lock's list on purpose.
+
+THE STANDING LESSON, earned twice today. Asked to remove duplication, the first
+attempt ADDED a fifth copy of the brand questions and called it a draft. She
+counted them back: "the same thing again... same thing again." When she says
+cut, the deliverable is a shorter list, not a better-organised longer one.
+
+NOT DONE, and owed: the documentation feature (client PDFs opening in a real
+reader), the spacing pass, and Riti still does not exist. DB credentials are
+unavailable in this session, so no live profile has been touched by hand.
+
+---
+
+
+## 2026-08-11 — INTAKE REBUILT, AND SHARING BECOMES A CHOICE (branch, not live)
+
+Branch `claude/intake-rework`, preview deployed, NOT in production.
+
+**What she said:** "I am particularly annoyed with the intake section. I just
+don't want to keep it there... make it simple instead of 'record this' or 'do
+that,' and have a proper UI/UX working: what will proceed where." And: "build a
+settings feature in my dashboard where I can select what exactly the client can
+view while adding the profile, and what not."
+
+**What intake was.** A process: Rounds and Curation, two screens over one set of
+information, under two nouns she never chose, beside a THIRD page (Strategy ->
+Facts) holding the same eight boxes. Asking a client one question meant three
+screens. The parameter bank behind it asks 53 questions. She never asked for
+any of that; PLAN and specs 21 to 35 were largely Claude's model of her business
+approved at the end rather than built from her at the start, and this is the
+first place that bill came due.
+
+**What it is now.** ONE page: the eight facts, hers to type at any time, and
+three EQUAL ways in - she types it, they send a document, or she asks them the
+blanks and the link appears in the same breath. No route is required. Nothing
+is gated. "Round" and "curation" appear nowhere she can read. Old rounds still
+read through Strategy -> Intake history, so nothing recorded is lost.
+
+A real bug fell out of the merge: the client's answer was only ever shown under
+three of the eight facts. A client could answer Pillars, Platforms, Cadence,
+Goals or Look and she would never see it. All eight show it now.
+
+**What they see.** Five windows, her words, one toggle each, four presets. It
+sets the switches she has been setting by hand, per profile, on a screen of
+forty. It grants nothing: `windowsForBinding` stays the only authority, and a
+test READS lib/access.ts to prove the table matches, so this screen can never
+drift into promising access the rules will refuse. It also says the two things
+she would otherwise learn from a client: a ticked window that still will not
+render says why, and a profile nobody is bound to says so first.
+
+942/942, typecheck clean, build green.
+
+**Not done, and owed:** Riti does not exist anywhere yet, and the DB credentials
+are unavailable in this session, so no live profile was touched. Her clients
+still need a PASSCODE to answer intake - the link is `/profile/<id>/intake`, not
+a public one like `/p/`. That is the next real piece of friction and spec 32 is
+where it gets removed.
+
+---
+
+
+## 2026-08-11 — THE OTHER DEAD LINK: MOCKUP SHARING WAS NEVER BUILT
+
+She copied the share link for the profile mockup she made for Subhash Mangat &
+Group, and it opened to "Preview not found". Different bug, same shape of
+lesson.
+
+**This one was not the caching bug and had nothing to do with it.** Spec 35 §5
+said the mockup shares through the existing `/p/[shareId]` machinery, and
+`MockupScreen` shipped a "Copy the link" button that hands out exactly such a
+URL - but the page only ever resolved PREVIEWS. Every mockup link ever copied
+was dead from the day the feature went live. It stayed invisible because the
+only way to find it is to actually send one to a client, which is what she did.
+
+The page now falls through **preview → mockup → not-found**. The mockup render
+is the same `Phone` component with every handler left off, so spec 35's
+read-only guarantee (acceptance item 7) is structural rather than promised:
+on that render no editing affordance exists in any state.
+
+Live and verified: her mockup link serves `@subhashmangatgroup`, her Divine
+carousel link still serves `@divinestudio2021`. 923/923, typecheck clean,
+build green, deployed by CLI (`vercel deploy --prod`) because Vercel's GitHub
+hook stopped firing on 08-10 and has not resumed - **if a push does not appear
+live, that is why; deploy from a clean archive of origin/main.**
+
+The standing lesson from both link failures, now twice earned: **verify the
+thing she will actually do, not the code path you believe in.** The carousel
+bug needed instruments. This one needed one click of her own button.
+
+---
+
+
+## 2026-08-10 — THE EIGHT-DAY DATA EATER, FOUND AND KILLED
+
+Her Divine preview link died in front of a client, three remakes failed, and
+the trail ended somewhere nobody had looked: **Next.js was caching the
+database read itself.** supabase-js rides on fetch, Next caches fetch by URL,
+and the server client's few long-lived query URLs were served from the data
+cache at random. Every symptom since 1 August was this one behavior:
+
+- previews vanishing after saving (a save read a CACHED base and wrote it
+  back, erasing everything newer - the log caught the store going 4 → 5 → 3 → 4)
+- the two previews "a stale tab erased" on 08-01 (it was never the tab)
+- a public preview link that lived and died by coin toss for days
+- three wrong diagnoses in a row (lock gate, stale tab, ghost link), each
+  plausible, none evidenced. The lesson is written in the code comments:
+  instruments before theories.
+
+**The proof** was an invisible fact line on the not-found page: a request that
+rendered "Preview not found" carried `inBlob=true` in the same breath. Same
+row, same request; the only difference between the query that hit and the one
+that missed was the fetch URL.
+
+**Fixed, deployed, and measured: 70 of 70 loads of her client link succeed.**
+
+Three layers shipped, all staying:
+1. `noStoreFetch` pinned on EVERY server-side Supabase client (9 files). The
+   database is the cache.
+2. Every write door (all 9) is now compare-and-swap via `mutateState`: a write
+   lands only if the row still carries the version its base was read from.
+   Lost updates are structurally impossible even if some future layer goes
+   stale again.
+3. Previews mirror into a small dedicated row on every save; the public /p/
+   page reads the mirror first and self-heals it on a blob hit.
+
+Also that day, her rulings: the lock refuses nothing anymore (recording always
+works), and the desk chat imports Canva links instead of refusing them.
+
+---
+
+
 ## 2026-08-09, end of day — BOTH DEPLOYS LIVE, ON HER PUSH
 
 Live head `dfbf3cb`, Vercel SUCCESS, live matches vault exactly. Three deploys,

@@ -103,7 +103,7 @@ test('the position moves with the cursor, and the last step is not the end', () 
   eq(modelFromSteps(steps, 2).positionLine, '3 of 4', 'third of four');
   eq(modelFromSteps(steps, 3).onReview, false, 'the fourth question is still a question');
   eq(modelFromSteps(steps, 4).onReview, true, 'the review screen sits one past the last');
-  eq(modelFromSteps(steps, 4).positionLine, 'the last look', 'and it says what it is');
+  eq(modelFromSteps(steps, 4).positionLine, 'Review', 'and it says what it is');
 });
 
 // ── How do I go on, how do I go back ─────────────────────────────────────────
@@ -149,8 +149,8 @@ test('answered, skipped and blank are three different things', () => {
   eq(steps[0].state, 'answered', 'they said it');
   eq(steps[1].state, 'blank', 'they have not reached it');
   eq(steps[2].state, 'skipped', 'they said they would come back');
-  eq(steps[2].stateLine, 'you said you would come back to this', 'and it is visible as that');
-  eq(stateLine('blank'), 'not answered yet', 'blank says the true, different thing');
+  eq(steps[2].stateLine, 'Marked for later', 'and it is visible as that');
+  eq(stateLine('blank'), 'Not answered yet', 'blank says the true, different thing');
 });
 
 test('a skip writes no answer record at all', () => {
@@ -227,7 +227,7 @@ test('a fresh form starts at the first question and promises the save', () => {
   eq(resumeIndex(steps), 0, 'nothing is done, so the first thing is the first thing');
   eq(
     resumeLine(steps, 0),
-    '4 questions. Answers are saved as you give them, so you can stop whenever you want and come back.',
+    '4 questions. Your answers are saved automatically, so you can return at any time.',
     'and it says the one thing a stranger needs to hear',
   );
 });
@@ -241,7 +241,7 @@ test('reopening returns to the first thing not yet done, and says which', () => 
   eq(resumeIndex(steps), 2, 'two are done, so the third is where they left off');
   eq(
     resumeLine(steps, resumeIndex(steps)),
-    'You are back at question 3 of 4. Everything you sent before is saved.',
+    'Resuming at question 3 of 4. Your previous answers are saved.',
     'in one plain line',
   );
 });
@@ -262,7 +262,7 @@ test('when everything is answered the resume point is the review screen', () => 
   const steps = buildSteps(inputFrom(body));
 
   eq(resumeIndex(steps), 4, 'one past the last question');
-  eq(resumeLine(steps, 4), 'All 4 answered. Have a last look, then send it.', 'and it says so');
+  eq(resumeLine(steps, 4), 'All 4 questions answered. Review and submit when ready.', 'and it says so');
   eq(modelFromSteps(steps, resumeIndex(steps)).onReview, true, 'which is the review screen');
 });
 
@@ -288,13 +288,13 @@ suite('spec 33 §4 — progress is counted from the array, never a percentage');
 
 test('the progress line changes because the array changed', () => {
   let body = withRound(FOUR);
-  eq(progressLine(buildSteps(inputFrom(body))), '0 answered and 4 not started.', 'at the start');
+  eq(progressLine(buildSteps(inputFrom(body))), '0 answered and 4 remaining.', 'at the start');
 
   body = answer(body, 1, NAME, 'Kaur Studio');
-  eq(progressLine(buildSteps(inputFrom(body))), '1 answered and 3 not started.', 'after one answer');
+  eq(progressLine(buildSteps(inputFrom(body))), '1 answered and 3 remaining.', 'after one answer');
 
   const withSkip = buildSteps(inputFrom(body, { skipped: [HATE] }));
-  eq(progressLine(withSkip), '1 answered, 1 to come back to and 2 not started.', 'and a skip is counted as itself');
+  eq(progressLine(withSkip), '1 answered, 1 marked for later and 2 remaining.', 'and a skip is counted as itself');
 
   const p = progressOf(withSkip);
   eq(p.answered + p.skipped + p.blank, p.total, 'the three states account for every question, always');
@@ -338,14 +338,14 @@ test('it cannot be sent while anything is blank or only skipped', () => {
   eq(held.canSend, false, 'one is only skipped, so it is not finished');
   eq(
     held.sendLine,
-    '1 you said you would come back to. Finish it and this is ready to send.',
+    '1 marked for later. Complete it to submit.',
     'and it says which, in her words',
   );
 
   body = answer(body, 1, HATE, 'nothing corporate');
   const done = formModel(inputFrom(body), 4);
   eq(done.canSend, true, 'now it can go');
-  eq(done.sendLine, 'All 4 answered. Send it when you are ready.', 'and it says that');
+  eq(done.sendLine, 'All 4 questions answered. Submit when you are ready.', 'and it says that');
 });
 
 test('blank and skipped are both named when both are outstanding', () => {
@@ -354,7 +354,7 @@ test('blank and skipped are both named when both are outstanding', () => {
   const steps = buildSteps(inputFrom(body, { skipped: [HATE] }));
   eq(
     sendLine(steps),
-    '2 still blank and 1 you said you would come back to. Finish those and this is ready to send.',
+    '2 not answered and 1 marked for later. Complete them to submit.',
     'both, counted',
   );
 });
@@ -407,5 +407,5 @@ test('an empty round is a review screen that says so, not a broken walk', () => 
   eq(m.total, 0, 'nothing to walk');
   eq(m.onReview, true, 'so there is nowhere to be but the end');
   eq(m.canSend, false, 'and nothing to send');
-  eq(m.progressLine, 'Nothing to answer right now.', 'said plainly');
+  eq(m.progressLine, 'No questions to answer right now.', 'said plainly');
 });

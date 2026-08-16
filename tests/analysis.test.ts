@@ -67,7 +67,7 @@ test('1. all eight surfaces render the July stall as a gap, and not one reports 
   const now = nowView(ctx, SAVED_PER_VIEW);
   ok(!now.coverage.complete, 'Now knows the period is incomplete');
   ok(now.first_block.includes('2026-07-12'), 'and its FIRST block is the gap, not a badge');
-  ok(now.first_block.includes('pipe stopped'), 'in her language');
+  ok(now.first_block.includes('Sync stalled'), 'named plainly');
 
   // 2 — Slices
   const sliced = slice(ctx, { dimension: 'hook_type', metric: SAVED_PER_VIEW });
@@ -116,7 +116,7 @@ test('1. all eight surfaces render the July stall as a gap, and not one reports 
   const digest = monthlyDigest({ ctx, id: 'dg-1', metric: SAVED_PER_VIEW, ...RUN });
   eq(digest.sections[0].id, 'coverage', 'coverage is the first section');
   ok(digest.sections[0].lines[0].includes('2026-07-12'), 'naming the stretch');
-  ok(digest.sections.find(s => s.id === 'suggestion')!.lines[0].includes('Fix the collection'),
+  ok(digest.sections.find(s => s.id === 'suggestion')!.lines[0].includes('Fix data collection'),
     'and the one suggestion is to fix the pipe, not to change the content');
 
   // Asking "how did July go" returns a gap, never a slump: nothing exists after
@@ -894,7 +894,7 @@ test('the weekly pulse is a per-profile entry, and the broken pipe is its first 
   });
   eq(pulse.kind, 'weekly-pulse', 'it is a pulse entry');
   eq(pulse.profile_id, PROFILE, 'belonging to exactly one profile');
-  ok(pulse.sections[0].lines[0].includes('Collection is broken'),
+  ok(pulse.sections[0].lines[0].includes('Data collection is interrupted'),
     'and a broken pipe is the first thing on it');
 });
 
@@ -913,7 +913,7 @@ test('a cumulative metric is never summed across days in the funnel', () => {
 test('an outcome with no declared method is unknown, and no rate is offered', () => {
   const ctx = cleanContext();
   const panel = funnel(ctx).outcomes;
-  ok(panel.heading.includes('Recorded by her'), 'the heading says what the panel is');
+  ok(panel.heading.includes('Recorded manually'), 'the heading says what the panel is');
   ok(panel.soft_signals_note.includes('DMs'), 'and soft signals are named as absent');
 });
 
@@ -941,7 +941,7 @@ test('the call can be no, and says why in plain words', () => {
   const input = buildVerdictInput({ ctx: starved, cycle: '30-day', metric: SAVED_PER_VIEW });
   const call = computeCall(input);
   eq(call.right_call, 'no', 'a starving convert lane makes more of a winner the wrong call');
-  ok(call.reason.includes('empty lane'), 'and it says so plainly');
+  ok(call.reason.includes('empty pillar'), 'and it says so plainly');
   ok(call.reason.includes('Sales push'), 'naming the lane that is empty');
 
   // And the same numbers with every lane fed give a real yes.

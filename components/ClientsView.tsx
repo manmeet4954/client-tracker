@@ -109,7 +109,7 @@ export default function ClientsView() {
       </main>
 
       <Modal open={addOpen} onClose={() => { setAddOpen(false); setNewName(''); }} title="New Client" size="sm">
-        <div className="p-6 space-y-4">
+        <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-stone-500 mb-1.5">Client name</label>
             <input

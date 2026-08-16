@@ -3,6 +3,12 @@ import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
+// Next caches fetch() by URL and supabase-js rides on fetch; long-lived query
+// URLs get served from the data cache at random. That one behavior ate previews
+// for eight days (see lib/supabaseServer.ts). Every server client pins no-store.
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: 'no-store' });
+
+
 export const dynamic = 'force-dynamic';
 
 // One upload endpoint, two destinations: catalogue images (Sonia's shop) and
@@ -14,10 +20,7 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;  // 50 MB per video (Supabase free-tie
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { global: { fetch: noStoreFetch } });
 
 function currentRole() {
   if (!authConfigured()) return 'owner';

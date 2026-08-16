@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { readState, writeState } from '@/lib/supabaseServer';
+import { readState, writeStateScoped } from '@/lib/supabaseServer';
+import { changedScopes } from '@/lib/tree/scopes';
 import { switchConfigFromBody } from '@/lib/strategy/derivation';
 import { effectiveState } from '@/lib/tree/switches';
 import type { AppState } from '@/types';
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
         },
       },
     };
-    await writeState(next);
+    await writeStateScoped(next, changedScopes(state, next));
     return NextResponse.json({ ok: true, published: digestId, approved_at: now });
   }
 
@@ -172,7 +173,7 @@ export async function POST(req: Request) {
     ran.push({ profile_id: profileId, digest_id: id, kind });
   }
 
-  if (ran.length) await writeState(next);
+  if (ran.length) await writeStateScoped(next, changedScopes(state, next));
   return NextResponse.json({ ran, skipped });
 }
 

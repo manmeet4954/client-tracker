@@ -114,10 +114,10 @@ test('moving a piece to the stage it is already at is not a move', () => {
   eq(v.reason, '', 'and nothing is said');
 });
 
-test('the panel has the same six stages as the board', () => {
+test('the panel has the same stages as the board', () => {
   eq(CONTENT_STAGES.map(s => s.id),
-    ['idea', 'writing', 'review', 'ready', 'scheduled', 'posted'],
-    'six stages, in order, ids unchanged');
+    ['idea', 'writing', 'review', 'rejected', 'ready', 'scheduled', 'posted'],
+    'seven stages, in order, existing ids unchanged');
 });
 
 // ── 3. The fields ────────────────────────────────────────────────────────────

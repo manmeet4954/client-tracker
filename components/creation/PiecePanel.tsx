@@ -20,10 +20,13 @@
 // Chrome is ink. The profile's hue never appears in here.
 
 import { useEffect, useState } from 'react';
-import { Check, Copy, ExternalLink, Send, X } from 'lucide-react';
+import { Check, Copy, ExternalLink, Pencil, Send, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { formatDate, generateId, generateShareId } from '@/lib/utils';
-import { CONTENT_STAGES, type ContentStage, type PreviewPost } from '@/types';
+import {
+  CONTENT_STAGES, DEFAULT_CONTENT_TYPES, type ContentCard, type ContentPillar,
+  type ContentStage, type PreviewPost,
+} from '@/types';
 import { OPERATIONAL_GATES } from '@/lib/tree/objects';
 import { readGateSet } from '@/lib/strategy/derivation';
 import { renderProfile } from '@/lib/shell/profile';
@@ -47,6 +50,7 @@ export default function PiecePanel({ cardId, onClose }: {
 }) {
   const { state, role, dispatch, saveNow } = useApp();
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [origin, setOrigin] = useState('');
 
   // The public link is only knowable in the browser, and the panel must render
@@ -169,8 +173,37 @@ export default function PiecePanel({ cardId, onClose }: {
 
   const moveNote = canMove({ locked, from: card.stage, to: card.stage }).reason;
 
+  // Editing, 2026-08-11. This panel shipped read-only end to end: 427 lines
+  // about a piece and not one way to change a word of it. Her report was
+  // plainly true: "there is no way to edit the existing cards." The form is
+  // the same fields a piece is born with, writing the same UPDATE_CONTENT_CARD
+  // everything else writes.
+  if (editing) {
+    return (
+      <Panel title={card.title || 'Untitled post'} onClose={onClose}>
+        <EditPiece
+          card={card}
+          pillars={data?.pillars ?? []}
+          allCards={cards}
+          onCancel={() => setEditing(false)}
+          onSave={next => {
+            dispatch({ type: 'UPDATE_CONTENT_CARD', payload: { clientId: profileId, card: next } });
+            void saveNow();
+            setEditing(false);
+          }}
+        />
+      </Panel>
+    );
+  }
+
   return (
     <Panel title={card.title || 'Untitled post'} onClose={onClose}>
+      <button type="button" onClick={() => setEditing(true)}
+        className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-[12.5px] font-semibold text-muted hover:text-text">
+        <Pencil size={13} strokeWidth={2.2} />
+        Edit details
+      </button>
+
       {/* The six stages, the current one filled. Before the lock they are not
           buttons at all: a refused control is not drawn as a dead one. */}
       <div>
@@ -421,6 +454,110 @@ function Panel({ title, onClose, children }: {
         <div className="flex flex-1 flex-col gap-[18px] overflow-y-auto px-5 py-[18px]">
           {children}
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+const EDIT_LABEL = 'block text-[11.5px] font-bold uppercase tracking-[.08em] text-faint';
+const EDIT_FIELD =
+  'mt-1 w-full rounded-xl border border-[rgba(23,21,26,.12)] bg-white px-3 py-2.5 text-[14px] text-text placeholder:text-faint focus:border-accent focus:outline-none';
+
+/** The same fields a piece is born with, prefilled, saved through the same
+ *  action. Only the name is required, exactly as at birth. */
+function EditPiece({ card, pillars, allCards, onCancel, onSave }: {
+  card: ContentCard;
+  pillars: ContentPillar[];
+  allCards: ContentCard[];
+  onCancel: () => void;
+  onSave: (next: ContentCard) => void;
+}) {
+  const [title, setTitle] = useState(card.title);
+  const [pillarId, setPillarId] = useState(card.pillarId);
+  const [contentType, setContentType] = useState(card.contentType);
+  const [scheduledDate, setScheduledDate] = useState(card.scheduledDate);
+  const [link, setLink] = useState(card.link ?? '');
+  const [content, setContent] = useState(card.content);
+  const [notes, setNotes] = useState(card.notes);
+
+  const used = allCards.map(c => c.contentType)
+    .filter((t): t is string => !!t && !DEFAULT_CONTENT_TYPES.includes(t));
+  const types = [...DEFAULT_CONTENT_TYPES, ...new Set(used)];
+
+  function save() {
+    if (!title.trim()) return;
+    onSave({
+      ...card,
+      title: title.trim(),
+      pillarId,
+      contentType,
+      scheduledDate: scheduledDate.trim(),
+      link: link.trim(),
+      content: content.trim(),
+      notes: notes.trim(),
+      // A dated piece belongs to its date's month, exactly as at birth.
+      createdMonth: scheduledDate.trim() ? scheduledDate.slice(0, 7) : card.createdMonth,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  return (
+    <div className="space-y-3.5">
+      <div>
+        <label className={EDIT_LABEL} htmlFor="edit-title">What is it</label>
+        <input id="edit-title" value={title} onChange={e => setTitle(e.target.value)} className={EDIT_FIELD} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className={EDIT_LABEL} htmlFor="edit-pillar">Pillar</label>
+          <select id="edit-pillar" value={pillarId} onChange={e => setPillarId(e.target.value)} className={EDIT_FIELD}>
+            <option value="">Not sorted yet</option>
+            {pillars.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={EDIT_LABEL} htmlFor="edit-format">Format</label>
+          <select id="edit-format" value={contentType} onChange={e => setContentType(e.target.value)} className={EDIT_FIELD}>
+            <option value="">Not decided</option>
+            {types.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className={EDIT_LABEL} htmlFor="edit-date">Going out on</label>
+        <input id="edit-date" type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className={EDIT_FIELD} />
+      </div>
+      <div>
+        <label className={EDIT_LABEL} htmlFor="edit-link">Link</label>
+        <input id="edit-link" value={link} onChange={e => setLink(e.target.value)}
+          placeholder="Canva, a doc, a reference" className={EDIT_FIELD} />
+      </div>
+      <div>
+        <label className={EDIT_LABEL} htmlFor="edit-content">The post</label>
+        <textarea id="edit-content" value={content} onChange={e => setContent(e.target.value)} rows={8}
+          className={`${EDIT_FIELD} resize-y leading-[1.6]`} />
+      </div>
+      <div>
+        <label className={EDIT_LABEL} htmlFor="edit-notes">Notes</label>
+        <textarea id="edit-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+          className={`${EDIT_FIELD} resize-y`} />
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        {/* The panel's standing rule (test-pinned): off means absent, never a
+            greyed-out control. So a blank title hides Save and says why. */}
+        {title.trim() ? (
+          <button type="button" onClick={save}
+            className="rounded-xl bg-ink px-5 py-2.5 text-[13px] font-semibold text-white">
+            Save
+          </button>
+        ) : (
+          <span className="text-[12.5px] text-faint">A piece needs a name.</span>
+        )}
+        <button type="button" onClick={onCancel}
+          className="rounded-xl px-3 py-2.5 text-[13px] font-semibold text-muted hover:text-text">
+          Cancel
+        </button>
       </div>
     </div>
   );

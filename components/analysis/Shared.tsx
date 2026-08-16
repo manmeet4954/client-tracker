@@ -105,7 +105,7 @@ export function CoverageFirst({ coverage, fixHref }: { coverage?: Coverage; fixH
   if (!bar) return null;
   return (
     <Card className="px-5 py-[18px]">
-      <Kicker>Coverage, first</Kicker>
+      <Kicker>Coverage</Kicker>
       <div className="mt-3 flex flex-wrap items-center gap-3.5">
         <div className="min-w-[200px] flex-1">
           <div className="flex h-3 overflow-hidden rounded-full bg-chip">
@@ -117,12 +117,12 @@ export function CoverageFirst({ coverage, fixHref }: { coverage?: Coverage; fixH
             {bar.sinceLine ? <span className="font-semibold text-overdue">{bar.sinceLine}</span> : null}
           </div>
         </div>
-        {fixHref && !bar.complete ? <GhostButton href={fixHref}>Fix the connection</GhostButton> : null}
+        {fixHref && !bar.complete ? <GhostButton href={fixHref}>Fix connection</GhostButton> : null}
       </div>
       <p className="mt-3 text-[13px] leading-[1.55] text-muted">
         {bar.readAgainstLine
-          ? `${bar.readAgainstLine} Gaps are drawn as gaps and never as a zero.`
-          : 'Collecting normally. Everything below is read against the whole period.'}
+          ? `${bar.readAgainstLine} Missing days are shown as gaps, not zeros.`
+          : 'Data collection is up to date. Metrics below reflect the full period.'}
       </p>
     </Card>
   );
@@ -201,21 +201,21 @@ export function Figure({ m, suffix }: { m: Measured | undefined; suffix?: string
         </span>
       );
     case 'no-coverage':
-      return <span className="text-overdue">we were not looking</span>;
+      return <span className="text-overdue">not collected</span>;
     case 'not-measurable':
       return <span className="text-faint">{m.because ?? 'not measured for this profile'}</span>;
     default:
-      return <span className="text-faint">too early{m.owed ? `: ${m.owed}` : ''}</span>;
+      return <span className="text-faint">insufficient data{m.owed ? `: ${m.owed}` : ''}</span>;
   }
 }
 
 export const BAND_STYLE: Record<string, { label: string; tone: PillTone }> = {
-  earning: { label: 'Earning', tone: 'positive' },
+  earning: { label: 'Performing', tone: 'positive' },
   steady: { label: 'Steady', tone: 'positive' },
-  dragging: { label: 'Dragging', tone: 'attention' },
-  'too-early': { label: 'Too early to judge', tone: 'neutral' },
+  dragging: { label: 'Underperforming', tone: 'attention' },
+  'too-early': { label: 'Insufficient data', tone: 'neutral' },
   blocked: { label: 'Not measured yet', tone: 'neutral' },
-  'not-measurable': { label: 'Not measurable here', tone: 'neutral' },
+  'not-measurable': { label: 'Not measurable', tone: 'neutral' },
   'coverage-gap': { label: 'Collection gap', tone: 'attention' },
 };
 
@@ -224,11 +224,11 @@ export function Band({ state }: { state: string }) {
   return <Pill tone={style.tone}>{style.label}</Pill>;
 }
 
-/** "Too early to judge", with exactly what is still owed. */
+/** "Insufficient data", with exactly what is still needed. */
 export function TooEarly({ owed }: { owed?: string }) {
   return (
     <div className="rounded-xl bg-control px-3.5 py-2.5 text-[13px] text-muted">
-      <span className="font-semibold text-text">Too early to judge.</span>
+      <span className="font-semibold text-text">Insufficient data.</span>
       {owed ? <span> {owed}.</span> : null}
     </div>
   );
@@ -245,7 +245,7 @@ export function ShowMyWorking({ children }: { children: ReactNode }) {
         onClick={() => setOpen(!open)}
         className="text-[12.5px] font-semibold text-faint underline underline-offset-2 hover:text-text"
       >
-        {open ? 'Hide my working' : 'Show my working'}
+        {open ? 'Hide calculation' : 'Show calculation'}
       </button>
       {open ? (
         <p className="mt-2 rounded-xl bg-control px-3.5 py-2.5 text-[12.5px] leading-[1.6] text-muted">

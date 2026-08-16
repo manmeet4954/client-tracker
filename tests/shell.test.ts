@@ -785,13 +785,20 @@ test('14. migrated but unlocked: the card opens the new shell anyway', () => {
 });
 
 test('14b. and an unlocked profile renders Creation read-only rather than empty', () => {
+  // REWRITTEN 2026-08-16. This test used to pin `hidden` for the client before
+  // the lock — the FOURTH home of the rule she killed on 2026-08-11 ("get rid
+  // of this rule that they can't use or see anything without a set strategy
+  // for clients"). Three homes went that day; the resolver's client branch
+  // survived and is why her Content and Assets toggles moved nothing. The lock
+  // now decides nothing for a client: her switches do. Her own side keeps the
+  // quiet waiting shell, exactly as before.
   const state = shellState();
   const unlocked = renderProfile(state, 'divine-studio', 'owner');
   ok(!unlocked.strategy_locked, 'divine has not locked');
   eq(renderState(unlocked, 'creation.board', 'owner'), 'history',
     'her side reads the board and cannot move it');
-  eq(renderState(unlocked, 'creation.board', 'client'), 'hidden',
-    'and a client sees nothing of it before the lock');
+  eq(renderState(renderProfile(state, 'divine-studio', 'merushri'), 'creation.board', 'client'), 'active',
+    'and a client sees what her switches say, lock or no lock');
 
   const body = state.clientData['divine-studio'].body!;
   state.clientData['divine-studio'] = {
@@ -863,14 +870,25 @@ test('16c. an archived profile renders read-only, everywhere', () => {
   }
 });
 
-test('16d. a setup profile has intake and the corner, and nothing else', () => {
+test('16d. a setup profile hides nothing by lifecycle: her switches decide', () => {
+  // REWRITTEN TWICE on 2026-08-11, and the second time is the one to keep.
+  // The morning version opened setup for HER and kept the client on intake
+  // only. Her evening order went further: "get rid of this rule that they
+  // can't use or see anything without a set strategy for clients." So setup
+  // now renders exactly what the switches say, for both of them, and this
+  // pins that the old gate is gone in both directions.
   const state = shellState();
   state.clients = state.clients.map(c => (c.id === 'resumeguru' ? { ...c, lifecycle: 'setup' as Lifecycle } : c));
-  const profile = renderProfile(state, 'resumeguru', 'owner');
-  eq(renderState(profile, 'intake.questionnaire', 'owner'), 'active', 'intake');
-  eq(renderState(profile, 'strategy.switchboard', 'owner'), 'active', 'the corner');
-  eq(renderState(profile, 'creation.board', 'owner'), 'hidden', 'creation cannot open');
-  eq(renderState(profile, 'analysis.always_live', 'owner'), 'hidden', 'and neither can analysis');
+  const asOwner = renderProfile(state, 'resumeguru', 'owner');
+  eq(renderState(asOwner, 'creation.board', 'owner'), 'active', 'her board renders in setup');
+  const asClient = renderProfile(state, 'resumeguru', 'client');
+  const active = shellState();
+  const activeClient = renderProfile(active, 'resumeguru', 'client');
+  eq(
+    renderState(asClient, 'creation.review', 'client'),
+    renderState(activeClient, 'creation.review', 'client'),
+    'a client in setup sees what a client on an active profile sees',
+  );
 });
 
 test('16e. the pulse composes only from profiles whose pulse switch is on', () => {

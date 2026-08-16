@@ -157,6 +157,9 @@ const APP_STATE_SLICES: Record<keyof AppState, true> = {
   clients: true, clientData: true, personalTasks: true, brainDump: true,
   containerMap: true, observations: true, chatLog: true, bindings: true,
   tasteRules: true,
+  // 2026-08-11: people she invited. Addressed with `bindings` because they are
+  // the same question (who may open which profile) asked from the other end.
+  invites: true,
 };
 
 const CLIENT_DATA_SLICES: Record<keyof ClientData, true> = {

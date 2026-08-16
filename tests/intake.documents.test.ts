@@ -418,7 +418,7 @@ test('19. the report header counts what is there, and changes when it changes', 
 suite('spec 33 §5 — every count comes from the array it describes');
 
 test('20. the round card line is recounted every time the array changes', () => {
-  eq(documentsLine([]), 'Nothing handed over on this round yet.', 'nothing is nothing');
+  eq(documentsLine([]), 'No files received yet.', 'nothing is nothing');
   eq(
     documentsLine([{ extraction_state: 'ok' }]),
     '1 thing handed over. All of them read.',

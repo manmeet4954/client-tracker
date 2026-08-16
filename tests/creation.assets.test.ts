@@ -93,9 +93,9 @@ test('a set kind comes from who uploaded, so nobody is asked to tag it', () => {
   eq(setSource([item('a', 's1', 'owner'), item('b', 's1', 'merushri')]), 'both', 'mixed is both');
 
   eq(setKind([]), 'New set', 'the empty label');
-  eq(setKind([item('a', 's1', 'owner')]), 'From her', 'hers');
+  eq(setKind([item('a', 's1', 'owner')]), '', 'her own uploads carry no label, her request 2026-08-11');
   eq(setKind([item('a', 's1', 'shiva')]), 'From the client', 'theirs');
-  eq(setKind([item('a', 's1', 'owner'), item('b', 's1', 'shiva')]), 'From both', 'both');
+  eq(setKind([item('a', 's1', 'owner'), item('b', 's1', 'shiva')]), 'From the client and you', 'both');
 });
 
 test('setMeta counts the array it describes, singular and plural', () => {
@@ -116,7 +116,7 @@ test('a tile carries the count of ITS OWN items and nothing else', () => {
   eq(tiles.length, 2, 'one tile per set, and orphans invent no tile');
   eq(tiles[0].count, 2, 'August shoot counted its own two');
   eq(tiles[0].meta, '2 originals kept', 'the meta line agrees with the count');
-  eq(tiles[0].kind, 'From her', 'kind derived from the uploads');
+  eq(tiles[0].kind, '', 'kind derived from the uploads');
   eq(tiles[0].previewUrl, 'https://cdn.example.com/a-thumb.webp', 'the first thumb previews');
   eq(tiles[1].count, 1, 'flatlays counted one');
   eq(tiles[1].kind, 'From the client', 'the client uploaded it');

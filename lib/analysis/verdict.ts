@@ -304,7 +304,7 @@ export function computeCall(input: VerdictInput): ComputedCall {
     return {
       pattern_ref: leading?.id ?? null,
       right_call: 'cannot say yet',
-      reason: 'Collection was incomplete for part of this period, so anything below stands on a partial record.',
+      reason: 'Data collection was incomplete for part of this period, so these results are based on a partial record.',
     };
   }
 
@@ -313,8 +313,8 @@ export function computeCall(input: VerdictInput): ComputedCall {
       pattern_ref: null,
       right_call: 'cannot say yet',
       reason: input.patterns.length
-        ? 'Nothing is far enough above your own normal to call a pattern yet.'
-        : `Nothing has passed the threshold this period. ${input.cannot_say.length} things are close and named below.`,
+        ? 'Nothing is far enough above this account\'s typical to establish a pattern yet.'
+        : `Nothing passed the threshold this period. ${input.cannot_say.length} patterns are close and listed below.`,
     };
   }
 
@@ -324,14 +324,14 @@ export function computeCall(input: VerdictInput): ComputedCall {
     return {
       pattern_ref: leading.id,
       right_call: 'no',
-      reason: `${leading.dimension} "${leading.value}" is ahead of your own normal, but your ${starving.map(s => s.name).join(' and ')} lane had nothing in it this period. More of what is already winning does not fix an empty lane.`,
+      reason: `${leading.dimension} "${leading.value}" is ahead of this account's typical, but the ${starving.map(s => s.name).join(' and ')} pillar had no content this period. More of what is already performing does not fill an empty pillar.`,
     };
   }
 
   return {
     pattern_ref: leading.id,
     right_call: 'yes',
-    reason: `${leading.dimension} "${leading.value}" sits above your own trailing normal on ${leading.n} pieces, with complete collection for the period.`,
+    reason: `${leading.dimension} "${leading.value}" is above this account's trailing typical on ${leading.n} pieces, with complete data collection for the period.`,
   };
 }
 
@@ -438,8 +438,8 @@ export function writeRevisitProposal(body: ProfileBody, input: RevisitInput): Pr
 
 function revisitWords(p: Pattern): string {
   const lift = p.lift.state === 'value' && p.lift.value !== undefined
-    ? `${Math.round(p.lift.value * 1000) / 10}% above your own normal`
-    : 'above your own normal';
+    ? `${Math.round(p.lift.value * 1000) / 10}% above this account's typical`
+    : 'above this account\'s typical';
   return `${p.dimension} "${p.value}" is ${lift} on ${p.n} pieces at the ${p.window} window.`;
 }
 
@@ -535,7 +535,7 @@ export function refusedEvidenceWrites(
     if (p.kind === 'revisit-seed' && !p.cited_verdict_id?.trim()) {
       out.push({
         id: entry.id,
-        reason: 'a revisit proposal must cite the verdict it came from — every suggestion cites its evidence (§15.1)',
+        reason: 'a revisit proposal must cite the verdict it came from (§15.1): every suggestion cites its evidence',
       });
     }
   }

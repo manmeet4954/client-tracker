@@ -264,21 +264,21 @@ export function slice(ctx: AnalysisContext, opts: SliceOptions): SliceResult {
       count: bornBefore.length,
       piece_ids: bornBefore.map(p => p.piece.id),
       words: bornBefore.length
-        ? `${bornBefore.length} posted before the engine. They count in the account totals and sit out of the costume slices.`
+        ? `${bornBefore.length} published before tracking began. Included in account totals; excluded from these breakdowns.`
         : '',
     },
     unplanned: {
       count: ctx.unplanned.length,
       platform_post_ids: ctx.unplanned.map(p => p.platform_post_id),
       words: ctx.unplanned.length
-        ? `${ctx.unplanned.length} posts on the account with no piece here. They count in the totals and carry no pillar.`
+        ? `${ctx.unplanned.length} posts on the account are not tracked as pieces. Included in totals; not assigned to a pillar.`
         : '',
     },
     not_comparable: {
       count: notComparable.length,
       piece_ids: notComparable.map(p => p.piece.id),
       words: notComparable.length
-        ? `${notComparable.length} have no reading in this window: ${notComparable.map(p => unavailableWhy(ctx, p, opts.metric.window)).filter(Boolean)[0] ?? 'the window never materialised'}`
+        ? `${notComparable.length} have no reading in this window: ${notComparable.map(p => unavailableWhy(ctx, p, opts.metric.window)).filter(Boolean)[0] ?? 'the reading window was not reached'}`
         : '',
     },
   };

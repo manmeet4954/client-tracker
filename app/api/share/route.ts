@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { readState, writeState } from '@/lib/supabaseServer';
+import { readState, writeStateScoped } from '@/lib/supabaseServer';
 import { allowedClientIds, normalizeState, mergeRoleWrite, type Role } from '@/lib/access';
 import { generateId } from '@/lib/utils';
+import { changedScopes } from '@/lib/tree/scopes';
 import { Reference } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +54,12 @@ export async function POST(req: Request) {
       [targetId]: { ...cd, references: [ref, ...(cd?.references ?? [])] },
     },
   };
-  await writeState(role === 'owner' ? incoming : mergeRoleWrite(norm, incoming, role));
+  {
+    // CAS (2026-08-09): only the changed slices travel onto a fresh base, so a
+    // share-to-save can never overwrite work that landed since `norm` was read.
+    const final = role === 'owner' ? incoming : mergeRoleWrite(norm, incoming, role);
+    await writeStateScoped(final, changedScopes(norm, final));
+  }
 
   const clientName = norm.clients.find(c => c.id === targetId)?.name ?? 'References';
   return NextResponse.json({ ok: true, clientName });

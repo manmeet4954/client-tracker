@@ -65,7 +65,7 @@ export const PROFILE_SCOPES: Record<string, (keyof ClientData)[]> = {
 };
 
 export const OWNER_SCOPES: Record<string, (keyof AppState)[]> = {
-  'shelf/profiles': ['clients', 'bindings'],
+  'shelf/profiles': ['clients', 'bindings', 'invites'],
   'shelf/today-strip': ['personalTasks'],
   'owner/taste-rules': ['tasteRules'],
   'frozen/chat-log': ['chatLog'],

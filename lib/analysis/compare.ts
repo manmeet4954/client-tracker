@@ -223,8 +223,8 @@ function ageLine(ages: { piece_id: string; age_hours: number }[], window: Observ
 }
 
 function confounderLine(entry: ComparisonEntry): string {
-  if (!entry.confounders.length) return 'Nothing else moved that we can see.';
-  return `Watch out: ${entry.confounders.join('; ')}.`;
+  if (!entry.confounders.length) return 'No other changes detected.';
+  return `Note: ${entry.confounders.join('; ')}.`;
 }
 
 /** §9.4: no silent rescue. A planned comparison whose declared changed variable
@@ -286,7 +286,7 @@ export function plannedStatus(
   }
   return {
     state: waiting.length ? 'open' : 'ready',
-    owed: waiting.length ? waiting.join('; ') : 'both sides have materialised the window',
+    owed: waiting.length ? waiting.join('; ') : 'both sides have completed the window',
     days_left: Math.ceil(worstHoursLeft / 24),
   };
 }

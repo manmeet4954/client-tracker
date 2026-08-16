@@ -13,14 +13,20 @@ import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetricObservation, PlatformPost, PostLink, SyncRun } from '@/lib/tree/objects';
 import type {
+
   AnalysisStore, ChannelConnection, PostReading, StoreQuery,
 } from '@/lib/analysis/read';
+
+// Next caches fetch() by URL and supabase-js rides on fetch; long-lived query
+// URLs get served from the data cache at random. That one behavior ate previews
+// for eight days (see lib/supabaseServer.ts). Every server client pins no-store.
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: 'no-store' });
 
 function client(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase env vars missing');
-  return createClient(url, key);
+  return createClient(url, key, { global: { fetch: noStoreFetch } });
 }
 
 /** A query with no channels reads nothing, rather than reading everything. */

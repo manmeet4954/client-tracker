@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { ChevronLeft, Lock, LockOpen } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { renderProfile } from '@/lib/shell/profile';
-import { CORNER_PANELS } from '@/lib/shell/nav';
+import { CORNER_PANELS, ROOM_PANELS, SETTINGS_PANELS } from '@/lib/shell/nav';
 import { StrategyBody } from '@/components/shell/StrategyPanel';
 import Decide from './Decide';
 
@@ -32,15 +32,22 @@ import Decide from './Decide';
  * `Decide it` is shortened to `Decide` because the room has the space to be
  * plain; that relabelling is the only thing this adds to the map.
  */
-export const ROOM_SECTIONS: { id: string; label: string }[] = CORNER_PANELS.map(p => ({
-  id: p.id,
-  label: p.id === 'derivation' ? 'Decide' : p.label,
-}));
+const label = (p: { id: string; label: string }) => ({ id: p.id, label: p.label });
 
-export const DEFAULT_SECTION = 'facts';
+/** The brand work. */
+export const ROOM_SECTIONS: { id: string; label: string }[] = CORNER_PANELS.map(label);
+/** How the profile is run, kept apart on her instruction (2026-08-11). */
+export const ROOM_SETTINGS: { id: string; label: string }[] = SETTINGS_PANELS.map(label);
+/** Every section the room can open, including the ones reached from a row. */
+export const ALL_SECTIONS: { id: string; label: string }[] = ROOM_PANELS.map(label);
+
+export const DEFAULT_SECTION = 'brand-document';
 
 export function roomSectionOf(value: string | null | undefined): string {
-  return ROOM_SECTIONS.some(s => s.id === value) ? (value as string) : DEFAULT_SECTION;
+  // `derivation` is not in the rail any more, but a row on The brand still
+  // opens it, so routing must keep accepting it.
+  if (value === 'derivation') return 'derivation';
+  return ALL_SECTIONS.some(s => s.id === value) ? (value as string) : DEFAULT_SECTION;
 }
 
 export default function Room({
@@ -86,7 +93,7 @@ export default function Room({
         className="no-scrollbar flex gap-1.5 overflow-x-auto bg-control px-4 py-2.5 md:hidden"
         style={{ borderBottom: '1px solid rgba(23,21,26,.09)' }}
       >
-        {ROOM_SECTIONS.map(s => (
+        {[...ROOM_SECTIONS, ...ROOM_SETTINGS].map(s => (
           <Link
             key={s.id}
             href={hrefFor(s.id)}
@@ -102,10 +109,25 @@ export default function Room({
       <div className="flex items-start">
         {/* Desktop: the sections live down the left and stay put. */}
         <aside
-          className="sticky top-0 hidden w-[212px] shrink-0 flex-col gap-0.5 p-4 md:flex"
+          className="sticky top-0 hidden w-[172px] shrink-0 flex-col gap-0.5 p-3 md:flex"
           style={{ borderRight: '1px solid rgba(23,21,26,.09)' }}
         >
           {ROOM_SECTIONS.map(s => (
+            <Link
+              key={s.id}
+              href={hrefFor(s.id)}
+              className={`rounded-[10px] px-3 py-2.5 text-[13.5px] font-semibold ${
+                s.id === active ? 'bg-ink text-white' : 'text-muted hover:bg-white hover:text-text'
+              }`}
+            >
+              {s.label}
+            </Link>
+          ))}
+
+          <p className="mt-4 px-3 pb-1 text-[11px] font-bold uppercase tracking-[.1em] text-faint">
+            Settings
+          </p>
+          {ROOM_SETTINGS.map(s => (
             <Link
               key={s.id}
               href={hrefFor(s.id)}
@@ -123,7 +145,7 @@ export default function Room({
           )}
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 py-5 md:px-7 md:py-7">
+        <main className="min-w-0 flex-1 px-4 py-5 md:px-6 md:py-6">
           {active === 'derivation'
             ? <Decide profileId={profileId} brandHref={hrefFor('brand')} />
             : <StrategyBody profileId={profileId} tab={active} hrefFor={hrefFor} />}

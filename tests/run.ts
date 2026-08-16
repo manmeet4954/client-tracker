@@ -41,6 +41,16 @@ import './strategy.plain.test.ts';
 import './strategy.reading.test.ts';
 // spec 35 — the profile mockup
 import './mockup.test.ts';
+import './intake.known.test.ts';
+import './access.windows.test.ts';
+import './strategy.document.test.ts';
+import './creation.posted.test.ts';
+import './intake.own.test.ts';
+import './intake.library.test.ts';
+import './access.invites.test.ts';
+import './shell.panels.test.ts';
+import './intake.form-builder.test.ts';
+import './intake.suggestions.test.ts';
 // strategy as a layer, not a gate — the eight facts
 import './strategy.facts.test.ts';
 

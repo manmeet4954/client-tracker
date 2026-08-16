@@ -94,7 +94,7 @@ function goalCard(ctx: AnalysisContext, goal: GoalFacts): GoalCard {
       window: stick.metric.window, coverage,
       metric: stick.metric, proxy: !!stick.proxy, manual: false,
       // There is no pace line, because there is nothing to be behind (§10.2).
-      words: `Direction only: ${declaration!.direction === 'up-is-better' ? 'up is better' : 'down is better'}. Measured against this account’s own trailing normal.`,
+      words: `Direction only: ${declaration!.direction === 'up-is-better' ? 'up is better' : 'down is better'}. Measured against this account’s own trailing baseline.`,
     };
   }
 
@@ -125,15 +125,15 @@ function blockedWords(
     return 'Not measured yet. This goal has no measurement declared.';
   }
   const fallback = declaration.not_measurable_fallback;
-  if (fallback === 'none') return 'Decided as not measurable here.';
+  if (fallback === 'none') return 'Marked as not measurable for this profile.';
   if (fallback === 'manual-checkin') {
-    return 'The check-in number you already log, entered by hand. It is never mixed into a computed rate.';
+    return 'Entered manually from the check-in log. Never combined with computed metrics.';
   }
   if (fallback === 'not-measurable-on-this-platform') {
     const names = platforms.join(', ') || 'this platform';
     return `${names} does not report this.`;
   }
-  return blocked ?? 'Not measured on the platforms you have switched on.';
+  return blocked ?? 'Not measured on the connected platforms.';
 }
 
 /** The actual: a count sums the pieces' values, a rate is computed per piece and
@@ -143,14 +143,14 @@ function actualFor(
 ): Measured {
   const rows = sliceRowsFor(ctx, metric.window, piecesInPeriod(ctx));
   if (!rows.length) {
-    return { state: 'too-early', n: 0, owed: 'nothing posted in this period carries a reading yet' };
+    return { state: 'too-early', n: 0, owed: 'no posts in this period have a reading yet' };
   }
   if (declaration.calculation === 'count') {
     const values = rows
       .map(r => metricValueOf(r.row, metric.metric_id, null))
       .filter((v): v is number => v !== null);
     if (!values.length) {
-      return { state: 'too-early', n: 0, owed: 'no reading carries this metric yet' };
+      return { state: 'too-early', n: 0, owed: 'no readings include this metric yet' };
     }
     return {
       state: 'value', value: values.reduce((a, b) => a + b, 0), n: values.length,
@@ -195,6 +195,6 @@ export function forClient(cards: GoalCard[]): ClientGoalLine[] {
     actual: c.actual.state === 'value' ? String(c.actual.value)
       : c.actual.state === 'no-coverage' ? 'Not collected for part of this period'
         : c.actual.state === 'not-measurable' ? 'Not measured this period'
-          : 'Too early to say',
+          : 'Insufficient data',
   }));
 }

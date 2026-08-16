@@ -28,19 +28,24 @@ import {
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { formatDate, formatMonthLabel } from '@/lib/utils';
-import { CONTENT_STAGES, type ContentCard, type ContentPillar, type ContentStage } from '@/types';
+import { CONTENT_STAGES, type ContentCard, type ContentPillar, type ContentStage, type PreviewPost } from '@/types';
 import {
   agendaIdOf, agendaOf, bareId, boardCards, boardNote, cardChips, dndId, monthCells,
   monthsWithWork, needsOpenKey, needsToday, pillarColumns, pillarMixLine, plural, readNeedsOpen,
+  postedLine, postedTally, performanceLine,
   shiftMonth, stageBuckets, unattachedPreviews, writeNeedsOpen,
   type NeedRow, type PillarColumn as PillarCol,
 } from '@/lib/creation/board';
 import { LockBanner, Segmented } from '@/components/shell/Screen';
+import { attachPreview } from '@/lib/creation/piece';
+import AddEntry from '@/components/creation/AddEntry';
 
+// Table LEFT the views on 2026-08-11. It rendered the stacked shape at every
+// width, which is exactly what Board already is on a phone: two names for one
+// screen. Her words: "the table and the board are the same thing."
 const VIEWS = [
   { id: 'board', label: 'Board' },
   { id: 'pillars', label: 'Pillars' },
-  { id: 'table', label: 'Table' },
   { id: 'month', label: 'Month' },
 ];
 
@@ -118,8 +123,25 @@ export default function Board({
   const orphans = unattachedPreviews(data.previewPosts ?? [], cards);
   // When the chosen month has nothing but other months do, say where the work
   // is instead of presenting an empty board as the truth about the profile.
-  const monthHint = mine.length === 0 ? (monthsWithWork(cards).find(m => m !== month) ?? null) : null;
+  // Where the work is, for the ONE case that needs it: this month is empty and
+  // another is not.
+  //
+  // A row of month chips lived here for about an hour on 2026-08-11. It was
+  // built to answer "I can't see the other months", and her verdict on seeing
+  // it was right: "we have the adjustment thing... I don't think we need July,
+  // June, May, or any months separately." The arrows already move months, so
+  // the chips were a second control for a job that had one.
+  const monthHint = mine.length === 0
+    ? (monthsWithWork(cards).find(m => m !== month) ?? null)
+    : null;
   const buckets = stageBuckets(CONTENT_STAGES, mine);
+  // Approved and Scheduled are parked, her call: "not something that we are
+  // going to be doing right now." Rejected only exists once something has been
+  // rejected. A parked column HOLDING pieces still draws, because data never
+  // disappears behind a preference.
+  const parked: ContentStage[] = ['ready', 'scheduled', 'rejected'];
+  const shown = buckets.filter(b => !parked.includes(b.stage.id) || b.cards.length > 0);
+  const tally = postedTally(cards, month);
 
   const sensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const draggingCard = dragging ? cards.find(c => c.id === bareId(dragging)) ?? null : null;
@@ -151,7 +173,7 @@ export default function Board({
 
   const stacked = (
     <div className="flex flex-col gap-3">
-      {buckets.map(b => (
+      {shown.map(b => (
         <StageRows
           key={b.stage.id}
           stage={b.stage}
@@ -159,6 +181,8 @@ export default function Board({
           hue={hue}
           readOnly={readOnly}
           onOpen={onOpenPiece}
+          profileId={profileId}
+          month={month}
         />
       ))}
     </div>
@@ -168,7 +192,11 @@ export default function Board({
     <div className="flex flex-col gap-3.5">
       {lockBanner && <LockBanner />}
 
-      {/* ── Needs you today. This profile, and no other. ───────────────────── */}
+      {/* ── Needs you today. Hidden entirely when there is nothing in it. ──
+          It was a full card saying "nothing is due today", above the board,
+          every day that nothing was due, which is most days. An empty state
+          does not need furniture. */}
+      {needs.length > 0 && (
       <div className="overflow-hidden rounded-card border border-hairline bg-white shadow-card">
         <button
           type="button"
@@ -221,6 +249,7 @@ export default function Board({
           </div>
         ))}
       </div>
+      )}
 
       {/* ── The four views, and which month is on the table ────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -251,7 +280,14 @@ export default function Board({
             </button>
           )}
         </div>
-        <span className="text-[12.5px] text-faint">{boardNote(readOnly)}</span>
+        {/* The right of the row is the reading: what went out this month. The
+            drag hint that used to live here was a first-run hint shown forever;
+            the read-only state, which actually matters, still speaks. */}
+        <span className="text-[12.5px] text-muted">
+          <span className="tnum font-semibold text-text">{postedLine(tally, formatMonthLabel(month))}</span>{' '}
+          <span className="hidden text-faint lg:inline">{performanceLine(tally)}</span>
+          {readOnly && <span className="ml-2 font-semibold text-accent-text">{boardNote(true)}</span>}
+        </span>
       </div>
 
       <DndContext
@@ -262,8 +298,8 @@ export default function Board({
         {view === 'board' && (
           <>
             {/* Desktop: six columns. */}
-            <div className="hidden items-start gap-[11px] overflow-x-auto pb-2 md:flex">
-              {buckets.map(b => (
+            <div className="hidden items-start gap-[11px] overflow-x-auto pb-2 pr-1 md:flex">
+              {shown.map(b => (
                 <StageColumn
                   key={b.stage.id}
                   stage={b.stage}
@@ -273,6 +309,14 @@ export default function Board({
                   readOnly={readOnly}
                   dragging={dragging}
                   onOpen={onOpenPiece}
+                  profileId={profileId}
+                  month={month}
+                  onReject={b.stage.id === 'review' && !readOnly
+                    ? (cardId: string) => dispatch({
+                        type: 'MOVE_CONTENT_CARD',
+                        payload: { clientId: profileId, cardId, stage: 'rejected' },
+                      })
+                    : undefined}
                 />
               ))}
             </div>
@@ -280,9 +324,6 @@ export default function Board({
             <div className="md:hidden">{stacked}</div>
           </>
         )}
-
-        {/* Table is the stacked form at every width. */}
-        {view === 'table' && stacked}
 
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
           {draggingCard && (
@@ -323,25 +364,71 @@ export default function Board({
           </button>
           {orphansOpen && (
             <p className="px-[18px] pb-2.5 text-[12.5px] leading-[1.5] text-faint">
-              These were made before a preview belonged to a piece. Open the piece it was made for and
-              attach it there. Nothing is deleted.
+              Pick the piece each one belongs to. Nothing is deleted.
             </p>
           )}
           {orphansOpen && orphans.map(p => (
-            <div key={p.id} className="flex items-center gap-3.5 border-t border-divider px-[18px] py-3.5">
-              <span className="flex-1 text-[14.5px] font-semibold text-text">{p.name || 'Untitled preview'}</span>
-              <span className="text-[12px] text-faint">{plural(p.images.length, 'slide')}</span>
-              <a
-                href={`/p/${p.shareId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[12.5px] font-semibold text-muted underline"
-              >
-                Open it
-              </a>
-            </div>
+            <OrphanRow key={p.id} preview={p} cards={cards} profileId={profileId} />
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One loose preview, attachable where it is listed (2026-08-11).
+ *
+ * The strip used to say "open the piece it was made for and attach it there":
+ * directions to a control, on a screen that had room for the control itself.
+ * Her question was the proof: "where can I attach them, how can I attach
+ * them???" Pick the piece, press Attach, done. The write is the same
+ * `attachPreview` the piece panel performs.
+ */
+function OrphanRow({ preview, cards, profileId }: {
+  preview: PreviewPost;
+  cards: ContentCard[];
+  profileId: string;
+}) {
+  const { dispatch, saveNow } = useApp();
+  const [target, setTarget] = useState('');
+
+  // Review first, then the rest newest first: the piece it belongs to is
+  // usually the one just worked on.
+  const ordered = [...cards].sort((a, b) =>
+    Number(b.stage === 'review') - Number(a.stage === 'review')
+    || (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+
+  function attach() {
+    if (!target) return;
+    dispatch({
+      type: 'UPDATE_PREVIEW_POST',
+      payload: { clientId: profileId, post: attachPreview(preview, target, new Date().toISOString()) },
+    });
+    void saveNow();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-t border-divider px-[18px] py-3">
+      <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-text">
+        {preview.name || 'Untitled preview'}
+        <span className="ml-2 text-[12px] font-normal text-faint">{plural(preview.images.length, 'slide')}</span>
+      </span>
+      <a href={`/p/${preview.shareId}`} target="_blank" rel="noopener noreferrer"
+        className="text-[12.5px] font-semibold text-muted underline">
+        View
+      </a>
+      <select value={target} onChange={e => setTarget(e.target.value)}
+        aria-label="The piece this belongs to"
+        className="max-w-[220px] rounded-lg border border-[rgba(23,21,26,.12)] px-2.5 py-1.5 text-[12.5px] text-text focus:border-accent focus:outline-none">
+        <option value="">Which piece?</option>
+        {ordered.map(c => <option key={c.id} value={c.id}>{c.title || 'Untitled'}</option>)}
+      </select>
+      {target && (
+        <button type="button" onClick={attach}
+          className="rounded-lg bg-ink px-3.5 py-1.5 text-[12.5px] font-semibold text-white">
+          Attach
+        </button>
       )}
     </div>
   );
@@ -391,7 +478,7 @@ function PieceCard({ card, hue, pillars, onOpen, draggable, dim }: {
   );
 }
 
-function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen }: {
+function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen, profileId, month, onReject }: {
   stage: { id: ContentStage; label: string };
   cards: ContentCard[];
   hue: string;
@@ -399,12 +486,16 @@ function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen }:
   readOnly: boolean;
   dragging: string | null;
   onOpen: (id: string) => void;
+  profileId: string;
+  month: string;
+  /** Present only on the Review column: one tap records the rejection. */
+  onReject?: (cardId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dndId('col', stage.id), disabled: readOnly });
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[170px] w-[206px] flex-none rounded-card px-3 py-3.5 ${
+      className={`min-h-[300px] w-full min-w-[240px] flex-1 rounded-card px-3 py-3.5 ${
         stage.id === 'posted' ? 'bg-sunken-muted' : 'bg-sunken'
       } ${isOver && !readOnly ? 'ring-2 ring-accent/40' : ''}`}
     >
@@ -413,16 +504,30 @@ function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen }:
         <span className="tnum rounded-full bg-white px-2 py-px text-[11.5px] font-semibold text-faint">{cards.length}</span>
       </div>
       {cards.map(c => (
-        <PieceCard
-          key={c.id}
-          card={c}
-          hue={hue}
-          pillars={pillars}
-          onOpen={onOpen}
-          draggable={!readOnly}
-          dim={dragging !== null && bareId(dragging) === c.id}
-        />
+        <div key={c.id}>
+          <PieceCard
+            card={c}
+            hue={hue}
+            pillars={pillars}
+            onOpen={onOpen}
+            draggable={!readOnly}
+            dim={dragging !== null && bareId(dragging) === c.id}
+          />
+          {onReject && (
+            <button type="button" onClick={() => onReject(c.id)}
+              className="mb-2 ml-1 text-[11.5px] font-semibold text-faint hover:text-accent-text">
+              Reject
+            </button>
+          )}
+        </div>
       ))}
+      {/* Add where you are looking: this creates the piece already in THIS
+          column, rather than in Idea to be dragged over afterwards. */}
+      {!readOnly && (
+        <div className="mt-1.5">
+          <AddEntry profileId={profileId} stage={stage.id} month={month} compact />
+        </div>
+      )}
     </div>
   );
 }
@@ -433,12 +538,14 @@ function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen }:
  * The whole section is a drop target, so a piece can be moved here too. The
  * prototype does the same: the stage is the target, in both shapes.
  */
-function StageRows({ stage, cards, hue, readOnly, onOpen }: {
+function StageRows({ stage, cards, hue, readOnly, onOpen, profileId, month }: {
   stage: { id: ContentStage; label: string };
   cards: ContentCard[];
   hue: string;
   readOnly: boolean;
   onOpen: (id: string) => void;
+  profileId: string;
+  month: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dndId('row', stage.id), disabled: readOnly });
   return (
@@ -452,11 +559,16 @@ function StageRows({ stage, cards, hue, readOnly, onOpen }: {
         <span className="text-[11.5px] font-bold uppercase tracking-[.09em] text-muted">{stage.label}</span>
         <span className="tnum text-[11.5px] font-semibold text-faint">{cards.length}</span>
       </div>
-      {cards.length === 0 ? (
-        <p className="border-t border-divider px-4 py-3 text-[12.5px] text-faint">Nothing at this stage.</p>
-      ) : cards.map(c => (
+      {cards.map(c => (
         <StageRow key={c.id} card={c} hue={hue} readOnly={readOnly} onOpen={onOpen} />
       ))}
+      {/* The phone had no way to add (2026-08-11, her report from mobile:
+          "no option to add an idea or build it"). Same card as the columns. */}
+      {!readOnly && (
+        <div className="border-t border-divider px-3 py-2.5">
+          <AddEntry profileId={profileId} stage={stage.id} month={month} compact />
+        </div>
+      )}
     </div>
   );
 }
@@ -502,12 +614,14 @@ function PillarsView({ columns, hue, onOpen }: {
   }
 
   return (
-    // Stacked full width on a phone. Never a horizontal scroller there.
-    <div className="flex flex-col items-stretch gap-[11px] md:flex-row md:items-start md:overflow-x-auto">
+    // A responsive grid that uses the width it has (2026-08-11, her note: "the
+    // pillars themselves are not looking good, there is a lot of white space").
+    // Fixed 206px columns floated in a wide screen; a grid divides it instead.
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
       {columns.map(col => (
         <div
           key={col.id || 'unsorted'}
-          className="w-full rounded-card bg-sunken px-3 py-3.5 md:min-h-[170px] md:w-[206px] md:flex-none"
+          className="w-full rounded-card bg-sunken px-4 py-4 md:min-h-[300px]"
         >
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11.5px] font-bold uppercase tracking-[.09em] text-muted">{col.label}</span>

@@ -27,12 +27,15 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import type { Lifecycle } from '@/lib/tree/objects';
 import { LIFECYCLE_POLICY } from '@/lib/tree/objects';
 import { renderProfile } from '@/lib/shell/profile';
+import { ROOM_PANELS } from '@/lib/shell/nav';
 import Decide from '@/components/strategy/Decide';
 import Gates from '@/components/strategy/Gates';
 import Switches from '@/components/strategy/Switches';
 import Lock from '@/components/strategy/Lock';
 import BrandKit from '@/components/strategy/BrandKit';
 import MockupScreen from '@/components/mockup/MockupScreen';
+import ClientAccess from '@/components/strategy/ClientAccess';
+import BrandDocument from '@/components/strategy/BrandDocument';
 import Channels from '@/components/strategy/Channels';
 import Facts from '@/components/strategy/Facts';
 
@@ -46,21 +49,23 @@ export interface StrategyTab { id: string; label: string }
  * prototype never had it, so the design could not list it; dropping it would
  * have taken a live control away.
  */
-export const STRATEGY_TABS: StrategyTab[] = [
-  // Facts is first and default: strategy as one simple page of eight facts.
-  // The other tabs stay because the engine still reads gates and switches.
-  { id: 'facts', label: 'Facts' },
-  { id: 'derivation', label: 'Decide' },
-  { id: 'gates', label: 'Gates' },
-  { id: 'switches', label: 'Switches' },
-  { id: 'lock', label: 'Lock' },
-  { id: 'channels', label: 'Channels' },
-  { id: 'brand', label: 'Brand kit' },
-  { id: 'intake-history', label: 'Intake history' },
-  { id: 'lifecycle', label: 'Lifecycle' },
-];
+export const STRATEGY_TABS: StrategyTab[] = ROOM_PANELS.map(p => ({ id: p.id, label: p.label }));
 
-export const DEFAULT_STRATEGY_TAB = 'facts';
+/**
+ * The tab the Strategy button opens.
+ *
+ * 2026-08-11, and this cost her a broken app for an afternoon. This file kept
+ * its OWN list of tabs, separate from nav.ts, and its own default of 'facts'.
+ * When Facts was deleted from the rail the button kept pointing at it, the
+ * panel route refused an unknown panel, and every Strategy button in the app
+ * 404ed. I had fixed the /strategy landing redirect and believed that was the
+ * whole bug, then verified with curl, which returns 200 for a page that 404s in
+ * the browser a moment later. So I told her it was fixed while it was not.
+ *
+ * Two changes so it cannot repeat: the list above is DERIVED from nav.ts rather
+ * than written again, and the default is a panel that exists.
+ */
+export const DEFAULT_STRATEGY_TAB = 'brand-document';
 
 /** The tab an unknown or missing value falls back to. */
 export function strategyTabOf(value: string | null | undefined): string {
@@ -74,7 +79,9 @@ export function useStrategyState(profileId: string): string {
   const locked = renderProfile(state, profileId, role).strategy_locked;
   return locked
     ? 'Locked. Open it to read, or to change one decision.'
-    : 'Not locked. Creation stays read only until it is.';
+    // NOT "Creation stays read only until it is". That sentence outlived the
+    // rule it described: her ruling on 2026-08-09 made recording always work.
+    : 'Not locked. Drafts and briefs wait for it; recording does not.';
 }
 
 // ── The pieces ───────────────────────────────────────────────────────────────
@@ -108,6 +115,14 @@ export function StrategyBody(
   { profileId, tab, hrefFor }: { profileId: string; tab: string; hrefFor?: (panel: string) => string },
 ) {
   switch (tab) {
+    case 'brand-document':
+      return (
+        <BrandDocument
+          profileId={profileId}
+          decideHref={hrefFor?.('derivation') ?? `/profile/${profileId}/strategy/derivation`}
+          brandHref={hrefFor?.('brand') ?? `/profile/${profileId}/strategy/brand`}
+        />
+      );
     case 'facts':
       return (
         <Facts
@@ -127,6 +142,8 @@ export function StrategyBody(
       return <BrandKit profileId={profileId} />;
     case 'profile-mockup':
       return <MockupScreen profileId={profileId} />;
+    case 'client-access':
+      return <ClientAccess profileId={profileId} />;
     case 'intake-history':
       return <IntakeHistory profileId={profileId} />;
     case 'lifecycle':

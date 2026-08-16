@@ -9,6 +9,12 @@ import { assertRegistriesValid } from '@/lib/tree/validate';
 import { migrateTracking, trackingReportToText } from '@/lib/tree/migrateTracking';
 import type { LegacyTracking, TrackingMigrationRows } from '@/lib/tree/migrateTracking';
 
+// Next caches fetch() by URL and supabase-js rides on fetch; long-lived query
+// URLs get served from the data cache at random. That one behavior ate previews
+// for eight days (see lib/supabaseServer.ts). Every server client pins no-store.
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: 'no-store' });
+
+
 /**
  * Migrate the existing `ig_*` history into the tracking store — spec 26 §14,
  * steps 1 to 7. It follows spec 21's `/api/migrate-profile` pattern exactly:
@@ -37,7 +43,7 @@ function getSupabase(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase env vars missing');
-  return createClient(url, key);
+  return createClient(url, key, { global: { fetch: noStoreFetch } });
 }
 
 async function rowsOf<T>(supabase: SupabaseClient, table: string, columns = '*'): Promise<T[]> {

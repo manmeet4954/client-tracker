@@ -304,3 +304,68 @@ export function monthsWithWork(cards: ContentCard[]): string[] {
   }
   return [...seen].sort().reverse();
 }
+
+// ── How much has actually gone out — 2026-08-11 ──────────────────────────────
+//
+// HER BRIEF: "in creation, I think the board or somewhere there should be a bar
+// calculating or measuring how much we have posted in the clients: what is the
+// performance so far, and how much we have posted so far."
+//
+// Two halves, and only one of them can be answered honestly today. Counting is
+// counting. PERFORMANCE needs readings, and Instagram collection has been
+// stalled since 12 July, so this returns `null` for it rather than a zero. A
+// zero here would read as "nothing performed" when the truth is "nothing was
+// measured", and that is the exact lie the analysis screens already refuse to
+// tell (see NO_READING in lib/analysis).
+
+export interface PostedTally {
+  /** Posted in the month on the table. */
+  month: number;
+  /** Everything ever posted on this profile. */
+  everything: number;
+  /** Still to go out in this month: anything dated here and not yet posted. */
+  planned: number;
+  /** Average reach across posted pieces that carry a reading, or null. */
+  reach: number | null;
+  /** How many posted pieces carry any reading at all. */
+  measured: number;
+}
+
+export function postedTally(cards: ContentCard[], month: string): PostedTally {
+  const inMonth = (c: ContentCard) => {
+    const own = c.scheduledDate?.trim() ? c.scheduledDate.slice(0, 7) : (c.createdMonth ?? '');
+    return own === month;
+  };
+  const posted = cards.filter(c => c.stage === 'posted');
+  const readings = posted
+    .map(c => Number((c.customValues?.reach as string) ?? ''))
+    .filter(n => Number.isFinite(n) && n > 0);
+
+  return {
+    month: posted.filter(inMonth).length,
+    everything: posted.length,
+    planned: cards.filter(c => inMonth(c) && c.stage !== 'posted').length,
+    reach: readings.length ? Math.round(readings.reduce((a, b) => a + b, 0) / readings.length) : null,
+    measured: readings.length,
+  };
+}
+
+/** The sentence the bar reads. Never invents a performance it does not have. */
+export function postedLine(t: PostedTally, monthLabel: string): string {
+  const head = t.month === 0
+    ? `Nothing posted in ${monthLabel} yet`
+    : `${t.month} posted in ${monthLabel}`;
+  const planned = t.planned > 0 ? `, ${t.planned} still to go` : '';
+  const all = t.everything > t.month ? `. ${t.everything} in all.` : '.';
+  return `${head}${planned}${all}`;
+}
+
+/** The performance half, which usually has nothing to say and admits it. */
+export function performanceLine(t: PostedTally): string {
+  if (t.reach === null) {
+    return t.everything === 0
+      ? 'No performance to read yet.'
+      : 'No performance readings collected, so nothing here is measured.';
+  }
+  return `${t.reach.toLocaleString('en-US')} average reach across ${plural(t.measured, 'measured post')}.`;
+}

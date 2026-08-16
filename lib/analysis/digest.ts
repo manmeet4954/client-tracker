@@ -62,38 +62,38 @@ export function monthlyDigest(input: MonthlyInput): Digest {
   const pairs = sufficient.filter(p => p.dimension.includes('×'));
 
   const sections: DigestSection[] = [
-    { id: 'coverage', heading: 'What we collected', lines: [coverage.words] },
+    { id: 'coverage', heading: 'Coverage', lines: [coverage.words] },
     {
       id: 'outperformed', heading: 'What outperformed',
       lines: sufficient.length
         ? sufficient.slice(0, 5).map(p =>
           `${p.dimension} "${p.value}": ${liftLine(p.lift.value, p.n)}`)
-        : ['Nothing cleared the bar this month. What is close is listed at the end.'],
+        : ['Nothing cleared the threshold this month. Near misses are listed at the end.'],
     },
     {
-      id: 'pillars', heading: 'Which pillar is earning, by its job',
+      id: 'pillars', heading: 'Pillar performance, by job',
       lines: cards.length ? cards.map(pillarLine) : ['No pillars are set up yet.'],
     },
     {
-      id: 'combinations', heading: 'Which combinations are winning',
+      id: 'combinations', heading: 'Top combinations',
       lines: pairs.length
         ? pairs.slice(0, 3).map(p => `${p.value}: ${liftLine(p.lift.value, p.n)}`)
-        : ['No combination has enough behind it yet.'],
+        : ['No combination has enough data yet.'],
     },
     {
-      id: 'funnel', heading: 'What the funnel says',
+      id: 'funnel', heading: 'Funnel',
       lines: [chain.brand_building.words, ...chain.absent_steps.map(
-        s => `No ${s.replace(/_/g, ' ')} row: this profile has no last mile for it.`)],
+        s => `No ${s.replace(/_/g, ' ')} step: not configured for this profile.`)],
     },
     {
-      id: 'suggestion', heading: 'One thing to do',
+      id: 'suggestion', heading: 'Recommendation',
       lines: [oneSuggestion(sufficient[0], cards, coverage.complete)],
     },
     {
-      id: 'cannot-say', heading: 'What cannot be said yet',
+      id: 'cannot-say', heading: 'Awaiting sufficient data',
       lines: cannot_say.length
         ? cannot_say.slice(0, 5).map(c => `${c.dimension} "${c.value}": ${c.owed}.`)
-        : ['Nothing was held back for want of data.'],
+        : ['All patterns had sufficient data.'],
     },
   ];
 
@@ -119,18 +119,18 @@ export function monthlyDigest(input: MonthlyInput): Digest {
 function pillarLine(c: PillarCard): string {
   switch (c.state) {
     case 'blocked': return `${c.name}: not measured yet, its job has no measurement declared.`;
-    case 'not-measurable': return `${c.name}: decided as not measurable here.`;
-    case 'coverage-gap': return `${c.name}: we were not collecting for part of this period.`;
-    case 'too-early': return `${c.name}: too early to judge. ${c.sufficiency.owed ?? ''}`.trim();
+    case 'not-measurable': return `${c.name}: marked as not measurable for this profile.`;
+    case 'coverage-gap': return `${c.name}: data collection was incomplete for part of this period.`;
+    case 'too-early': return `${c.name}: insufficient data. ${c.sufficiency.owed ?? ''}`.trim();
     default:
-      return `${c.name} (job: ${c.job ?? 'not set'}) is ${c.state}, judged on ${c.judged_on}. ${c.quantity.words}.`;
+      return `${c.name} (job: ${c.job ?? 'not set'}) is ${c.state}, measured on ${c.judged_on}. ${c.quantity.words}.`;
   }
 }
 
 function liftLine(lift: number | undefined, n: number): string {
   return lift === undefined
     ? `${n} pieces, no lift computed`
-    : `${percent(lift)} against your own normal, on ${n} pieces`;
+    : `${percent(lift)} against this account's typical, on ${n} pieces`;
 }
 
 /** ONE concrete suggestion. Never a list — a list is a dashboard (§13.1). */
@@ -139,12 +139,12 @@ function oneSuggestion(
   cards: PillarCard[], coverageComplete: boolean,
 ): string {
   if (!coverageComplete) {
-    return 'Fix the collection first. Everything below stands on a partial record until it is running again.';
+    return 'Fix data collection first. Everything below is based on a partial record until collection resumes.';
   }
   const empty = cards.find(c => c.quantity.posted === 0 && c.job);
-  if (empty) return `Put something into ${empty.name}. Nothing entered that lane this month.`;
-  if (leading) return `Try one more with ${leading.dimension} "${leading.value}" and see if it holds.`;
-  return 'Keep posting. There is not enough here yet to change anything on.';
+  if (empty) return `Publish something in ${empty.name}. No content entered that pillar this month.`;
+  if (leading) return `Test one more piece with ${leading.dimension} "${leading.value}" to confirm the pattern.`;
+  return 'Keep publishing. There is not yet enough data to support a change.';
 }
 
 // ── §13.2 The weekly owner pulse, per profile ────────────────────────────────
@@ -173,16 +173,16 @@ export function weeklyPulse(input: PulseInput): Digest {
   const moving = patterns.filter(p => p.sufficient && p.band !== 'steady' && p.band !== 'too-early');
 
   const lines: string[] = [];
-  if (!coverage.complete) lines.push(`Collection is broken. ${coverage.words}`);
+  if (!coverage.complete) lines.push(`Data collection is interrupted. ${coverage.words}`);
   const posted = piecesInPeriod(ctx).length;
   lines.push(`${posted} posted this week.`);
   for (const p of moving.slice(0, 3)) {
     lines.push(`${p.band}: ${p.dimension} "${p.value}", ${liftLine(p.lift.value, p.n)}.`);
   }
   const slipping = cards.filter(c => c.state === 'dragging');
-  for (const c of slipping) lines.push(`${c.name} is dragging against its job.`);
+  for (const c of slipping) lines.push(`${c.name} is underperforming against its job.`);
   const early = cards.filter(c => c.state === 'too-early');
-  if (early.length) lines.push(`${early.length} still too early to judge.`);
+  if (early.length) lines.push(`${early.length} with insufficient data.`);
 
   return {
     id: input.id,
@@ -234,7 +234,7 @@ export function nowView(
     period: ctx.period,
     coverage,
     first_block: coverage.complete
-      ? `Collecting normally. ${coverage.days_covered} of ${coverage.days_expected} days this month so far.`
+      ? `Data collection is up to date. ${coverage.days_covered} of ${coverage.days_expected} days collected this month.`
       : coverage.words,
     pillars: cards,
     posted: piecesInPeriod(ctx).length,
@@ -291,13 +291,13 @@ export function draftPublication(input: PublicationInput): Digest {
 
   const sections: DigestSection[] = [
     {
-      id: 'coverage', heading: 'What this covers',
+      id: 'coverage', heading: 'Reporting period',
       lines: [coverage.complete
         ? `${ctx.period.from} to ${ctx.period.to}.`
         : `${ctx.period.from} to ${ctx.period.to}. Some days in this period were not collected.`],
     },
     {
-      id: 'pillars', heading: 'How each pillar did',
+      id: 'pillars', heading: 'Pillar performance',
       lines: cards.map(c => `${c.name}: ${c.verdict}.${c.purpose ? ` ${c.purpose}` : ''}`),
     },
     {
@@ -307,7 +307,7 @@ export function draftPublication(input: PublicationInput): Digest {
   ];
   if (input.from_digest) {
     const summary = input.from_digest.sections.find(s => s.id === 'suggestion');
-    if (summary) sections.push({ id: 'summary', heading: 'In short', lines: summary.lines });
+    if (summary) sections.push({ id: 'summary', heading: 'Summary', lines: summary.lines });
   }
 
   return {

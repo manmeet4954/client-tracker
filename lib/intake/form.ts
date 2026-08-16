@@ -34,9 +34,9 @@ import { listWords, plural } from './screens.ts';
 export type StepState = 'answered' | 'skipped' | 'blank';
 
 const STATE_LINES: Record<StepState, string> = {
-  answered: 'answered',
-  skipped: 'you said you would come back to this',
-  blank: 'not answered yet',
+  answered: 'Answered',
+  skipped: 'Marked for later',
+  blank: 'Not answered yet',
 };
 
 export function stateLine(state: StepState): string {
@@ -133,13 +133,13 @@ export function progressOf(steps: FormStep[]): FormProgress {
   };
 }
 
-/** "3 answered, 1 to come back to and 14 not started." */
+/** "3 answered, 1 marked for later and 14 remaining." */
 export function progressLine(steps: FormStep[]): string {
   const p = progressOf(steps);
-  if (p.total === 0) return 'Nothing to answer right now.';
+  if (p.total === 0) return 'No questions to answer right now.';
   const parts = [`${p.answered} answered`];
-  if (p.skipped > 0) parts.push(`${p.skipped} to come back to`);
-  if (p.blank > 0) parts.push(`${p.blank} not started`);
+  if (p.skipped > 0) parts.push(`${p.skipped} marked for later`);
+  if (p.blank > 0) parts.push(`${p.blank} remaining`);
   return `${listWords(parts)}.`;
 }
 
@@ -173,13 +173,13 @@ export function nextUnfinished(steps: FormStep[], from: number): number | null {
  */
 export function resumeLine(steps: FormStep[], at: number): string {
   const p = progressOf(steps);
-  if (p.total === 0) return 'Nothing to answer right now.';
-  if (at >= p.total) return `All ${p.total} answered. Have a last look, then send it.`;
+  if (p.total === 0) return 'No questions to answer right now.';
+  if (at >= p.total) return `All ${p.total} questions answered. Review and submit when ready.`;
   const touched = p.answered + p.skipped;
   if (touched === 0) {
-    return `${p.total} questions. Answers are saved as you give them, so you can stop whenever you want and come back.`;
+    return `${p.total} questions. Your answers are saved automatically, so you can return at any time.`;
   }
-  return `You are back at question ${at + 1} of ${p.total}. Everything you sent before is saved.`;
+  return `Resuming at question ${at + 1} of ${p.total}. Your previous answers are saved.`;
 }
 
 // ── The machine ──────────────────────────────────────────────────────────────
@@ -234,12 +234,12 @@ export function modelFromSteps(steps: FormStep[], cursor: number): FormModel {
     current: onReview ? null : steps[at] ?? null,
     backIndex: at <= 0 ? null : at - 1,
     nextIndex: onReview ? null : at + 1,
-    positionLine: onReview ? 'the last look' : `${at + 1} of ${total}`,
+    positionLine: onReview ? 'Review' : `${at + 1} of ${total}`,
     progress: p,
     progressLine: progressLine(steps),
     resumeIndex: resume,
     resumeLine: resumeLine(steps, resume),
-    leaveLine: 'You can close this at any point. Everything you have sent is already saved.',
+    leaveLine: 'Your answers are saved automatically. You can close this page at any time.',
     canSend: total > 0 && p.blank === 0 && p.skipped === 0,
     sendLine: sendLine(steps),
     review: {
@@ -253,16 +253,16 @@ export function modelFromSteps(steps: FormStep[], cursor: number): FormModel {
 /** What the review screen says above the button, counted from the steps. */
 export function sendLine(steps: FormStep[]): string {
   const p = progressOf(steps);
-  if (p.total === 0) return 'Nothing to answer right now.';
+  if (p.total === 0) return 'No questions to answer right now.';
   if (p.blank === 0 && p.skipped === 0) {
-    return `All ${p.total} answered. Send it when you are ready.`;
+    return `All ${p.total} questions answered. Submit when you are ready.`;
   }
   const parts: string[] = [];
-  if (p.blank > 0) parts.push(`${p.blank} still blank`);
+  if (p.blank > 0) parts.push(`${p.blank} not answered`);
   if (p.skipped > 0) {
-    parts.push(`${p.skipped} you said you would come back to`);
+    parts.push(`${p.skipped} marked for later`);
   }
-  return `${listWords(parts)}. Finish ${plural(p.blank + p.skipped, 'it', 'those')} and this is ready to send.`;
+  return `${listWords(parts)}. Complete ${plural(p.blank + p.skipped, 'it', 'them')} to submit.`;
 }
 
 // ── Moving ───────────────────────────────────────────────────────────────────

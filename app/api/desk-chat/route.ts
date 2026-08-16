@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { readState, uploadToStorage, writeState } from '@/lib/supabaseServer';
+import { mutateState, readState, uploadToStorage } from '@/lib/supabaseServer';
 import { normalizeState, type Role } from '@/lib/access';
 import { applyScopes, checkScopes } from '@/lib/tree/scopes';
 import { refusedCreationWrites, refusedLegacyCreationWrites } from '@/lib/strategy/derivation';
@@ -249,18 +249,26 @@ export async function POST(req: Request) {
  * this file and `app/api/state` ever disagree, `app/api/state` is the one that
  * is right.
  */
-async function save(base: AppState, next: AppState, paths: string[]) {
+async function save(_base: AppState, next: AppState, paths: string[]) {
   const rejected = checkScopes(paths);
   if (rejected.length) throw new Error(`undeclared path: ${rejected.join(', ')}`);
 
-  const merged = applyScopes(base, next, paths);
-
-  for (const id of Object.keys(merged.clientData ?? {})) {
-    const tree = refusedCreationWrites(base.clientData?.[id]?.body, merged.clientData[id]?.body);
-    if (tree.length) throw new Error('creation is locked on this profile');
-    const legacy = refusedLegacyCreationWrites(base.clientData?.[id], merged.clientData[id]);
-    if (legacy.length) throw new Error(legacy[0].why);
-  }
-
-  await writeState(merged);
+  // Compare-and-swap (2026-08-09): the scoped merge re-runs against a FRESH
+  // base on every attempt, and the write lands only if the row has not moved
+  // since that base was read. The chat's tool results were built on the base
+  // its loop read; the declared paths are what carries them safely onto
+  // whatever the row holds now.
+  let refusedWhy: string | null = null;
+  const result = await mutateState(fresh => {
+    const merged = applyScopes(fresh, next, paths);
+    for (const id of Object.keys(merged.clientData ?? {})) {
+      const tree = refusedCreationWrites(fresh.clientData?.[id]?.body, merged.clientData[id]?.body);
+      if (tree.length) { refusedWhy = 'creation is locked on this profile'; return null; }
+      const legacy = refusedLegacyCreationWrites(fresh.clientData?.[id], merged.clientData[id]);
+      if (legacy.length) { refusedWhy = legacy[0].why; return null; }
+    }
+    return merged;
+  });
+  if (refusedWhy) throw new Error(refusedWhy);
+  if (result === 'no-row') throw new Error('no stored state to write onto');
 }

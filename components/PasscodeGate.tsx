@@ -40,9 +40,9 @@ export default function PasscodeGate({ onSubmit, error }: {
         </div>
 
         <h1 className="text-white text-xl font-bold" style={{ fontFamily: "'Inter', sans-serif" }}>
-          Enter passcode
+          Sign in
         </h1>
-        <p className="text-white/70 text-sm mt-1 mb-5">This dashboard is private.</p>
+        <p className="text-white/70 text-sm mt-1 mb-5">Enter your access code to continue.</p>
 
         <input
           autoFocus
@@ -55,7 +55,7 @@ export default function PasscodeGate({ onSubmit, error }: {
           value={pass}
           onChange={e => setPass(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
-          placeholder="Passcode"
+          placeholder="Access code"
           className="w-full px-4 py-3 rounded-xl text-white placeholder-white/50 focus:outline-none"
           style={{
             background: 'rgba(255,255,255,0.14)',
@@ -70,7 +70,7 @@ export default function PasscodeGate({ onSubmit, error }: {
           disabled={!pass.trim() || busy}
           className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-stone-900 bg-white hover:bg-white/90 disabled:opacity-50 transition-colors"
         >
-          {busy ? 'Checking…' : <>Enter <ArrowRight size={16} /></>}
+          {busy ? 'Verifying…' : <>Continue <ArrowRight size={16} /></>}
         </button>
       </div>
     </div>

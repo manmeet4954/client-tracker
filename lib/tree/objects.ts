@@ -620,10 +620,15 @@ const policy = (p: Omit<LifecyclePolicy, 'client_access'>): LifecyclePolicy =>
 
 export const LIFECYCLE_POLICY: Record<Lifecycle, LifecyclePolicy> = {
   setup: policy({
-    state: 'setup', switch_behavior: 'positions unset; creation cannot open until strategy locks',
-    // Intake, and nothing else. Not assets, not review, not perception, not a
-    // single see-point (spec 22 §11.1, acceptance test 12).
-    client_doors: ['give:intake'],
+    state: 'setup', switch_behavior: 'positions unset',
+    // REWRITTEN 2026-08-11 on her direct order: "get rid of this rule that
+    // they can't use or see anything without a set strategy for clients."
+    // Setup used to open give:intake and nothing else (spec 22 §11.1,
+    // acceptance test 12), so a client on a new profile hit walls she never
+    // chose. The doors now match active, and WHAT a client actually sees is
+    // decided in one place: her switches, on the Settings screen. Lifecycle
+    // still closes everything for paused, closing and archived.
+    client_doors: [...CLIENT_GIVE_DOORS, ...CLIENT_SEE_DOORS],
     connector_revocation: false, export_package: false,
     retention: 'forever', deletion_authority: 'owner-only-with-export',
   }),

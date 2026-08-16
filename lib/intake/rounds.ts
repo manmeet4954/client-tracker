@@ -102,6 +102,34 @@ export function openRound(
   return { body: next, round, skipped: generated.skipped };
 }
 
+/**
+ * Close every open round, in the DATA as well as in the entry state.
+ *
+ * 2026-08-11, and this was a real bug found by a test on the form builder.
+ * Archiving used to set the entry's state to 'history' and leave the round's
+ * own `status` saying 'sent'. `readRounds` reads the data and does not look at
+ * entry state, so anything asking "which round is open?" saw every round ever
+ * sent, and took the FIRST. Sending a second questionnaire would have left her
+ * screen showing the first one, with the client answering the second.
+ *
+ * One helper, used by every sender, so the two facts cannot disagree again.
+ */
+export function closeOpenRounds(body: ProfileBody, now: string): ProfileBody {
+  let next = body;
+  for (const e of readPath(next, INTAKE_PATH)) {
+    if (e.state !== 'active') continue;
+    const round = e.data as unknown as IntakeRound;
+    if (!round || typeof round.version !== 'number') continue;   // documents live here too
+    next = putEntry(next, INTAKE_PATH, {
+      id: e.id,
+      type: e.type,
+      data: { ...round, status: 'curated' } as unknown as Record<string, unknown>,
+      state: 'history',
+    }, { writer: 'owner', now });
+  }
+  return next;
+}
+
 function archivePreviousRounds(body: ProfileBody, now: string): ProfileBody {
   let next = body;
   for (const e of readPath(next, INTAKE_PATH)) {

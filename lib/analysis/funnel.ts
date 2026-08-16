@@ -113,7 +113,7 @@ function stepFor(
   if (!rows.length) {
     return {
       id: step.id, label: step.label, metric_id: step.metric, how: 'none',
-      value: { state: 'too-early', owed: 'nothing collected for this month yet' },
+      value: { state: 'too-early', owed: 'no data collected for this month yet' },
     };
   }
   const kind = metricKind(platform.toLowerCase(), step.metric);
@@ -142,7 +142,7 @@ function monthDifference(rows: MetricObservation[], metricId: string): Measured 
   if (typeof first !== 'number' || typeof last !== 'number' || rows.length < 2) {
     return {
       state: 'too-early',
-      owed: 'a month figure needs a reading at both ends; one of them was never recorded',
+      owed: 'a monthly figure requires a reading at both the start and end of the month; one is missing',
     };
   }
   return { state: 'value', value: last - first, n: rows.length };
@@ -167,7 +167,7 @@ export interface BrandBuildingLine {
  */
 export function brandBuilding(ctx: AnalysisContext, platform: string): BrandBuildingLine {
   if (!coverageFor(ctx.gaps, ctx.period.from, ctx.period.to).complete) {
-    return { state: 'no-coverage', words: 'We were not collecting for part of this period, so this is not computed.' };
+    return { state: 'no-coverage', words: 'Not computed: data collection was incomplete for part of this period.' };
   }
   const rows = [...ctx.snapshot.account_observations]
     .sort((a, b) => (a.fetched_at < b.fetched_at ? -1 : 1));
@@ -176,7 +176,7 @@ export function brandBuilding(ctx: AnalysisContext, platform: string): BrandBuil
   if (visits === null || reach === null || reach === 0) {
     return {
       state: 'too-early',
-      words: 'Not enough collected on both profile visits and reach to say anything yet.',
+      words: 'Not enough data on profile visits and reach for this period yet.',
       window: `${ctx.period.from} to ${ctx.period.to}`,
     };
   }
@@ -188,7 +188,7 @@ export function brandBuilding(ctx: AnalysisContext, platform: string): BrandBuil
     n: rows.length,
     window: `${days} days`,
     words: visits / reach > 0.02
-      ? `Profile visits are running high against reach over these ${days} days. That usually means the content is making people curious about the person.`
+      ? `Profile visits are outpacing reach over these ${days} days, which usually indicates content is driving interest in the profile.`
       : `Profile visits are tracking with reach over these ${days} days.`,
   };
 }
@@ -229,12 +229,12 @@ export interface OutcomePanel {
 export function outcomePanel(ctx: AnalysisContext): OutcomePanel {
   const observed = observedTotal(ctx, 'views');
   return {
-    heading: 'What happened in the business. Recorded by her, not measured by the platform.',
+    heading: 'Business outcomes. Recorded manually, not measured by the platform.',
     rows: ctx.facts.outcomes
       .filter(o => inPeriod(o, ctx.period))
       .map(o => outcomeRow(o, observed)),
     soft_signals_note:
-      'DMs, inquiries, perception answers and her remarks are not here. They are recorded elsewhere and read by her; no calculation on this screen touches them.',
+      'DMs, inquiries, perception answers and other qualitative signals are recorded separately and are not included in any calculation on this screen.',
   };
 }
 
@@ -256,7 +256,7 @@ function outcomeRow(o: AttributedOutcome, observed: number | null): OutcomeRow {
     period: [o.period_start, o.period_end].filter(Boolean).join(' to ') || 'no period recorded',
     words: status === 'declared'
       ? `${o.count} ${o.outcome}, from ${o.event_source}, attributed by ${o.attribution_method}.`
-      : `${o.count} ${o.outcome}: unknown. It is not called a conversion, and no rate is computed from it.`,
+      : `${o.count} ${o.outcome}: attribution unknown. Not counted as a conversion; no rate is calculated from it.`,
   };
   if (status !== 'declared' || observed === null) return base;
   // Refusal 4: the store refuses, not the UI. `attributedRate` carries no number

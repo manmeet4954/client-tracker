@@ -32,6 +32,12 @@ export const ROUTE_MAP: RouteRecord[] = [
   { file: 'app/shelf/page.tsx', fate: 'active', note: 'The shelf (§4). Her login lands here.' },
   { file: 'app/clients/page.tsx', fate: 'redirect', to: '/shelf', note: 'Becomes the shelf. Permanently redirects.' },
   { file: 'app/me/page.tsx', fate: 'split', to: '/shelf', note: 'The client-task and content-task halves move to the today strip (§4.3). The personal half LEAVES (PLAN §7) — exported first, removed only on her word, and not before (§16.6). It keeps rendering until then.' },
+  // 2026-08-11, her instruction: settings outside the app. Access is about
+  // PEOPLE, not about one brand's strategy, so it stopped being a panel in the
+  // Strategy room and became an address of its own.
+  { file: 'app/login/page.tsx', fate: 'active', note: 'Signs the current session out and shows the code screen. The invite link points here, because the bare app link walks into whatever session the browser holds and she could never reach the gate to test a client code.' },
+  { file: 'app/profile/[id]/client-preview/page.tsx', fate: 'active', note: 'Her eyes on the client\'s exact view: the same window components a client login renders, granted by the same rules, pointer-events off. Answers "how will they see it".' },
+  { file: 'app/settings/page.tsx', fate: 'active', note: 'Who gets into which profile, and what they can open. Renders ClientAccess per profile, so there is one set of toggles rather than two.' },
   { file: 'app/share-target/page.tsx', fate: 'active', note: 'Android share-to-save, unchanged. After cutover it writes into the chosen profile’s assets/sets.' },
 
   // ── 11.2 Inside a profile — the new addresses ──────────────────────────────

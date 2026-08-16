@@ -169,11 +169,17 @@ test('a dated piece beats the month it was created in', () => {
 
 suite('Board — six columns, counted');
 
-test('the columns are the six stages from types, in order, never a hardcoded list', () => {
+test('the columns are the stages from types, in order, never a hardcoded list', () => {
+  // Rejected joined on 2026-08-11 ("if something gets rejected in the review,
+  // it gets rejected"). On screen, Rejected, Approved and Scheduled draw only
+  // when they hold pieces; the bucket list itself carries all seven.
   eq(stageBuckets(CONTENT_STAGES, []).map(b => b.stage.label),
-    ['Idea', 'Build', 'Review', 'Approved', 'Scheduled', 'Posted'], 'the six');
+    ['Idea', 'Build', 'Review', 'Rejected', 'Approved', 'Scheduled', 'Posted'], 'the seven');
   ok(/CONTENT_STAGES/.test(BOARD_TSX), 'the screen reads them from types');
   ok(!/'Approved'|"Approved"/.test(BOARD_TSX), 'and spells none of them itself');
+  // Parked columns hide EMPTY, never occupied: data must not vanish behind a
+  // preference.
+  ok(/b\.cards\.length > 0/.test(BOARD_TSX), 'an occupied parked column still draws');
 });
 
 test('every piece lands in exactly one column, and the counts add up', () => {
@@ -192,7 +198,8 @@ test('every piece lands in exactly one column, and the counts add up', () => {
 test('Posted is the one column with the quieter ground', () => {
   ok(/stage\.id === 'posted' \? 'bg-sunken-muted' : 'bg-sunken'/.test(BOARD_TSX),
     '#f1eeeb for Posted, #f6f3f0 for the rest');
-  ok(/w-\[206px\]/.test(BOARD_TSX), 'columns are 206px');
+  // 240px, 268 on wide screens, since the space pass of 2026-08-11.
+  ok(/w-\[240px\]/.test(BOARD_TSX), 'columns are 240px');
 });
 
 // ── 5. Pillars ───────────────────────────────────────────────────────────────
@@ -236,11 +243,12 @@ test('the mix line counts, in singular and plural', () => {
   eq(pillarMixLine(many), '2 pieces, 67% of the board', 'two of three');
 });
 
-test('pillars stack on a phone and never scroll sideways there', () => {
-  ok(/flex flex-col items-stretch gap-\[11px\] md:flex-row/.test(BOARD_TSX),
-    'a column on the phone, a row from md up');
-  ok(!/(?<!md:)overflow-x-auto[^"]*md:flex-row/.test(BOARD_TSX),
-    'the sideways scroll is behind md:');
+test('pillars are a grid that uses the width it has', () => {
+  // Rewritten 2026-08-11 with the layout it pins: fixed 206px columns floated
+  // in the width ("a lot of white space going on"); a responsive grid divides
+  // it instead, one column on a phone.
+  ok(/grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3/.test(BOARD_TSX),
+    'one column on a phone, two from md, three wide');
 });
 
 // ── 6. Month, and its phone form ─────────────────────────────────────────────
@@ -333,6 +341,11 @@ test('the lock banner says the work still saves, and never claims nothing can be
   ok(!/pieces\s+cannot move/.test(banner), 'and so is the half about the pieces');
   ok(/still saves/.test(banner), 'it says the recording still saves');
   ok(/Strategy is still to be locked/.test(banner), 'and it still says what is waiting');
+  // 2026-08-11: it became a LINE rather than a card, because it shows on every
+  // profile with an unlocked strategy, which is all of them, and a standing
+  // condition is a status line and not an announcement. What it says is pinned
+  // above; how much room it takes is pinned here.
+  ok(!/py-\[15px\]/.test(banner), 'it is not a poster any more');
   ok(!/—/.test(banner), 'no em dashes in anything she reads');
 });
 

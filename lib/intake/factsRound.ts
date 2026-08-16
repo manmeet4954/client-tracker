@@ -14,7 +14,7 @@ import { putEntry, readPath } from '../tree/body.ts';
 import type { IntakeRound } from '../tree/objects.ts';
 import type { GeneratedQuestion } from './generate.ts';
 import {
-  ANSWERS_PATH, INTAKE_PATH, QUESTIONS_PATH, readAnswers, readRounds,
+  ANSWERS_PATH, INTAKE_PATH, QUESTIONS_PATH, closeOpenRounds, readAnswers, readRounds,
 } from './rounds.ts';
 import type { FactsCount } from '../strategy/facts.ts';
 import { FACT_NAMES } from '../strategy/facts.ts';
@@ -63,13 +63,8 @@ export function openFactsRound(
 
   const version = Math.max(0, ...readRounds(body).map(r => r.version)) + 1;
 
-  let next = body;
-  for (const e of readPath(next, INTAKE_PATH)) {
-    if (e.state !== 'active') continue;
-    next = putEntry(next, INTAKE_PATH, {
-      id: e.id, type: e.type, data: e.data, state: 'history',
-    }, { writer: 'owner', now });
-  }
+  // One open round at a time, closed in the data as well as the state.
+  let next = closeOpenRounds(body, now);
 
   const round: IntakeRound = {
     id: `round-${version}`,

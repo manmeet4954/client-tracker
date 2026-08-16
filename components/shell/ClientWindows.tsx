@@ -18,9 +18,11 @@ import type { ProfileBody } from '@/lib/tree/body';
 import { putEntry } from '@/lib/tree/body';
 import type { BodyEntry, ReviewVerdict } from '@/lib/tree/objects';
 import { fileAnswer } from '@/lib/intake/rounds';
+import { fileSuggestion } from '@/lib/intake/suggestions';
 import { applySkip, openFormFor, writeSkipped } from '@/lib/intake/form';
 import ClientForm from '@/components/intake/ClientForm';
-import { accentFor } from '@/lib/shell/profile';
+import { accentFor, renderProfile } from '@/lib/shell/profile';
+import { renderState } from '@/lib/tree/render';
 import { generateId } from '@/lib/utils';
 
 const PIECES = 'work-log/creation';
@@ -36,11 +38,11 @@ const SHOWN_STAGES = ['review', 'approved', 'scheduled', 'posted'];
 const DEFAULT_VERDICTS: ReviewVerdict[] = ['approve', 'in-scope-revision'];
 
 const VERDICT_WORDS: Record<ReviewVerdict, string> = {
-  'approve': 'Looks good',
-  'in-scope-revision': 'Small change please',
-  'supply-material': 'I need to send you something',
-  'reject': 'Not this one',
-  'scope-change': 'This is a bigger change',
+  'approve': 'Approve',
+  'in-scope-revision': 'Request a revision',
+  'supply-material': 'I need to send materials',
+  'reject': 'Decline',
+  'scope-change': 'Request a larger change',
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -72,6 +74,26 @@ export function BrandWindow({ profileId }: { profileId: string }) {
       rows.push({ path, label: labelOf(path), text });
     }
   }
+
+  // 2026-08-11, and this was found by an angry screenshot of an empty page.
+  // The window read only the tree's strategy decisions, and her brands' facts
+  // live in the brand slices she actually types into, so a client saw
+  // "will appear once finalized" over a strategy that was half built. The
+  // same dead lock-rule she ordered removed, surviving one layer deeper: the
+  // strategy shows AS IT STANDS. The client login already receives these
+  // slices; nothing new crosses the boundary. Her private client-profile
+  // notes (brand.strategy) are deliberately NOT among them.
+  const have = new Set(rows.map(r => r.label.toLowerCase()));
+  const facts: [string, string][] = [
+    ['positioning', data.brand?.tagline ?? ''],
+    ['audience', data.brand?.audience ?? ''],
+    ['voice', data.brand?.voice ?? ''],
+    ['pillars', (data.pillars ?? []).map(pl => pl.name).join(' · ')],
+    ['platforms', (data.platforms ?? []).join(' · ')],
+  ];
+  for (const [label, text] of facts) {
+    if (text.trim() && !have.has(label)) rows.push({ path: label, label, text });
+  }
   const obligations = (body?.paths?.[OBLIGATIONS] ?? [])
     .map(e => (e.data as { value?: unknown })?.value)
     .filter((v): v is string => typeof v === 'string' && !!v);
@@ -80,7 +102,7 @@ export function BrandWindow({ profileId }: { profileId: string }) {
     <div className="mx-auto max-w-3xl p-4 md:p-8">
       <Section title="Your strategy">
         {rows.length === 0
-          ? <Empty>Your summary will be here once it is agreed.</Empty>
+          ? <Empty>Your strategy summary will appear here once it is finalized.</Empty>
           : (
             <div className="space-y-2">
               {rows.map((r, i) => (
@@ -92,9 +114,9 @@ export function BrandWindow({ profileId }: { profileId: string }) {
             </div>
           )}
       </Section>
-      <Section title="What we need from you">
+      <Section title="Requested from you">
         {obligations.length === 0
-          ? <Empty>Nothing outstanding right now.</Empty>
+          ? <Empty>No outstanding requests.</Empty>
           : (
             <ul className="space-y-1.5">
               {obligations.map((o, i) => (
@@ -122,11 +144,28 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
 
   // Spec 33 §4. Everything the form knows comes from lib/intake/form.ts; this
   // window only reads the open round and files what the form hands back.
-  const open = body ? openFormFor(body) : null;
+  //
+  // TWO 2026-08-11 RULINGS LIVE HERE:
+  //  - A round is servable to a CLIENT only if she authored its questions
+  //    (a built form or the brand facts). The 53-parameter bank was retired
+  //    as a route, but rounds sent from it in the old days still sat open in
+  //    profile bodies, and a client login met "1 OF 53". History keeps them;
+  //    clients are never asked them again.
+  //  - "This should have been a place to give ideas": Ideas is the standing
+  //    half of this window, form or no form.
+  const rawOpen = body ? openFormFor(body) : null;
+  const open = rawOpen && rawOpen.round.parameters.some(
+    pid => pid.startsWith('own.') || pid.startsWith('fact.'),
+  ) ? rawOpen : null;
   if (!body || !open) {
     return (
       <div className="mx-auto max-w-3xl p-4 md:p-8">
-        <Empty>Nothing to answer right now. Thank you.</Empty>
+        <Section title="Share an idea">
+          <p className="mb-2.5 text-sm text-stone-500">
+            A post idea, a topic, something you want covered. It goes straight to the planning board.
+          </p>
+          <SuggestTopic profileId={profileId} />
+        </Section>
       </div>
     );
   }
@@ -178,7 +217,7 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
     }).catch(() => null);
 
     if (!res?.ok) {
-      setNote('That one could not be set aside just now. Everything you have answered is still saved.');
+      setNote('This question could not be marked for later. Your answers are saved.');
     }
   }
 
@@ -197,6 +236,11 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
         onAnswer={answer}
         onSkip={skip}
       />
+      <div className="mx-auto max-w-3xl p-4 pt-0 md:px-8">
+        <Section title="Share an idea">
+          <SuggestTopic profileId={profileId} />
+        </Section>
+      </div>
     </>
   );
 }
@@ -220,6 +264,12 @@ export function ContentWindow({ profileId, pieceId }: { profileId: string; piece
     .filter(p => String((p.data as { stage?: string }).stage) === 'review')
     .sort((a, b) => Number(b.id === pieceId) - Number(a.id === pieceId));
   const upcoming = pieces.filter(p => ['approved', 'scheduled'].includes(String((p.data as { stage?: string }).stage)));
+
+  // Each section obeys ITS OWN switch, so the finer toggles in Settings are
+  // real: Approvals rides creation.review, Upcoming rides creation.scheduling.
+  const rp = renderProfile(state, profileId, role);
+  const showReview = renderState(rp, 'creation.review', 'client') === 'active';
+  const showUpcoming = renderState(rp, 'creation.scheduling', 'client') === 'active';
 
   const cfg = (body?.paths?.['context/content-strategy/working-mode'] ?? [])
     .map(e => (e.data as { value?: { allowed_verdicts?: ReviewVerdict[] } })?.value)
@@ -247,9 +297,10 @@ export function ContentWindow({ profileId, pieceId }: { profileId: string; piece
 
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-8">
-      <Section title="Waiting for you">
+      {showReview && (
+      <Section title="Awaiting your review">
         {waiting.length === 0
-          ? <Empty>Nothing is waiting for your review.</Empty>
+          ? <Empty>Nothing awaiting your review.</Empty>
           : (
             <div className="space-y-3">
               {waiting.map(p => (
@@ -258,13 +309,13 @@ export function ContentWindow({ profileId, pieceId }: { profileId: string; piece
                   <input
                     value={note[p.id] ?? ''}
                     onChange={e => setNote(n => ({ ...n, [p.id]: e.target.value }))}
-                    placeholder="Anything you want changed"
+                    placeholder="Add a note (optional)"
                     className="mt-2 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
                   />
                   <input
                     value={note[`${p.id}:feel`] ?? ''}
                     onChange={e => setNote(n => ({ ...n, [`${p.id}:feel`]: e.target.value }))}
-                    placeholder="How do you think this one will do? (optional)"
+                    placeholder="How do you expect this to perform? (optional)"
                     className="mt-2 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
                   />
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -281,8 +332,17 @@ export function ContentWindow({ profileId, pieceId }: { profileId: string; piece
             </div>
           )}
       </Section>
+      )}
 
-      <Section title="Coming up">
+      {/* "They can upload references or add topics for me" (2026-08-11).
+          A suggestion is an intake ANSWER on the client-ideas lane (spec 22
+          §7.5), through the same give door as every questionnaire answer. */}
+      <Section title="Suggest a topic">
+        <SuggestTopic profileId={profileId} />
+      </Section>
+
+      {showUpcoming && (
+      <Section title="Upcoming">
         {upcoming.length === 0
           ? <Empty>Nothing scheduled yet.</Empty>
           : (
@@ -292,12 +352,13 @@ export function ContentWindow({ profileId, pieceId }: { profileId: string; piece
                 .map(p => (
                   <li key={p.id} className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3">
                     <span className="text-sm text-stone-800">{titleOf(p)}</span>
-                    <span className="text-xs text-stone-500">{dateOf(p) || 'no date yet'}</span>
+                    <span className="text-xs text-stone-500">{dateOf(p) || 'No date set'}</span>
                   </li>
                 ))}
             </ul>
           )}
       </Section>
+      )}
     </div>
   );
 }
@@ -339,6 +400,46 @@ export function ResultsWindow({ profileId }: { profileId: string }) {
           </ul>
         </Section>
       ))}
+    </div>
+  );
+}
+
+
+function SuggestTopic({ profileId }: { profileId: string }) {
+  const { role, dispatch } = useApp();
+  const { data } = useClient(profileId);
+  const [text, setText] = useState('');
+  const [sent, setSent] = useState(false);
+  const body = data.body;
+  if (!body) return null;
+
+  function send() {
+    if (!body || !text.trim()) return;
+    const next = fileSuggestion(body, {
+      text, by: role, now: new Date().toISOString(), writer: 'client',
+    });
+    dispatch({ type: 'SET_BODY', payload: { clientId: profileId, body: next } });
+    setText('');
+    setSent(true);
+    setTimeout(() => setSent(false), 2500);
+  }
+
+  return (
+    <div>
+      <div className="flex gap-1.5">
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') send(); }}
+          placeholder="A post idea, a topic, something you want covered"
+          className="min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm"
+        />
+        <button type="button" onClick={send}
+          className="rounded-lg bg-stone-900 px-3.5 py-2 text-sm font-medium text-white">
+          Send
+        </button>
+      </div>
+      {sent && <p className="mt-1.5 text-xs text-stone-500">Sent. It goes straight to the planning board.</p>}
     </div>
   );
 }

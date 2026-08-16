@@ -131,7 +131,7 @@ export interface CoverageBar {
   daysLine: string;
   /** "not collecting since 12 July". Absent when collection is complete. */
   sinceLine?: string;
-  /** "Everything below is read against 23 days, not 31." Absent when complete. */
+  /** "Metrics below reflect 23 collected days, not 31." Absent when complete. */
   readAgainstLine?: string;
 }
 
@@ -153,7 +153,7 @@ export function coverageBar(coverage: Coverage | undefined): CoverageBar | undef
 
   const gap = openGap(coverage);
   if (gap) bar.sinceLine = sinceWords(gap);
-  bar.readAgainstLine = `Everything below is read against ${covered} ${covered === 1 ? 'day' : 'days'}, not ${expected}.`;
+  bar.readAgainstLine = `Metrics below reflect ${covered} collected ${covered === 1 ? 'day' : 'days'}, not ${expected}.`;
   return bar;
 }
 
@@ -163,13 +163,13 @@ export function openGap(coverage: Coverage | undefined): CoverageGap | undefined
   return [...coverage.gaps].sort((a, b) => (a.from < b.from ? 1 : a.from > b.from ? -1 : 0))[0];
 }
 
-/** Since when, and why, in her words. A stall and a decision never read alike. */
+/** Since when, and why, plainly. A stall and a decision never read alike. */
 export function sinceWords(gap: CoverageGap): string {
   const day = formatDay(gap.from);
   switch (gap.reason) {
-    case 'switched-off': return `switched off since ${day}`;
-    case 'not-yet-tracked': return `nothing collected before ${formatDay(gap.to)}`;
-    case 'platform-error': return `the platform refused us since ${day}`;
+    case 'switched-off': return `paused since ${day}`;
+    case 'not-yet-tracked': return `no data before ${formatDay(gap.to)}`;
+    case 'platform-error': return `platform error since ${day}`;
     case 'not-connected': return `not connected since ${day}`;
     default: return `not collecting since ${day}`;
   }
@@ -200,7 +200,7 @@ export function coverageDiffersLine(
   if (screen.days_covered === group.days_covered && screen.days_expected === group.days_expected) {
     return undefined;
   }
-  return `This one reads ${screen.days_covered} of ${screen.days_expected} days, not ${group.days_covered}.`;
+  return `This section covers ${screen.days_covered} of ${screen.days_expected} days, not ${group.days_covered}.`;
 }
 
 // ── Metric cards ─────────────────────────────────────────────────────────────
@@ -219,7 +219,7 @@ export function metricCard(
   label: string, m: Measured | undefined, coverage?: Coverage,
 ): MetricCardModel {
   if (!m) {
-    return { label, value: NO_READING, note: 'no reading on this profile', tone: 'faint' };
+    return { label, value: NO_READING, note: 'no data for this profile', tone: 'faint' };
   }
   switch (m.state) {
     case 'value':
@@ -240,7 +240,7 @@ export function metricCard(
     case 'not-measurable':
       return { label, value: NO_READING, note: m.because ?? 'not measured on this profile', tone: 'muted' };
     default:
-      return { label, value: NO_READING, note: m.owed ? `too early. ${m.owed}` : 'too early to judge', tone: 'muted' };
+      return { label, value: NO_READING, note: m.owed ? `insufficient data. ${m.owed}` : 'insufficient data', tone: 'muted' };
   }
 }
 
@@ -381,13 +381,13 @@ export interface PillarLike {
 export function pillarRead(card: PillarLike | undefined): ReadPill {
   const n = card?.piece_ids?.length ?? 0;
   switch (card?.state) {
-    case 'earning': return { words: 'doing its job', tone: 'positive' };
-    case 'steady': return { words: 'holding', tone: 'positive' };
-    case 'dragging': return { words: 'not doing its job', tone: 'attention' };
+    case 'earning': return { words: 'performing', tone: 'positive' };
+    case 'steady': return { words: 'steady', tone: 'positive' };
+    case 'dragging': return { words: 'underperforming', tone: 'attention' };
     case 'coverage-gap': return { words: 'not collecting', tone: 'attention' };
     case 'not-measurable': return { words: 'not measurable here', tone: 'neutral' };
     case 'blocked': return { words: 'no job set', tone: 'neutral' };
-    default: return { words: `thin, ${n} ${n === 1 ? 'piece' : 'pieces'}`, tone: 'attention' };
+    default: return { words: `limited data, ${n} ${n === 1 ? 'piece' : 'pieces'}`, tone: 'attention' };
   }
 }
 
@@ -415,7 +415,7 @@ export function bornLine(costume: CostumeLike | undefined | null, seedTitle?: st
   if (costume?.hook_type && costume.hook_type !== costume.angle) parts.push(costume.hook_type);
   if (costume?.format) parts.push(costume.format);
   if (costume?.platform) parts.push(costume.platform);
-  return parts.length ? parts.join(' · ') : 'how this was born was not recorded';
+  return parts.length ? parts.join(' · ') : 'creation details not recorded';
 }
 
 export interface ComparePreviewLike {
@@ -440,7 +440,7 @@ export function compareVerdict(preview: ComparePreviewLike | undefined): Compare
     return { enough: false, words: 'Not enough comparable data', detail: preview.missing };
   }
   const words = preview.entry?.verdict?.words;
-  if (!words) return { enough: false, words: 'Nothing to say about these two yet', detail: preview.missing };
+  if (!words) return { enough: false, words: 'No comparison available yet', detail: preview.missing };
   return { enough: true, words };
 }
 
@@ -451,9 +451,9 @@ export function canCompare(selected: string[]): boolean {
 
 /** What the picker says, counted from the selection itself. */
 export function selectionLine(selected: string[]): string {
-  if (selected.length === 0) return 'Pick two or more pieces to compare them.';
-  if (selected.length === 1) return '1 piece picked. Pick one more.';
-  return `${selected.length} pieces picked.`;
+  if (selected.length === 0) return 'Select two or more pieces to compare.';
+  if (selected.length === 1) return '1 piece selected. Select one more.';
+  return `${selected.length} pieces selected.`;
 }
 
 // ── Counting ─────────────────────────────────────────────────────────────────

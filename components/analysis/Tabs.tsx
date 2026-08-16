@@ -30,7 +30,7 @@ type Payload = Record<string, any>;
 
 export function NowTab({ payload }: { payload: Payload }) {
   const now = payload.now;
-  if (!now) return <Empty>Nothing to show yet.</Empty>;
+  if (!now) return <Empty>No data yet.</Empty>;
   const pillars: Payload[] = now.pillars ?? [];
   const moving: Payload[] = now.moving ?? [];
   const pieces: unknown[] = new Array(Number(now.posted) || 0).fill(0);
@@ -40,7 +40,7 @@ export function NowTab({ payload }: { payload: Payload }) {
       <Card className="px-5 py-[18px]">
         <p className="text-[13px] leading-[1.55] text-muted">{now.first_block}</p>
         <p className="mt-1.5 text-[15px] text-text">
-          {countLine(pieces, 'piece', 'pieces')} out this month so far.
+          {countLine(pieces, 'piece', 'pieces')} published this month.
         </p>
       </Card>
 
@@ -56,11 +56,11 @@ export function NowTab({ payload }: { payload: Payload }) {
 
       <Card>
         <div className="px-[18px] pb-3 pt-3.5">
-          <Kicker>Anything moving</Kicker>
+          <Kicker>Notable changes</Kicker>
         </div>
         {moving.length === 0 ? (
           <p className="px-[18px] pb-4 text-[13px] text-faint">
-            Nothing has moved far enough from your own normal to call.
+            No metrics have moved significantly from their typical range.
           </p>
         ) : (
           moving.map((m: Payload, i: number) => (
@@ -89,10 +89,10 @@ export function NowTab({ payload }: { payload: Payload }) {
 
 export function GoalsTab({ payload }: { payload: Payload }) {
   const cards: Payload[] = payload.goals ?? [];
-  if (cards.length === 0) return <Empty>No goals are set on this profile yet.</Empty>;
+  if (cards.length === 0) return <Empty>No goals set for this profile.</Empty>;
   return (
     <Card className="px-5 py-[18px]">
-      <Kicker>Against the target, this month</Kicker>
+      <Kicker>Progress this month</Kicker>
       <div className="mt-3">
         {cards.map((g: Payload) => {
           const bar = goalBar(g);
@@ -107,7 +107,7 @@ export function GoalsTab({ payload }: { payload: Payload }) {
               {g.pace ? <p className="text-[12.5px] text-muted">{g.pace.words}</p> : null}
               {g.proxy ? (
                 <p className="mt-1 text-[12px] font-semibold text-overdue">
-                  This is a proxy, not the metric itself.
+                  Based on a proxy metric, not a direct measurement.
                 </p>
               ) : null}
             </div>
@@ -122,7 +122,7 @@ export function GoalsTab({ payload }: { payload: Payload }) {
 
 export function HealthTab({ payload, fixHref }: { payload: Payload; fixHref?: string }) {
   const health = payload.health;
-  if (!health) return <Empty>Nothing recorded yet.</Empty>;
+  if (!health) return <Empty>No data recorded yet.</Empty>;
   const channels: Payload[] = health.channels ?? [];
   const gaps: Payload[] = health.gaps ?? [];
   const runs: Payload[] = health.runs ?? [];
@@ -131,11 +131,11 @@ export function HealthTab({ payload, fixHref }: { payload: Payload; fixHref?: st
     <div className="flex flex-col gap-3.5">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 px-[18px] pb-3 pt-3.5">
-          <Kicker>Where the numbers come from</Kicker>
+          <Kicker>Data sources</Kicker>
           <span className="text-[12.5px] text-faint">{countLine(channels, 'channel', 'channels')}</span>
         </div>
         {channels.length === 0 ? (
-          <p className="px-[18px] pb-4 text-[13px] text-faint">No channel is connected on this profile.</p>
+          <p className="px-[18px] pb-4 text-[13px] text-faint">No channels connected for this profile.</p>
         ) : (
           channels.map((c: Payload) => (
             <Row key={c.channel_id}>
@@ -143,7 +143,7 @@ export function HealthTab({ payload, fixHref }: { payload: Payload; fixHref?: st
                 {c.account_handle || c.channel_id}
               </span>
               <span className="text-[12.5px] text-muted">
-                {c.platform}. Last worked {c.last_successful_sync ? formatDay(String(c.last_successful_sync)) : 'never'}.
+                {c.platform}. Last synced {c.last_successful_sync ? formatDay(String(c.last_successful_sync)) : 'never'}.
               </span>
               <Pill tone={c.connection_status === 'connected' ? 'positive' : 'attention'}>
                 {c.connection_status}
@@ -153,14 +153,14 @@ export function HealthTab({ payload, fixHref }: { payload: Payload; fixHref?: st
         )}
         {fixHref ? (
           <div className="border-t border-divider px-[18px] py-3.5">
-            <GhostButton href={fixHref}>Fix the connection</GhostButton>
+            <GhostButton href={fixHref}>Fix connection</GhostButton>
           </div>
         ) : null}
       </Card>
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 px-[18px] pb-3 pt-3.5">
-          <Kicker>Days we did not collect</Kicker>
+          <Kicker>Collection gaps</Kicker>
           <span className="text-[12.5px] text-faint">{countLine(gaps, 'stretch', 'stretches')}</span>
         </div>
         {gaps.length === 0 ? (
@@ -223,12 +223,12 @@ export function HealthTab({ payload, fixHref }: { payload: Payload; fixHref?: st
 
 function reasonWords(reason: string): string {
   switch (reason) {
-    case 'sync-stalled': return 'The pipe stopped.';
-    case 'switched-off': return 'You turned this off.';
-    case 'not-yet-tracked': return 'Before we started collecting.';
-    case 'platform-error': return 'The platform refused us.';
-    case 'not-connected': return 'The account was not connected.';
-    default: return 'We do not know why we stopped.';
+    case 'sync-stalled': return 'Sync stalled.';
+    case 'switched-off': return 'Collection paused.';
+    case 'not-yet-tracked': return 'Before tracking began.';
+    case 'platform-error': return 'Platform error.';
+    case 'not-connected': return 'Account not connected.';
+    default: return 'Reason unknown.';
   }
 }
 
@@ -281,7 +281,7 @@ export function SlicesTab({
           <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
             <Kicker>Crossed with</Kicker>
             <div className="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto md:flex-wrap">
-              <Chip on={!cross} onClick={() => onCross('')}>Nothing</Chip>
+              <Chip on={!cross} onClick={() => onCross('')}>None</Chip>
               {dimensions.filter((d: Payload) => d.id !== dimension).map((d: Payload) => (
                 <Chip key={d.id} on={d.id === cross} onClick={() => onCross(d.id)}>{d.label}</Chip>
               ))}
@@ -290,7 +290,7 @@ export function SlicesTab({
         )}
 
         {rows.length === 0 ? (
-          <Empty>Nothing posted in this period carries that parameter yet.</Empty>
+          <Empty>No posts in this period have this parameter.</Empty>
         ) : (
           rows.map(r => (
             <div key={r.key} className="border-b border-divider py-2.5 last:border-b-0">
@@ -311,12 +311,12 @@ export function SlicesTab({
           count is counted from the ids that bucket holds. */}
       <div className="grid gap-3 md:grid-cols-3">
         <Bucket
-          title="Born before the engine"
+          title="Published before tracking"
           ids={sliced?.born_before_the_engine?.piece_ids}
           words={sliced?.born_before_the_engine?.words}
         />
         <Bucket
-          title="Posted without a plan"
+          title="Unplanned posts"
           ids={sliced?.unplanned?.platform_post_ids}
           words={sliced?.unplanned?.words}
         />
@@ -346,11 +346,11 @@ function Bucket({ title, ids, words }: { title: string; ids?: unknown[]; words?:
 
 export function ScorecardTab({ payload }: { payload: Payload }) {
   const cards: Payload[] = payload.cards ?? [];
-  if (cards.length === 0) return <Empty>No pillars are set up on this profile yet.</Empty>;
+  if (cards.length === 0) return <Empty>No pillars set up for this profile.</Empty>;
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 px-[18px] pb-3 pt-3.5">
-        <Kicker>Each pillar, on its own job</Kicker>
+        <Kicker>Pillar performance</Kicker>
         <span className="text-[12.5px] text-faint">{countLine(cards, 'pillar', 'pillars')}</span>
       </div>
       {cards.map((c: Payload) => {
@@ -365,7 +365,7 @@ export function ScorecardTab({ payload }: { payload: Payload }) {
 
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12.5px] text-muted">
               <span>{c.quantity?.words}</span>
-              <span>judged on {c.judged_on}</span>
+              <span>measured on {c.judged_on}</span>
               <span>
                 typical <Figure m={c.typical as Measured} />
               </span>
@@ -396,14 +396,14 @@ export function ScorecardTab({ payload }: { payload: Payload }) {
 
 export function FunnelTab({ payload }: { payload: Payload }) {
   const chain = payload.funnel;
-  if (!chain) return <Empty>Nothing collected for this period yet.</Empty>;
+  if (!chain) return <Empty>No data for this period.</Empty>;
   const months: Payload[] = chain.months ?? [];
   const rows: Payload[] = chain.outcomes?.rows ?? [];
 
   return (
     <div className="flex flex-col gap-3.5">
       {months.length === 0
-        ? <Empty>No account readings for this period.</Empty>
+        ? <Empty>No account data for this period.</Empty>
         : months.map((m: Payload) => {
           const steps: Payload[] = m.steps ?? [];
           const max = maxReading(steps.map(s => ({ value: s.value as Measured })));
@@ -441,7 +441,7 @@ export function FunnelTab({ payload }: { payload: Payload }) {
           <span className="text-[12.5px] text-faint">{countLine(rows, 'outcome', 'outcomes')}</span>
         </div>
         {rows.length === 0 ? (
-          <p className="px-[18px] pb-4 text-[13px] text-faint">Nothing recorded for this period.</p>
+          <p className="px-[18px] pb-4 text-[13px] text-faint">No outcomes recorded for this period.</p>
         ) : (
           rows.map((r: Payload) => (
             <Row key={r.id}>
@@ -480,11 +480,11 @@ export function CompareTab({
     <div className="flex flex-col gap-3.5">
       <Card className="px-5 py-[18px]">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Kicker>Two or more, side by side</Kicker>
+          <Kicker>Comparison</Kicker>
           <span className="text-[12.5px] text-faint">{selectionLine(selected)}</span>
         </div>
         {selectable.length === 0 ? (
-          <div className="mt-3"><Empty>Nothing in this period has a reading to compare.</Empty></div>
+          <div className="mt-3"><Empty>No data to compare in this period.</Empty></div>
         ) : (
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {selectable.map((p: Payload) => {
@@ -546,10 +546,10 @@ export function CompareTab({
       )}
 
       {!canCompare(selected) ? (
-        <Empty>Pick two pieces to compare them.</Empty>
+        <Empty>Select two pieces to compare.</Empty>
       ) : verdict ? (
         <Card className="px-5 py-[18px]">
-          <Kicker>{verdict.enough ? 'The call, in words' : 'No call'}</Kicker>
+          <Kicker>{verdict.enough ? 'Verdict' : 'No verdict'}</Kicker>
           <p className="mt-2.5 text-[15px] leading-[1.65] text-text">{verdict.words}</p>
           {verdict.detail ? <p className="mt-1.5 text-[13px] text-muted">{verdict.detail}</p> : null}
           {preview?.age_line ? <p className="mt-2 text-[12.5px] text-faint">{preview.age_line}</p> : null}
@@ -563,7 +563,7 @@ export function CompareTab({
           ) : null}
         </Card>
       ) : (
-        <Empty>Reading those two.</Empty>
+        <Empty>Loading comparison&hellip;</Empty>
       )}
 
       {saved.length > 0 && (
@@ -575,7 +575,7 @@ export function CompareTab({
           {saved.map((c: Payload) => (
             <Row key={c.id}>
               <span className="flex-1 text-[14px] font-semibold text-text">
-                {c.hypothesis || 'No hypothesis written'}
+                {c.hypothesis || 'No hypothesis recorded'}
               </span>
               <span className="text-[12.5px] text-muted">
                 {c.planned ? 'Planned. ' : ''}{c.state}{c.planned_status?.owed ? `. ${c.planned_status.owed}` : ''}
@@ -602,14 +602,14 @@ export function VerdictsTab({ payload, engineHref }: { payload: Payload; engineH
   return (
     <div className="flex flex-col gap-3.5">
       {verdicts.length === 0 ? (
-        <Empty>No verdict has run on this profile yet. The first one lands after a full cycle.</Empty>
+        <Empty>No verdicts yet. The first verdict is generated after a full cycle.</Empty>
       ) : (
         verdicts.map((v: Payload) => {
           const patterns: Payload[] = v.rendered_words?.patterns ?? [];
           return (
             <Card key={v.id} className="px-5 py-[18px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <Kicker>The {v.cycle} call, in words</Kicker>
+                <Kicker>{v.cycle} verdict</Kicker>
                 <span className="text-[12.5px] text-faint">
                   {countLine(patterns, 'pattern', 'patterns')}
                 </span>
@@ -619,7 +619,7 @@ export function VerdictsTab({ payload, engineHref }: { payload: Payload; engineH
               </p>
               {v.words_are_computed ? (
                 <p className="mt-2 rounded-xl bg-[rgba(234,71,17,.07)] px-3.5 py-2.5 text-[12.5px] text-accent-text">
-                  These words were written by the engine&apos;s own code, not by a model.
+                  This summary was generated by deterministic rules, not by an AI model.
                 </p>
               ) : null}
               {v.rendered_words?.coverage_note ? (
@@ -634,7 +634,7 @@ export function VerdictsTab({ payload, engineHref }: { payload: Payload; engineH
               )}
               {v.rendered_words?.call ? (
                 <div className="mt-3 rounded-xl bg-control px-3.5 py-3">
-                  <Kicker>Is doing more of this the right call</Kicker>
+                  <Kicker>Recommendation</Kicker>
                   <div className="mt-1 text-sm font-semibold text-text">
                     {v.rendered_words.call.right_call}
                   </div>
@@ -648,7 +648,7 @@ export function VerdictsTab({ payload, engineHref }: { payload: Payload; engineH
               ) : null}
               {engineHref ? (
                 <div className="mt-4 flex flex-wrap gap-2.5">
-                  <DarkButton href={engineHref}>Send this back to Engine</DarkButton>
+                  <DarkButton href={engineHref}>Send to Engine</DarkButton>
                 </div>
               ) : null}
             </Card>
@@ -659,7 +659,7 @@ export function VerdictsTab({ payload, engineHref }: { payload: Payload; engineH
       {digests.length > 0 && (
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3 px-[18px] pb-3 pt-3.5">
-            <Kicker>Written up</Kicker>
+            <Kicker>Digests</Kicker>
             <span className="text-[12.5px] text-faint">{countLine(digests, 'digest', 'digests')}</span>
           </div>
           {digests.map((d: Payload) => (
@@ -682,7 +682,7 @@ export function VerdictsTab({ payload, engineHref }: { payload: Payload; engineH
                 <p className="mt-2.5 text-[12.5px] font-semibold text-muted">
                   {d.published
                     ? `Published ${formatDay(String(d.approved_at ?? '').slice(0, 10))}.`
-                    : 'Not published. The client sees nothing until you approve it.'}
+                    : 'Not published. Not visible to the client until approved.'}
                 </p>
               ) : null}
             </div>

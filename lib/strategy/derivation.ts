@@ -20,7 +20,8 @@ import type { ProfileBody } from '../tree/body.ts';
 import { putEntry, readPath } from '../tree/body.ts';
 import { findDeclaration } from '../tree/declarations.ts';
 import {
-  SWITCHES, effectiveState, findSwitch, platformSwitchId, switchesForProfile, validateSwitchConfig,
+  SWITCHES, effectiveState, findSwitch, platformSwitchId, resolveSwitch, switchesForProfile,
+  validateSwitchConfig,
 } from '../tree/switches.ts';
 import { PARAMETERS, findParameter } from '../intake/parameters.ts';
 
@@ -437,9 +438,39 @@ export function switchConfigFromBody(body: ProfileBody): SwitchConfig {
   return config;
 }
 
+/**
+ * 2026-08-16: a live client binding IS the login.
+ *
+ * `client_access.login` was always declared as derived (`derived_from:
+ * 'profile lifecycle + working-mode'`), and nothing in the app has ever
+ * WRITTEN it — the raw switchboard that could have was cut from the rail on
+ * 2026-08-11. So on every real profile it sat at its hidden suggested default
+ * and silently vetoed everything that requires it (assets.client_upload,
+ * analysis.digest_client, creation.review_deeplink, client_access.mini_shelf)
+ * however she set her toggles — the same defect the resolver's dead lock rule
+ * caused, one layer down.
+ *
+ * Derived, never stored, so it cannot drift: guest bindings are rebuilt from
+ * live invites only, so a revoked invite takes the login with it, and no
+ * backfill migration is needed for the profiles already bound. One helper,
+ * called by every site that resolves a bound client's switches — three copies
+ * of one truth is how the Strategy 404 happened.
+ */
+export function withDerivedLogin(config: SwitchConfig, at: string): SwitchConfig {
+  return { ...config, 'client_access.login': { state: 'active', set_at: at } };
+}
+
 export function setSwitchPosition(
   body: ProfileBody, id: string, state: PathState, now: string, suggested = false,
 ): ProfileBody {
+  // 2026-08-16: a FIXED switch is structural and has no other honest position
+  // (spec 21 §5.4). The Brand toggle used to write `strategy.fixed = hidden` —
+  // a position the registry forbids, which the cascade would have obeyed and
+  // taken her own board with it. Refused here, at the one write door, so no
+  // screen can grow that bug again.
+  if (resolveSwitch(id)?.fixed) {
+    throw new Error(`[strategy] "${id}" is structural and cannot be moved`);
+  }
   return putEntry(body, TOOLSET_PATH, {
     id, type: 'switch_setting',
     data: { id, state, set_at: now, suggested } as unknown as Record<string, unknown>,

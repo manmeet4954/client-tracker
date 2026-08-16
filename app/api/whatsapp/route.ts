@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { readState, writeState, uploadToStorage } from '@/lib/supabaseServer';
+import { readState, writeStateScoped, uploadToStorage } from '@/lib/supabaseServer';
+import { changedScopes } from '@/lib/tree/scopes';
 import { normalizeState } from '@/lib/access';
 import {
   decide, applyMyTask, applyClientTask, applyObservation, applyPhoto,
@@ -187,6 +188,8 @@ export async function POST(req: Request) {
   if (messages.length === 0) return NextResponse.json({ ok: true });
 
   let state = await readState();
+  // The untouched copy the CAS write diffs against (2026-08-09).
+  const stateAsRead = state;
   if (!state) {
     // Nothing to write into — say so instead of silently dropping her note.
     await sendReply(messages[0].from, 'The dashboard could not be reached. Your message was NOT saved — try again in a bit.');
@@ -234,7 +237,7 @@ export async function POST(req: Request) {
 
   if (dirty) {
     try {
-      await writeState(state);
+      await writeStateScoped(state, changedScopes(stateAsRead, state));
     } catch (e) {
       console.error('[whatsapp] writeState failed:', e);
       await sendReply(messages[0].from, 'Saving failed on the dashboard side. Your last message was NOT saved.');

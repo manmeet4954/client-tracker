@@ -69,12 +69,17 @@ export function setSource(items: { uploadedBy?: string }[]): SetSource {
   return 'none';
 }
 
-/** The uppercase label on the 4:3 tile. */
+/** The uppercase label on the 4:3 tile.
+ *
+ *  'From her' came OFF on 2026-08-11, at her request. Her own uploads are the
+ *  default case and labelling the default is noise; provenance only earns the
+ *  pixels when the material came from the client, which is the fact she has to
+ *  respect when using it. An empty label renders nothing. */
 export function setKind(items: { uploadedBy?: string }[]): string {
   switch (setSource(items)) {
-    case 'hers': return 'From her';
+    case 'hers': return '';
     case 'client': return 'From the client';
-    case 'both': return 'From both';
+    case 'both': return 'From the client and you';
     default: return 'New set';
   }
 }

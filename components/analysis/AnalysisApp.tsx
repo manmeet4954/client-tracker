@@ -30,9 +30,9 @@ async function readTabs(clientId: string): Promise<{ tabs?: TabNode[]; error?: s
     const res = await fetch(`/api/analysis?clientId=${encodeURIComponent(clientId)}&tab=now`);
     const json = await res.json();
     if (Array.isArray(json.tabs)) return { tabs: json.tabs as TabNode[] };
-    return { error: json.detail ?? json.error ?? 'Could not read what is switched on here.' };
+    return { error: json.detail ?? json.error ?? 'Could not load the analysis configuration.' };
   } catch {
-    return { error: 'Could not reach the engine. Nothing was lost.' };
+    return { error: 'Could not connect. No data has been lost.' };
   }
 }
 
@@ -78,7 +78,7 @@ export default function AnalysisApp({
 
   useEffect(() => { void load(); }, [load]);
 
-  if (loading && !tabs) return <Empty>Reading what is switched on here.</Empty>;
+  if (loading && !tabs) return <Empty>Loading analysis&hellip;</Empty>;
 
   if (error && !tabs) {
     return (
@@ -93,7 +93,7 @@ export default function AnalysisApp({
   // Off means absent, all the way up: with every screen switched off there is no
   // Analysis app, and this says so in one line instead of drawing an empty shell.
   if (groups.length === 0) {
-    return <Empty>Nothing is being collected for this profile, so there is nothing to read yet.</Empty>;
+    return <Empty>Analytics are not enabled for this profile.</Empty>;
   }
 
   const asked = group ?? (tab ? groupOf(tab) : undefined) ?? ownGroup ?? defaultGroupId(tabs ?? []) ?? '';

@@ -7,10 +7,16 @@ import { allowedClientIds, type Role } from '@/lib/access';
 import { contentMonth } from '@/lib/utils';
 import type { AppState, ClientData, ClientGoal, ContentCard, ContentPillar } from '@/types';
 import type {
+
   AnalyticsPayload, ComparisonData, ExpressionNumbers, ExpressionStat,
   FunnelData, FunnelMonth, MetricReading, PatternInsight, PatternsData,
   PillarScore, PillarVerdict, PostTags,
 } from '@/types/analytics';
+
+// Next caches fetch() by URL and supabase-js rides on fetch; long-lived query
+// URLs get served from the data cache at random. That one behavior ate previews
+// for eight days (see lib/supabaseServer.ts). Every server client pins no-store.
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: 'no-store' });
 
 // Spec 05: every number on the Analytics tab is computed HERE, in code, from
 // the ig_* tables (the pipe) and the one AppState blob (the record). The
@@ -45,7 +51,7 @@ function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase env vars missing');
-  return createClient(url, key);
+  return createClient(url, key, { global: { fetch: noStoreFetch } });
 }
 
 // ── small math helpers ───────────────────────────────────────────────────────

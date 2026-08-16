@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { useApp, useClient } from '@/contexts/AppContext';
-import { HistoryLine, LockBanner, Screen, ScreenHeader, Segmented } from '@/components/shell/Screen';
+import { HistoryLine, Screen, Segmented } from '@/components/shell/Screen';
 import { CREATION_TABS, rendered } from '@/lib/shell/nav';
 import { accentFor, renderProfile, shellRole } from '@/lib/shell/profile';
 import { renderState } from '@/lib/tree/render';
@@ -49,16 +49,19 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
   const seedId = search?.get('seed') ?? '';
   const pieceId = search?.get('piece') ?? '';
 
-  // A client reaches exactly two of the five, and both are projections.
+  // The client's Creation — settled with her on 2026-08-11, in her words:
+  // "we want brand and content section, right from the dashboard, excluding
+  // the things I asked you to exclude." So a client gets the REAL board, read
+  // only, plus Approvals and References, and the uploader on the assets tab.
+  // Engine and Logs stay a hard 404; her tasks never reach a client login at
+  // all (the server hands them an empty personalTasks).
   if (kind !== 'owner') {
-    if (params.tab === 'board') return <ContentWindow profileId={params.id} pieceId={pieceId} />;
+    if (params.tab === 'board') {
+      return <ClientCreation profileId={params.id} accent={accent} pieceId={pieceId} />;
+    }
     if (params.tab === 'assets') return <AssetsView clientId={params.id} />;
     notFound();
   }
-
-  // Before the lock, one banner at the top says what is waiting on the strategy,
-  // rather than a hundred disabled controls (handoff rule 3).
-  const beforeLockNow = !profile.strategy_locked;
 
   /**
    * Can this screen be written to right now?
@@ -104,16 +107,31 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
 
   const subTabs = rendered(CREATION_TABS, profile, kind);
   const current = live.find(s => s.id === section) ?? live[0];
-  const beforeLock = beforeLockNow;
 
+  // ONE ROW (2026-08-11). Her count on opening this screen: "40% of the
+  // screen is covered with crap and things which aren't the main focus." The
+  // stack was six bars deep before the first card: title, tabs, the lock line,
+  // a full-width section bar, the posted line, the view controls. The 30px
+  // "Creation" heading told her what the sidebar already had; the lock line
+  // repeated what the Strategy room owns; the section toggle deserved a chip,
+  // not a bar. One row holds all of it now, and the board starts where the
+  // screen does.
   const header = (
-    <ScreenHeader
-      title="Creation"
-      segments={subTabs.map(t => ({
-        id: t.id, label: t.label, href: `/profile/${params.id}/creation/${t.id}`,
-      }))}
-      active={params.tab}
-    />
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex items-center gap-3">
+        <span className="text-[12px] font-bold uppercase tracking-[.11em] text-faint">Creation</span>
+        {live.length > 1 && (
+          <Segmented segments={live.map(sec => ({ id: sec.id, label: sec.label }))}
+            active={current?.id ?? ''} onSelect={setSection} />
+        )}
+      </div>
+      <Segmented
+        segments={subTabs.map(t => ({
+          id: t.id, label: t.label, href: `/profile/${params.id}/creation/${t.id}`,
+        }))}
+        active={params.tab}
+      />
+    </div>
   );
 
   // Logs is the one tab that brings its own five-tab strip, so it is not a set
@@ -126,7 +144,6 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
     return (
       <Screen>
         {header}
-        {beforeLock && <LockBanner />}
         <div className="-mx-4 md:-mx-7">
           <Logs profileId={params.id} />
           {effort && <MomentumMeter clientId={params.id} accent={accent} />}
@@ -140,14 +157,12 @@ export default function CreationTabPage({ params }: { params: { id: string; tab:
     <Screen>
       {header}
 
-      {beforeLock && <LockBanner />}
-
-      {live.length > 1 && (
-        <Segmented segments={live.map(s => ({ id: s.id, label: s.label }))}
-          active={current?.id ?? ''} onSelect={setSection} />
-      )}
-
-      {!beforeLock && current?.state === 'history' && <HistoryLine />}
+      {/* "Turned off" may only be said when SHE turned it off. The lock also
+          renders a switch as history, and for an hour tonight this line said
+          "this section is turned off" over every unlocked profile's board,
+          with Add buttons visible right under it. `writable` asks with the
+          lock set aside, so it distinguishes her decision from the lock's. */}
+      {current && current.state === 'history' && !writable(current.switch) && <HistoryLine />}
 
       <div className="-mx-4 md:-mx-7">
         {current ? current.render() : <Nothing />}
@@ -207,3 +222,46 @@ const SECTIONS: Record<string, (a: SectionArgs) => Section[]> = {
   // Logs has no sections: it is special-cased in the component above, because it
   // brings its own five-tab strip and a second strip over it would be two.
 };
+
+
+/**
+ * What a client sees under Content: the board as it stands, read only, with
+ * their two working surfaces beside it. The board is HER component with every
+ * write disabled, because a second board drawn specially for clients would
+ * drift from the real one within a week.
+ */
+function ClientCreation({ profileId, accent, pieceId }: {
+  profileId: string;
+  accent: string;
+  pieceId?: string;
+}) {
+  const [tab, setTab] = useState('board');
+  const tabs = [
+    { id: 'board', label: 'Board' },
+    { id: 'approvals', label: 'Approvals' },
+    { id: 'references', label: 'References' },
+  ];
+
+  return (
+    <Screen>
+      <div className="flex gap-1.5">
+        {tabs.map(t => (
+          <button key={t.id} type="button" onClick={() => setTab(t.id)}
+            className={`rounded-[10px] px-[13px] py-[7px] text-[12.5px] font-semibold ${
+              t.id === tab ? 'bg-ink text-white' : 'bg-control text-muted'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="-mx-4 md:-mx-7">
+        {tab === 'board' && (
+          <Board profileId={profileId} hue={accent} readOnly onOpenPiece={() => undefined} />
+        )}
+        {tab === 'approvals' && <ContentWindow profileId={profileId} pieceId={pieceId} />}
+        {tab === 'references' && <ReferencesScreen profileId={profileId} />}
+      </div>
+    </Screen>
+  );
+}

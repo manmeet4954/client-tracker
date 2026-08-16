@@ -43,7 +43,6 @@ export interface RenderProfile {
 }
 
 /** The switch families a profile still in `setup` may render (spec 28 §5.8). */
-const SETUP_FAMILIES = ['spine', 'shelf', 'owner', 'client_access', 'intake', 'strategy', 'frozen', 'leaves'];
 
 /** Creation and analysis are shut until strategy locks (spec 22 §8.7). */
 const AFTER_LOCK_FAMILIES = ['creation', 'analysis', 'assets', 'references', 'logs', 'platforms'];
@@ -69,11 +68,12 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
 
   // 2 — the lifecycle (S22, as corrected by spec 22 §11.1).
   const fam = family(switchId);
-  if (profile.lifecycle === 'setup' && !SETUP_FAMILIES.includes(fam)) {
-    // A fresh profile has Intake and the Strategy corner, and nothing else:
-    // creation cannot open until strategy locks.
-    return 'hidden';
-  }
+  // The setup gate LIVED HERE and is gone (2026-08-11, her order: "get rid of
+  // this rule that they can't use or see anything without a set strategy for
+  // clients"). It hid every non-setup family from clients on a new profile,
+  // over a lock rule that stopped binding anything on 2026-08-09. Her switches
+  // are the one authority on what a client sees, at every lifecycle short of
+  // paused, closing and archived.
   if (profile.lifecycle === 'archived') {
     // Everything renders read-only. No write control is rendered anywhere.
     state = minState(state, 'history');
@@ -89,20 +89,27 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
     return 'hidden';
   }
 
-  // 4 — the lock (spec 22 §8.7), as the restructure handoff has it.
+  // 4 — the lock (spec 22 §8.7), OWNER AND STAFF ONLY.
   //
-  //     Shipped behaviour was: before the lock, every after-lock family is
-  //     HIDDEN. Combined with dropping the cutover gate that would have put
-  //     seven profiles into a shell with nothing in it, which is worse than the
-  //     tab bar it replaced.
+  //     Her design says what happens on her side before the lock: an unlocked
+  //     profile's board RENDERS. So these families resolve to `history` — the
+  //     quiet, waiting shell — for her and for staff. That half is untouched;
+  //     she works inside it every day.
   //
-  //     Her design says what happens instead: an unlocked profile's board
-  //     RENDERS. So before the lock these families resolve to `history` — the
-  //     quiet, waiting shell — for her and for staff.
-  //
-  //     The client keeps the old answer, `hidden`. A client has no business
-  //     seeing a profile's content before its strategy exists, and the workshop
-  //     rule only ever gets stronger (CLAUDE.md rule 2).
+  //     THE CLIENT BRANCH THAT LIVED HERE IS GONE (2026-08-16). It returned
+  //     `hidden` for every after-lock family on an unlocked profile, whatever
+  //     her switches said — and it was the FOURTH home of the rule she killed
+  //     on 2026-08-11: "get rid of this rule that they can't use or see
+  //     anything without a set strategy for clients." Three homes were removed
+  //     that day (setup's one-door policy, the setup branch above, the Brand
+  //     window's needsLockedStrategy); this one hid behind a comment claiming a
+  //     client has no business seeing content before a strategy exists — which
+  //     is the dead rule restated, not a reason to keep it. It is why her
+  //     Settings toggles for Content, Assets and Results moved nothing: the
+  //     client sidebar asked this resolver and this line overruled every
+  //     switch. For a client the lock plays NO part in visibility. Her
+  //     switches are the single authority, bounded only by the resting
+  //     lifecycles (step 2) and the doors (step 5).
   //
   //     WHAT THIS IS NOT, since 2026-08-09: it is not a rule about writing.
   //     `refusedCreationWrites` no longer refuses anything, because recording
@@ -115,8 +122,7 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
   //     chat's `guardPath` and the Creation screen — ask this resolver with the
   //     lock set aside, and read the answer as "is this switched on, on a
   //     profile that is still working?". Only the SHELL is decided here.
-  if (!profile.strategy_locked && AFTER_LOCK_FAMILIES.includes(fam)) {
-    if (role === 'client') return 'hidden';
+  if (!profile.strategy_locked && AFTER_LOCK_FAMILIES.includes(fam) && role !== 'client') {
     state = minState(state, 'history');
   }
 

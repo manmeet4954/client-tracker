@@ -14,7 +14,7 @@ import type { ClientDoor } from '../tree/contract.ts';
 import type { Lifecycle } from '../tree/objects.ts';
 import { doorsOpenAt } from '../tree/objects.ts';
 import type { RenderProfile, ShellRole } from '../tree/render.ts';
-import { switchConfigFromBody } from '../strategy/derivation.ts';
+import { switchConfigFromBody, withDerivedLogin } from '../strategy/derivation.ts';
 import { BODY_VERSION } from '../tree/body.ts';
 
 /** Spec 21 shipped body version 21; a profile migrated for real carries it. */
@@ -76,9 +76,16 @@ export function renderProfile(state: AppState, profileId: string, role: string):
   const client = (state.clients ?? []).find(c => c.id === profileId);
   const data = state.clientData?.[profileId];
   const body = data?.body;
+  // 2026-08-16: a live client binding IS the login. `client_access.login` is
+  // derived here, never stored — see `withDerivedLogin` for the why. The
+  // owner's and staff's answers are unchanged; a role with no binding to this
+  // profile derives nothing.
+  const binding = role === 'owner' ? undefined
+    : (state.bindings ?? []).find(b => b.role === role && b.profileId === profileId && b.kind !== 'staff');
+  const config = body ? switchConfigFromBody(body) : {};
   return {
     id: profileId,
-    config: body ? switchConfigFromBody(body) : {},
+    config: binding ? withDerivedLogin(config, binding.createdAt ?? '') : config,
     lifecycle: (client?.lifecycle ?? 'active') as Lifecycle,
     owner_kind: client?.ownerKind === 'hers' ? 'hers' : 'client',
     strategy_locked: typeof body?.strategy_version === 'number',

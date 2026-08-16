@@ -92,10 +92,26 @@ export interface BrandLogo {
   url: string;    // public storage URL — clients download it themselves
 }
 
+/**
+ * Anything else that belongs to the brand: a PDF brand guide, a Canva link, a
+ * font licence, a deck. Her words, 2026-08-11: "this one option of uploading a
+ * PDF file or adding a link to the Canva file, or any sort of file that is
+ * associated with the brand". A LINK is a first-class member, not a lesser
+ * case: half of what she has is in Canva and cannot be uploaded at all.
+ */
+export interface BrandFile {
+  id: string;
+  name: string;
+  url: string;
+  kind: 'file' | 'link';
+  addedAt: string;
+}
+
 export interface BrandKit {
   colors: BrandColor[];
   fonts: BrandFont[];
   logos?: BrandLogo[];
+  files?: BrandFile[];
 }
 
 export interface MonthData {
@@ -427,13 +443,17 @@ export interface PillarCard {
 // `review` is the one genuinely new id, and it has no legacy data by definition:
 // nothing before today ever recorded a client verdict.
 
-export type ContentStage = 'idea' | 'writing' | 'review' | 'ready' | 'scheduled' | 'posted';
+export type ContentStage = 'idea' | 'writing' | 'review' | 'rejected' | 'ready' | 'scheduled' | 'posted';
 
 export const CONTENT_STAGES: { id: ContentStage; label: string; color: string; bg: string }[] = [
   { id: 'idea',      label: 'Idea',      color: '#7c3aed', bg: '#ede9fe' },
   // id stays 'writing' (no migration); label is "Build" — covers get-content + creation.
   { id: 'writing',   label: 'Build',     color: '#d97706', bg: '#fef3c7' },
   { id: 'review',    label: 'Review',    color: '#b8551f', bg: '#fdece4' },
+  // 2026-08-11, hers: "if something is in review and gets rejected in the
+  // review, it gets rejected." An outcome, not a stop on the happy path: the
+  // column only draws once something is actually in it.
+  { id: 'rejected',  label: 'Rejected',  color: '#b91c1c', bg: '#fee2e2' },
   // id stays 'ready'; "Approved" is what it has always meant — she is done with it.
   { id: 'ready',     label: 'Approved',  color: '#0284c7', bg: '#e0f2fe' },
   { id: 'scheduled', label: 'Scheduled', color: '#0891b2', bg: '#cffafe' },
@@ -466,7 +486,14 @@ export interface Topic {
 // not chosen yet. Declared by Manmeet on the Journey tab. Kept as a string
 // list (not a locked enum shape) so a real fourth goal can be added later.
 
-export type ClientGoal = 'links' | 'conversations' | 'followers';
+/**
+ * 2026-08-11: a goal is any short string of hers. It was a closed union of
+ * three, and her note on seeing the chips was "give me more options, let me
+ * add options". The three below remain as SUGGESTIONS with explanations, not
+ * as the boundary of what success is allowed to look like. Everything that
+ * reads goals only ever counts or lists them, so widening breaks no reader.
+ */
+export type ClientGoal = string;
 
 export const CLIENT_GOALS: { id: ClientGoal; label: string; sub: string }[] = [
   { id: 'links',         label: 'Get link taps',  sub: 'People tap the link in bio' },
@@ -730,6 +757,12 @@ export interface AppState {
   chatLog: ChatMessage[];
   /** Spec 21 §6: who may open which profile. Replaces the client-NAME regexes. */
   bindings: ProfileBinding[];
+  /**
+   * 2026-08-11: people she invited, rather than logins written into the code.
+   * See lib/access/invites.ts. An invite grants through `bindings` like every
+   * other login, so nothing downstream had to learn a new idea.
+   */
+  invites?: import('../lib/access/invites').Invite[];
   /**
    * Spec 25 §9.2: the owner-zone taste store at `owner/taste-rules`. It sits on
    * AppState rather than inside a profile body for the reason the spec gives —

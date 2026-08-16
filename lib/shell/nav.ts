@@ -24,11 +24,6 @@ export interface NavNode {
 /** §5.2 — Creation's five sub-tabs. Five, in that order, no sixth. */
 export const CREATION_TABS: NavNode[] = [
   {
-    id: 'engine', label: 'Engine',
-    switches: ['creation.engine', 'creation.seed_extraction', 'creation.costume',
-      'creation.brief', 'creation.drafting', 'creation.making'],
-  },
-  {
     id: 'board', label: 'Board',
     switches: ['creation.board', 'creation.review', 'creation.scheduling',
       'creation.publishing', 'creation.funnel'],
@@ -52,6 +47,11 @@ export const CREATION_TABS: NavNode[] = [
       'creation.funnel_replies',
       'logs.observations', 'logs.effort_meter', 'logs.effort_money'],
   },
+  {
+    id: 'engine', label: 'Engine',
+    switches: ['creation.engine', 'creation.seed_extraction', 'creation.costume',
+      'creation.brief', 'creation.drafting', 'creation.making'],
+  },
 ];
 
 /** §5.3 — spec 27's eight tabs, exactly as spec 27 §5 defines them. */
@@ -68,25 +68,48 @@ export const ANALYSIS_TABS: NavNode[] = [
 
 /** §5.5 — the owner corner. Owner, always, in every position of every switch. */
 export const CORNER_PANELS: NavNode[] = [
-  // Strategy as a layer, not a gate: the eight facts, first and default. The
-  // corner is owner-always, and the facts live on `strategy.fixed`'s paths, so
-  // no new switch is invented for this panel.
-  { id: 'facts', label: 'Facts', switches: ['strategy.fixed'] },
-  { id: 'derivation', label: 'Decide it', switches: ['strategy.derivation'] },
-  { id: 'gates', label: 'Gates', switches: ['strategy.gate_set'] },
-  { id: 'switches', label: 'Switches', switches: ['strategy.switchboard'] },
-  // The lock has its own panel in the restructure design. It also keeps
-  // rendering under Decide, so the decision and the gate that closes it stay on
-  // one screen.
-  { id: 'lock', label: 'Lock', switches: ['strategy.lock'] },
-  { id: 'channels', label: 'Channels', switches: ['creation.channels'] },
+  // 2026-08-11, and the reason this list shrank rather than grew.
+  //
+  // Her count on the day: "the first thing you see is positioning, audience,
+  // voice, pillars, cadence... when you go to strategy, the same questions you
+  // have to answer... there is this brand thing that has that same thing
+  // again... Decide: same thing again." Four screens asking one set of
+  // questions, and the fifth I added as a "draft" was a fifth copy.
+  //
+  // So: ONE page holds the brand's answers. Facts is gone (it was the same
+  // eight boxes with fewer of them). Decide is gone from the rail and survives
+  // only as the editor a row on The brand opens, which is what it always
+  // really was. Gates went with the Engine she parked; it exists to police
+  // machine drafts and polices nothing while the Engine is unused. Switches
+  // went because it is plumbing, and "What they see" is the half of it she
+  // actually wants, in her words.
+  { id: 'brand-document', label: 'The brand', switches: ['strategy.fixed'] },
   { id: 'brand', label: 'Brand book', switches: ['strategy.visual_branding'] },
-  // Spec 35: profile optimisation. It sits beside the brand book because the
-  // bio she writes here IS positioning and the look IS visual branding.
   { id: 'profile-mockup', label: 'Profile mockup', switches: ['strategy.profile_mockup'] },
-  { id: 'intake-history', label: 'Intake history', switches: ['intake.rounds_reopen'] },
-  { id: 'lifecycle', label: 'Lifecycle', switches: ['strategy.switchboard'] },
+  { id: 'channels', label: 'Channels', switches: ['creation.channels'] },
+  { id: 'lock', label: 'Lock', switches: ['strategy.lock'] },
 ];
+
+/**
+ * Settings, kept apart from the brand work — her instruction: "what they see
+ * should be in the settings feature... intake history, lifecycle, is also
+ * something that maybe can be managed in a separate settings section."
+ *
+ * These are about how the profile is RUN, not about what the brand says, and
+ * mixing the two is most of why the rail read as a pile.
+ */
+export const SETTINGS_PANELS: NavNode[] = [
+  // "What they see" LEFT this rail on 2026-08-11. She asked whether settings
+  // should live outside the app, and whether it was still needed here too. It
+  // is not: access is about PEOPLE, not about one brand's strategy, and
+  // keeping both copies would repeat the duplication she had just caught. It
+  // lives at /settings, and `ClientAccess` is rendered there.
+  { id: 'lifecycle', label: 'Lifecycle', switches: ['strategy.switchboard'] },
+  { id: 'intake-history', label: 'Intake history', switches: ['intake.rounds_reopen'] },
+];
+
+/** Everything the room can draw, both groups. Routing reads this. */
+export const ROOM_PANELS: NavNode[] = [...CORNER_PANELS, ...SETTINGS_PANELS];
 
 /** §5.1 — the three apps, in the order the landing rule reads them. */
 export const APPS: NavNode[] = [

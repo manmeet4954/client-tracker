@@ -20,7 +20,7 @@ export default function CornerLanding({ params }: { params: { id: string } }) {
   const owner = shellRole(state, role, params.id) === 'owner';
 
   useEffect(() => {
-    router.replace(owner ? `/profile/${params.id}/strategy/facts` : `/profile/${params.id}`);
+    router.replace(owner ? `/profile/${params.id}/strategy/brand-document` : `/profile/${params.id}`);
   }, [owner, params.id, router]);
 
   return null;

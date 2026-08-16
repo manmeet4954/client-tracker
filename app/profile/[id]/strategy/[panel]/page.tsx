@@ -14,7 +14,8 @@
 import { notFound } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { useApp } from '@/contexts/AppContext';
-import { CORNER_PANELS } from '@/lib/shell/nav';
+import { ROOM_PANELS } from '@/lib/shell/nav';
+import { DEFAULT_STRATEGY_TAB } from '@/components/shell/StrategyPanel';
 import { shellRole } from '@/lib/shell/profile';
 import Room from '@/components/strategy/Room';
 
@@ -28,13 +29,20 @@ export default function CornerPanelPage({ params }: { params: { id: string; pane
   const { state, role } = useApp();
   const search = useSearchParams();
 
-  const known = CORNER_PANELS.find(p => p.id === params.panel);
-  if (!known) notFound();
+  // A RENAMED PANEL MUST NEVER DEAD-END (2026-08-11). This used to call
+  // notFound() on anything it did not recognise, so the day Facts was deleted
+  // every stale link, bookmark and cached button 404ed rather than landing
+  // somewhere useful. A missing panel is our renaming problem, not hers.
+  //
+  // `derivation` is allowed explicitly: it left the rail but a row on The brand
+  // still opens it.
+  const known = params.panel === 'derivation' || ROOM_PANELS.some(p => p.id === params.panel);
   if (shellRole(state, role, params.id) !== 'owner') notFound();
 
   const back = safeBack(search?.get('back') ?? null, params.id);
+  const panel = known ? params.panel : DEFAULT_STRATEGY_TAB;
   const hrefFor = (id: string) =>
     `/profile/${params.id}/strategy/${id}?back=${encodeURIComponent(back)}`;
 
-  return <Room profileId={params.id} section={params.panel} backHref={back} hrefFor={hrefFor} />;
+  return <Room profileId={params.id} section={panel} backHref={back} hrefFor={hrefFor} />;
 }

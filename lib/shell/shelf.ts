@@ -207,7 +207,7 @@ function attentionFor(client: Client, data: ClientData | undefined): Attention |
     if (rounds.length === 0) return 'Intake not sent';
     const anyOpen = rounds.some(r => String((r.data as { status?: unknown })?.status ?? '') !== 'curated');
     if (anyOpen) return 'Waiting on answers';
-    return 'Strategy not locked';
+    return null;
   }
 
   // Not collecting since <date> — from sync health, which is where the truth is.
@@ -224,12 +224,18 @@ function attentionFor(client: Client, data: ClientData | undefined): Attention |
     return since ? `Not collecting since ${since}` : 'Not collecting';
   }
 
-  // Not "migrated but unlocked" — UNLOCKED, full stop. Before the gate was
-  // dropped an unmigrated profile was not in this shell at all, so it was
-  // deliberately silent here. Now every profile is in the shell and an unlocked
-  // one has a read-only Creation, so staying silent would have the desk saying
-  // "Creation is open everywhere" while nothing anywhere could be written.
-  if (typeof body?.strategy_version !== 'number') return 'Strategy not locked';
+  // "Strategy not locked" USED TO BE RAISED HERE, and it is gone (2026-08-11).
+  //
+  // Its whole justification was the sentence above it: an unlocked profile had
+  // a read-only Creation, so silence would have been a lie. That stopped being
+  // true on 2026-08-09, when her ruling made the lock refuse nothing and
+  // recording work everywhere. From then it was a warning about a condition
+  // that blocks no work, printed in orange, on six of her eight profiles at
+  // once. Her words: "it's irritating to see that strategy is not locked. Get
+  // rid of it."
+  //
+  // An attention line has to earn its place by naming something that needs
+  // her. This named a preference of the system about itself.
   return null;
 }
 

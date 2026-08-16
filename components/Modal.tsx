@@ -42,7 +42,14 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
             <X size={18} />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1">{children}</div>
+        {/* The body PADS ITSELF (2026-08-11).
+            It used to have none, so every caller had to remember `p-6` and the
+            fourth one did not: the Add-a-post fields ran wider than the dialog's
+            own title and touched both edges. Her note, for the second time that
+            day: "the same edge problem."
+            A frame that only looks right when every caller compensates is a
+            trap, so the frame does it. */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

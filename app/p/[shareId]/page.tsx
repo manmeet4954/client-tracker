@@ -2,11 +2,13 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Instagram } from 'lucide-react';
-import { findPreviewPost, readState } from '@/lib/supabaseServer';
+import { findPreviewPost, previewDebugLine, readState } from '@/lib/supabaseServer';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 import { normalizeState, type Role } from '@/lib/access';
 import { resolveDeepLink } from '@/lib/shell/deeplink';
 import InstagramPost from '@/components/InstagramPost';
+import Phone from '@/components/mockup/Phone';
+import { THEMES, findMockupByShareId, type ProfileMockupRecord } from '@/lib/mockup/profile';
 import type { InstagramProfile, PreviewPost } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -40,9 +42,39 @@ async function lookup(shareId: string): Promise<{ found: Found | null; dbError: 
   }
 }
 
+/**
+ * Spec 35 §5 promised the mockup shares through this same page, and until
+ * 2026-08-10 that was a promise only: "Copy the link" handed out URLs nothing
+ * served. She found it the way she finds everything real - by sending one.
+ */
+async function lookupMockup(shareId: string): Promise<ProfileMockupRecord | null> {
+  if (!shareId) return null;
+  try {
+    const state = await readState();
+    if (!state) return null;
+    for (const data of Object.values(state.clientData ?? {})) {
+      if (!data.body) continue;
+      const m = findMockupByShareId(data.body, shareId);
+      if (m) return m;
+    }
+  } catch (e) {
+    console.error('[PreviewPage] mockup lookup threw:', e);
+  }
+  return null;
+}
+
 export async function generateMetadata({ params }: { params: { shareId: string } }): Promise<Metadata> {
   const { found } = await lookup(params.shareId);
-  if (!found) return { title: 'Preview not found' };
+  if (!found) {
+    const mockup = await lookupMockup(params.shareId);
+    if (mockup) {
+      return {
+        title: `@${mockup.username || 'profile'} · profile mockup`,
+        description: 'How the profile will look.',
+      };
+    }
+    return { title: 'Preview not found' };
+  }
   const handle = found.instagram.handle || 'Instagram';
   return {
     title: `@${handle} · post preview`,
@@ -79,6 +111,21 @@ export default async function PreviewPage({ params }: { params: { shareId: strin
   }
 
   if (!found) {
+    const mockup = await lookupMockup(params.shareId);
+    if (mockup) {
+      const bg = THEMES[mockup.theme]?.bg ?? '#000';
+      // Read-only is the SAME component with the handlers left off (spec 35):
+      // no editing affordance exists on this render, in any state.
+      return (
+        <div className="min-h-screen flex flex-col items-center sm:py-8" style={{ background: bg }}>
+          <main className="w-full sm:max-w-[470px]">
+            <Phone mockup={mockup} />
+          </main>
+          <p className="py-4 text-[11px] text-stone-400">Profile mockup</p>
+        </div>
+      );
+    }
+
     // Owner-only truth line (2026-08-09): when the person looking at a dead
     // link is HER, signed in, the page reports what the store actually holds
     // instead of the shrug the public sees. The public page is unchanged.
@@ -102,7 +149,7 @@ export default async function PreviewPage({ params }: { params: { shareId: strin
         </div>
       );
     }
-    return <NotAvailable dbError={dbError} />;
+    return <NotAvailable dbError={dbError} debug={await previewDebugLine(params.shareId)} />;
   }
 
   return (
@@ -120,7 +167,7 @@ export default async function PreviewPage({ params }: { params: { shareId: strin
  * public switch is off look identical from outside. Nothing here names a profile
  * or hints that a session would have seen more.
  */
-function NotAvailable({ dbError }: { dbError: boolean }) {
+function NotAvailable({ dbError, debug }: { dbError: boolean; debug?: string }) {
   return (
     <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center p-6 text-center">
       <div className="w-14 h-14 rounded-full border-2 border-stone-300 flex items-center justify-center mb-4">
@@ -129,9 +176,12 @@ function NotAvailable({ dbError }: { dbError: boolean }) {
       <p className="font-semibold text-[#262626] mb-1">This preview isn&apos;t available</p>
       <p className="text-sm text-[#8e8e8e]">
         {dbError
-          ? 'Could not connect to the database. Please try again in a moment.'
+          ? 'This preview could not be loaded. Please try again in a moment.'
           : 'The link may be incorrect, or the post was removed.'}
       </p>
+      {/* Counts and clock times only: the invisible fact line that ended the
+          guessing of 2026-08-09. Harmless to the public, gold in a curl. */}
+      {debug && <span data-d={debug} className="hidden" />}
     </div>
   );
 }

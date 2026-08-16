@@ -4,6 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 import type { Role } from '@/lib/access';
 
+// Next caches fetch() by URL and supabase-js rides on fetch; long-lived query
+// URLs get served from the data cache at random. That one behavior ate previews
+// for eight days (see lib/supabaseServer.ts). Every server client pins no-store.
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: 'no-store' });
+
+
 // Owner-only management of connected Instagram accounts (Spec 03).
 // Access tokens live in the ig_accounts table (RLS on, no policies) and are
 // only ever read with the service role key. This route NEVER returns a token:
@@ -24,7 +30,7 @@ function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase env vars missing');
-  return createClient(url, key);
+  return createClient(url, key, { global: { fetch: noStoreFetch } });
 }
 
 function guard(): NextResponse | null {

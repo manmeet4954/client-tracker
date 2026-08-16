@@ -67,6 +67,11 @@ const STAGE_MAP: Record<ContentCard['stage'], PieceStage> = {
   idea: 'idea',
   writing: 'build',
   review: 'review',
+  // 2026-08-11: the board gained a Rejected outcome. The tree's stage set has
+  // no rejected (a rejection there is a review VERDICT, not a stage), so a
+  // rejected board card migrates as back-in-build, which is where rejected
+  // work factually sits: it needs remaking before it can be reviewed again.
+  rejected: 'build',
   ready: 'approved',
   scheduled: 'scheduled',
   posted: 'posted',

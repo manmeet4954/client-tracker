@@ -93,19 +93,15 @@ export function LockBanner() {
   params.set('strategy', 'lock');
 
   return (
-    <div className="flex flex-wrap items-center gap-3.5 rounded-2xl border border-[rgba(234,71,17,.3)] bg-white px-[18px] py-[15px]">
-      <span className="flex text-accent">
-        <Lock size={19} strokeWidth={1.9} />
-      </span>
-      <span className="min-w-[16rem] flex-1 text-sm leading-[1.5] text-text">
-        Strategy is still to be locked, so the parts that need it are off, like drafts and briefs.
-        Everything you record here still saves.
-      </span>
-      <Link
-        href={`${pathname}?${params.toString()}`}
-        className="whitespace-nowrap rounded-xl bg-ink px-[18px] py-2.5 text-[13.5px] font-semibold text-white"
-      >
-        Go and lock it
+    /* 2026-08-11: this was a full card with a paragraph and a button, sitting
+       above the board on every profile with an unlocked strategy, which is all
+       of them. Her note: "a lot of space is getting taken up by unnecessary
+       stuff." A standing condition is a status line, not an announcement. */
+    <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">
+      <Lock size={13} strokeWidth={2.1} className="text-accent" />
+      <span>Strategy is still to be locked, so drafts and briefs are off. Recording still saves.</span>
+      <Link href={`${pathname}?${params.toString()}`} className="font-semibold text-accent hover:underline">
+        Lock it
       </Link>
     </div>
   );
@@ -115,15 +111,32 @@ export function LockBanner() {
 export function HistoryLine({ children }: { children?: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-hairline bg-white px-[18px] py-3 text-sm text-muted">
-      {children ?? 'This one is switched off and kept. Everything below reads; nothing new is written.'}
+      {children ?? 'This section is turned off. Existing records remain available.'}
     </div>
   );
 }
 
 /** The page frame every level-3 screen sits in. */
+/**
+ * The frame every app screen sits in.
+ *
+ * 2026-08-11: it was `max-w-6xl` centred, which on her screen left wide empty
+ * gutters on both sides of every screen while the work was squeezed into the
+ * middle. Her words: "fix the layout to make it work properly, edge to edge,
+ * rather than this much space around it." The sidebar already constrains the
+ * width; capping it again inside was the second constraint doing the damage.
+ *
+ * Padding stays, because content touching the pixel edge is not edge to edge,
+ * it is unreadable. The CAP is what goes.
+ *
+ * Corrected once, the same day: the first pass cut the padding as well as the
+ * cap, and the board ended up clipped against both edges. Her note: "now see
+ * how this one is sticking to the edges... there should be a proper space."
+ * Full width means no CAP, not no MARGIN.
+ */
 export function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-3.5 p-4 md:p-7">
+    <div className="flex w-full flex-col gap-3.5 px-5 py-5 md:px-8 md:py-6">
       {children}
     </div>
   );

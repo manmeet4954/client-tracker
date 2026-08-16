@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
-import { readState, writeState } from '@/lib/supabaseServer';
+import { mutateState, readState } from '@/lib/supabaseServer';
 import { allowedClientIds, normalizeState, type Role } from '@/lib/access';
 import { applyScopes, checkScopes, scopeKey } from '@/lib/tree/scopes';
 import { applySkip, writeSkipped } from '@/lib/intake/form';
@@ -76,9 +76,6 @@ export async function POST(req: Request) {
   }
 
   const now = new Date().toISOString();
-  const nextBody = writeSkipped(
-    profile.body, roundId, applySkip(round.skipped ?? [], parameterId, on), now,
-  );
 
   // Out through the ordinary door: one declared path, nothing else touched.
   const paths = [scopeKey(profileId, INTAKE_PATH)];
@@ -87,11 +84,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'undeclared-path', rejected }, { status: 400 });
   }
 
-  const next = applyScopes(base, {
-    ...base,
-    clientData: { ...base.clientData, [profileId]: { ...profile, body: nextBody } },
-  }, paths);
-
-  await writeState(next);
+  // Compare-and-swap (2026-08-09): the skip is recomputed against a fresh base
+  // on every attempt, so a retry can never resurrect an older round.
+  const result = await mutateState(fresh => {
+    const fp = fresh.clientData?.[profileId];
+    const fr = fp?.body
+      ? (readPath(fp.body, INTAKE_PATH).find(e => e.id === roundId)?.data as unknown as IntakeRound | undefined)
+      : undefined;
+    if (!fp?.body || !fr || fr.status === 'curated') return null;
+    const nextBody = writeSkipped(fp.body, roundId, applySkip(fr.skipped ?? [], parameterId, on), now);
+    return applyScopes(fresh, {
+      ...fresh,
+      clientData: { ...fresh.clientData, [profileId]: { ...fp, body: nextBody } },
+    }, paths);
+  });
+  if (result === 'aborted') return NextResponse.json({ error: 'round-closed' }, { status: 409 });
+  if (result === 'no-row') return NextResponse.json({ error: 'no-state' }, { status: 409 });
   return NextResponse.json({ ok: true, skipped: (round.skipped ?? []).length + (on ? 1 : -1) });
 }

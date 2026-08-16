@@ -97,7 +97,7 @@ test('the stalled month reads exactly as the design says', () => {
   const bar = coverageBar(STALLED)!;
   eq(bar.daysLine, '23 of 31 days collected', 'the days line');
   eq(bar.sinceLine, 'not collecting since 12 July', 'since when, in her words');
-  eq(bar.readAgainstLine, 'Everything below is read against 23 days, not 31.', 'the read-against line');
+  eq(bar.readAgainstLine, 'Metrics below reflect 23 collected days, not 31.', 'the read-against line');
   ok(!bar.complete, 'and it is not complete');
 });
 
@@ -124,7 +124,7 @@ test('a stall and a decision never read alike', () => {
   eq(sinceWords({ from: '2026-07-12', to: '2026-07-31', reason: 'sync-stalled' }),
     'not collecting since 12 July', 'a stall');
   eq(sinceWords({ from: '2026-07-12', to: '2026-07-31', reason: 'switched-off' }),
-    'switched off since 12 July', 'her own decision');
+    'paused since 12 July', 'her own decision');
   eq(sinceWords({ from: '2026-07-12', to: '2026-07-31', reason: 'not-connected' }),
     'not connected since 12 July', 'never connected');
 });
@@ -149,7 +149,7 @@ test('days are written the way she writes them', () => {
 
 test('a screen reading a different stretch says so instead of borrowing the headline', () => {
   const narrower: Coverage = { ...STALLED, days_covered: 20 };
-  eq(coverageDiffersLine(narrower, STALLED), 'This one reads 20 of 31 days, not 23.', 'it says so');
+  eq(coverageDiffersLine(narrower, STALLED), 'This section covers 20 of 31 days, not 23.', 'it says so');
   eq(coverageDiffersLine(STALLED, STALLED), undefined, 'and stays quiet when they match');
 });
 
@@ -174,7 +174,7 @@ test('a real zero is still a zero', () => {
 test('too early and not measurable both refuse rather than round to zero', () => {
   eq(metricCard('Saves', { state: 'too-early', owed: 'three more pieces' }).value, NO_READING, 'too early');
   eq(metricCard('Saves', { state: 'too-early', owed: 'three more pieces' }).note,
-    'too early. three more pieces', 'and says what is owed');
+    'insufficient data. three more pieces', 'and says what is owed');
   eq(metricCard('Clicks', { state: 'not-measurable', because: 'no link on this platform' }).value,
     NO_READING, 'not measurable');
   eq(metricCard('Clicks', { state: 'not-measurable', because: 'no link on this platform' }).note,
@@ -282,16 +282,16 @@ suite('analysis groups — each pillar on its own job');
 
 test('a pillar that is earning passes, one that is dragging does not', () => {
   eq(pillarRead({ state: 'earning', piece_ids: ['a', 'b', 'c'] }),
-    { words: 'doing its job', tone: 'positive' }, 'passing');
+    { words: 'performing', tone: 'positive' }, 'passing');
   eq(pillarRead({ state: 'dragging', piece_ids: ['a', 'b', 'c'] }),
-    { words: 'not doing its job', tone: 'attention' }, 'not passing');
+    { words: 'underperforming', tone: 'attention' }, 'not passing');
 });
 
-test('"thin" always names how many pieces it is thin on', () => {
+test('"limited data" always names how many pieces it stands on', () => {
   eq(pillarRead({ state: 'too-early', piece_ids: ['a', 'b'] }),
-    { words: 'thin, 2 pieces', tone: 'attention' }, 'counted from its own pieces');
-  eq(pillarRead({ state: 'too-early', piece_ids: ['a'] }).words, 'thin, 1 piece', 'singular');
-  eq(pillarRead(undefined).words, 'thin, 0 pieces', 'nothing at all');
+    { words: 'limited data, 2 pieces', tone: 'attention' }, 'counted from its own pieces');
+  eq(pillarRead({ state: 'too-early', piece_ids: ['a'] }).words, 'limited data, 1 piece', 'singular');
+  eq(pillarRead(undefined).words, 'limited data, 0 pieces', 'nothing at all');
 });
 
 test('a collection gap is never reported as a failing pillar', () => {
@@ -308,7 +308,7 @@ test('a piece shows how it was born above its numbers', () => {
   eq(bornLine({ format: 'carousel', angle: 'correction', platform: 'instagram' }, 'the career has no home'),
     'seed: the career has no home · correction · carousel · instagram', 'seed, angle, format');
   eq(bornLine({ format: 'reel', angle: 'teach' }), 'teach · reel', 'without a seed it starts at the angle');
-  eq(bornLine(null), 'how this was born was not recorded', 'and never invents one');
+  eq(bornLine(null), 'creation details not recorded', 'and never invents one');
 });
 
 test('the hook is only added when it says something the angle did not', () => {
@@ -336,9 +336,9 @@ test('two is the floor for a comparison', () => {
   eq(canCompare([]), false, 'nothing');
   eq(canCompare(['a']), false, 'one piece is not a comparison');
   eq(canCompare(['a', 'b']), true, 'two');
-  eq(selectionLine([]), 'Pick two or more pieces to compare them.', 'the prompt');
-  eq(selectionLine(['a']), '1 piece picked. Pick one more.', 'one');
-  eq(selectionLine(['a', 'b', 'c']), '3 pieces picked.', 'counted from the selection');
+  eq(selectionLine([]), 'Select two or more pieces to compare.', 'the prompt');
+  eq(selectionLine(['a']), '1 piece selected. Select one more.', 'one');
+  eq(selectionLine(['a', 'b', 'c']), '3 pieces selected.', 'counted from the selection');
 });
 
 // ── Counting ─────────────────────────────────────────────────────────────────

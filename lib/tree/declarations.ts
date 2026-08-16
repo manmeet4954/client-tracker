@@ -157,6 +157,30 @@ export const DECLARATIONS: PathDeclaration[] = [
         : undefined,
     });
   }),
+  // 2026-08-11, from her brief for the Strategy page: "what it uses as USPs"
+  // and "what are the demographics of this particular client". Nothing in the
+  // app held either. They are declared here so they can be written at all, and
+  // deliberately kept OUT of spec 22's derivation list: the lock does not wait
+  // on them and the engine does not read them, so adding them changes nothing
+  // about when a strategy may close.
+  D({
+    path: 'context/content-strategy/usps', zone: 'tree', kind: 'parameter',
+    entry_type: 'strategy_parameter',
+    fed_by: ['owner'], read_by: ['work-log'],
+    switch: 'strategy.fixed', states: ['active'], history: 'versioned',
+    // Part of what a client reads about their own brand, like positioning.
+    audience: 'both', client_door: 'see:strategy',
+    note: 'What this brand has that the others do not. Hers to write, gates nothing.',
+  }),
+  D({
+    path: 'context/content-strategy/demographics', zone: 'tree', kind: 'parameter',
+    entry_type: 'strategy_parameter',
+    fed_by: ['owner'], read_by: ['work-log'],
+    switch: 'strategy.fixed', states: ['active'], history: 'versioned',
+    // Owner only: the numbers behind the audience are her working note.
+    audience: 'owner',
+    note: 'Age, place, income. The numbers behind the audience, not the feeling.',
+  }),
   D({
     path: 'context/content-strategy/visual-branding', zone: 'tree', kind: 'parameter',
     entry_type: 'strategy_parameter',
