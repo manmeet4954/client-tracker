@@ -68,6 +68,22 @@ export function readSuggestions(body: ProfileBody): TopicSuggestion[] {
     .sort((x, y) => (x.at < y.at ? 1 : -1));
 }
 
+/**
+ * Is this suggestion already a card? One rule, used by her intake front
+ * ("On the board") and the client's Idea column (a taken suggestion stops
+ * rendering separately) — 2026-08-16. Title equality, case-insensitive,
+ * exactly as "Topics they suggested" has matched since 08-11.
+ */
+export function suggestionTaken(text: string, cardTitles: string[]): boolean {
+  const t = text.trim().toLowerCase();
+  return cardTitles.some(title => title.trim().toLowerCase() === t);
+}
+
+/** The suggestions she has not yet taken, newest first. */
+export function pendingSuggestions(body: ProfileBody, cardTitles: string[]): TopicSuggestion[] {
+  return readSuggestions(body).filter(s => !suggestionTaken(s.text, cardTitles));
+}
+
 /** Deterministic, tiny, and only for id uniqueness within one instant. */
 function hash(s: string): number {
   let h = 0;

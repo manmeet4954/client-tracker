@@ -449,8 +449,10 @@ const WINDOWS: {
     // table has always granted on. The routes are the same addresses she uses
     // and the same ones clients may have bookmarked.
     id: 'creation', label: 'Creation', route: '/creation/board',
-    doors: ['see:upcoming', 'give:review', 'give:perception', 'give:assets'],
-    clientSwitches: ['creation.review', 'creation.scheduling', 'assets.client_upload', 'references.from_client'],
+    // give:intake rides along for the idea lane (2026-08-16): a suggestion is
+    // an intake ANSWER (spec 22 §7.5), filed from the Idea column.
+    doors: ['see:upcoming', 'give:review', 'give:perception', 'give:assets', 'give:intake'],
+    clientSwitches: ['creation.review', 'creation.scheduling', 'creation.seed_input_client', 'assets.client_upload', 'references.from_client'],
   },
   {
     id: 'analysis', label: 'Analysis', route: '/analysis', doors: ['see:analysis'],

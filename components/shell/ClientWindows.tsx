@@ -19,6 +19,7 @@ import type { ProfileBody } from '@/lib/tree/body';
 import { putEntry } from '@/lib/tree/body';
 import type { BodyEntry, ReviewVerdict } from '@/lib/tree/objects';
 import { fileAnswer } from '@/lib/intake/rounds';
+import { fileSuggestion, pendingSuggestions } from '@/lib/intake/suggestions';
 import { applySkip, openFormFor, writeSkipped } from '@/lib/intake/form';
 import ClientForm from '@/components/intake/ClientForm';
 import { accentFor, renderProfile } from '@/lib/shell/profile';
@@ -244,6 +245,64 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
 // here — the act happens where the thing is. The writes are UNCHANGED: the
 // same review_record through give:review, the same optional perception line
 // through give:perception, exactly what the Approvals tab filed.
+
+/**
+ * The idea lane on the client's Idea column — 2026-08-16, her order seeing the
+ * live board: "there is no option for them to add an idea (that should also
+ * have been there)."
+ *
+ * The 08-16 rebuild deleted the "Share an idea" box from Intake and the
+ * "Suggest a topic" box from Content, because they were a parallel UI in the
+ * wrong places. The CAPABILITY was never wrong — only the address. This is the
+ * same client-ideas lane (spec 22 §7.5, give:intake, `fileSuggestion`),
+ * rendered where an idea belongs: the Idea column. Her side is unchanged —
+ * "Topics they suggested" on the intake front, one tap to a real card. Nothing
+ * a client types here reaches the board without her.
+ */
+export function ClientIdeaLane({ profileId }: { profileId: string }) {
+  const { role, dispatch } = useApp();
+  const { data } = useClient(profileId);
+  const [text, setText] = useState('');
+  const body = data.body;
+  if (!body) return null;
+
+  const pending = pendingSuggestions(body, (data.contentCards ?? []).map(c => c.title));
+
+  function send() {
+    if (!body || !text.trim()) return;
+    const next = fileSuggestion(body, {
+      text, by: role, now: new Date().toISOString(), writer: 'client',
+    });
+    dispatch({ type: 'SET_BODY', payload: { clientId: profileId, body: next } });
+    setText('');
+  }
+
+  return (
+    <div className="mt-1.5">
+      {pending.map(s => (
+        <div key={s.id}
+          className="mb-2 rounded-[14px] border border-dashed border-hairline bg-white/60 px-[13px] py-3">
+          <span className="block text-sm font-semibold text-muted">{s.text}</span>
+          <span className="mt-0.5 block text-[11.5px] text-faint">Your idea, with KRNL</span>
+        </div>
+      ))}
+      <div className="flex gap-1.5">
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') send(); }}
+          placeholder="Add an idea"
+          aria-label="Add an idea"
+          className="min-w-0 flex-1 rounded-lg border border-hairline bg-white px-3 py-2 text-sm"
+        />
+        <button type="button" onClick={send}
+          className="rounded-lg bg-ink px-3 py-2 text-sm font-medium text-white">
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function ClientPiecePanel({ profileId, pieceId, onClose }: {
   profileId: string; pieceId: string; onClose: () => void;

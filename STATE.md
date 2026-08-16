@@ -1,5 +1,35 @@
 # STATE - Client Dashboard
 
+## 2026-08-16, night — THE IDEA LANE MOVES TO THE IDEA COLUMN
+
+1017 tests. Typecheck clean. Her order, seeing the live client board: "there
+is no option for them to add an idea (that should also have been there)."
+
+The 08-16 rebuild deleted the Share-an-idea and Suggest-a-topic boxes as
+parallel UI in the wrong places. The CAPABILITY was never wrong - only the
+address. It is now where an idea belongs:
+
+ - The client's Idea column carries an Add box and their own pending
+   suggestions as light dashed cards ("Your idea, with KRNL"). Same lane as
+   before: spec 22 §7.5, give:intake, fileSuggestion - a suggestion is an
+   intake answer; nothing reaches the board without her. Her "Topics they
+   suggested" on the intake front is unchanged and receives these.
+ - One match rule, shared: suggestionTaken/pendingSuggestions in
+   lib/intake/suggestions.ts decide both her "On the board" flag and when a
+   client's suggestion stops rendering separately. Two copies would drift.
+ - Board.tsx learned ONE prop (ideaExtra), rendered at the foot of the Idea
+   column and the phone's Idea section. It knows nothing about suggestions.
+ - DECLARATION CORRECTED: creation.seed_input_client required
+   creation.engine, so hiding her Engine Room would have killed the client
+   lane invisibly. It requires creation.board + client_access.login now, and
+   its default flipped to ACTIVE - every client may bring ideas unless she
+   unticks it. "Add ideas" is a part under Creation on What-they-see;
+   Approvals-only keeps it off, Everything turns it on. Test-pinned.
+
+NOT DEPLOYED with this entry's writing; deploy is hers per DEPLOY.md.
+
+---
+
 ## 2026-08-16, later — THE CLIENT SEES HER DASHBOARD, FILTERED
 
 1014 tests. Typecheck clean. NOT deployed — the deploy is hers to call.

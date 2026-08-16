@@ -56,7 +56,7 @@ import { factsKnown } from '@/lib/strategy/facts';
 import FactRows, { GrowingText } from './FactRows';
 import { FileText, Paperclip } from 'lucide-react';
 import { addDocument, readDocuments } from '@/lib/intake/documents';
-import { readSuggestions } from '@/lib/intake/suggestions';
+import { readSuggestions, suggestionTaken } from '@/lib/intake/suggestions';
 import { formatMonthKey } from '@/lib/utils';
 import type { ContentCard } from '@/types';
 import {
@@ -270,8 +270,10 @@ function TheirSuggestions({ clientId }: { clientId: string }) {
   if (suggestions.length === 0) return null;
 
   const cards = data.contentCards ?? [];
-  const onBoard = (text: string) =>
-    cards.some(c => c.title.trim().toLowerCase() === text.trim().toLowerCase());
+  // One match rule, shared with the client's Idea column (2026-08-16): the
+  // same test that shows "On the board" here stops the suggestion rendering
+  // separately over there. Two copies of this rule would drift.
+  const onBoard = (text: string) => suggestionTaken(text, cards.map(c => c.title));
 
   function toBoard(text: string) {
     const now = new Date().toISOString();

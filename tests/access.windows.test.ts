@@ -84,9 +84,10 @@ test('one tick moves every switch that window needs, and only those', () => {
   eq(on.every(m => m.state === 'active'), true, 'ticking turns them on');
   const off = moveFor('analysis', false);
   eq(off.every(m => m.state === 'hidden'), true, 'unticking turns them off');
-  // Creation absorbed Assets and References as parts (2026-08-16), so the
-  // master toggle moves all four of its tabs at once.
-  eq(moveFor('creation', true).length, 4, 'creation carries its four tabs');
+  // Creation absorbed Assets and References as parts (2026-08-16), and the
+  // Add-ideas lane the same day (her order), so the master toggle moves all
+  // five of its switches at once.
+  eq(moveFor('creation', true).length, 5, 'creation carries its five parts');
 });
 
 test('a preset turns the named windows on and everything else off', () => {
@@ -366,11 +367,12 @@ test('no switch a window hangs on is fixed, and every one can be shown AND hidde
 
 test('a window with parts is on when ANY part is, exactly as the server grants it', async () => {
   const { movePart } = await import('../lib/access/windowChoice.ts');
-  // All four parts explicitly placed, so the read is about the parts named —
+  // All five parts explicitly placed, so the read is about the parts named —
   // since 2026-08-16 an unset part reads as its default, and Creation carries
-  // Assets and References as parts beside Board and Approvals.
+  // Assets, References and Add-ideas as parts beside Board and Approvals.
   const rest: Record<string, PathState> = {
     'assets.client_upload': 'hidden', 'references.from_client': 'hidden',
+    'creation.seed_input_client': 'hidden',
   };
   // Only approvals on: the window must read as on, because windowsForBinding
   // grants it on `.some` — an off-toggle over an open window would lie.
@@ -379,9 +381,59 @@ test('a window with parts is on when ANY part is, exactly as the server grants i
   eq(windowsOn({ ...rest, 'creation.review': 'hidden', 'creation.scheduling': 'active' }).includes('creation'),
     true, 'either part');
   eq(windowsOn({ ...rest, 'creation.review': 'hidden', 'creation.scheduling': 'hidden' }).includes('creation'),
-    false, 'all four off is off');
+    false, 'all five off is off');
   // A part moves only its own switch.
   eq(movePart('creation', 'approvals', false), [{ id: 'creation.review', state: 'hidden' }], 'one switch, no more');
   // The master still moves all of them.
-  eq(moveFor('creation', false).length, 4, 'the window toggle closes every part');
+  eq(moveFor('creation', false).length, 5, 'the window toggle closes every part');
+});
+
+// ── The idea lane on the Idea column — 2026-08-16, her order ─────────────────
+//
+// "There is no option for them to add an idea (that should also have been
+// there)." The capability is the client-ideas lane the 08-16 rebuild kept
+// (spec 22 §7.5, give:intake); only its address moved to the Idea column.
+
+test('the idea lane rides the board, not the engine', async () => {
+  const { effectiveState, resolveSwitch } = await import('../lib/tree/switches.ts');
+  const dec = resolveSwitch('creation.seed_input_client')!;
+  eq(dec.requires.includes('creation.engine'), false,
+    'her Engine Room being hidden must not kill the client idea lane');
+  ok(dec.requires.includes('creation.board'), 'the honest prerequisite is the board the idea is for');
+  // Engine hidden, board and login standing: the lane is open.
+  eq(effectiveState('creation.seed_input_client', {
+    'creation.engine': { state: 'hidden', set_at: '2026-08-16' },
+    'client_access.login': { state: 'active', set_at: '2026-08-16' },
+  }), 'active', 'engine off, lane open');
+  eq(dec.suggested_default, 'active',
+    'every client may bring ideas unless she unticks it (her order, 2026-08-16)');
+});
+
+test('the Add-ideas part is hers to tick, and the presets treat it right', () => {
+  const part = findWindow('creation').parts!.find(p => p.key === 'ideas');
+  ok(!!part, 'Creation carries an Add-ideas part');
+  eq(part!.switch, 'creation.seed_input_client', 'wired to the lane switch');
+  // Approvals-only narrows Creation to board + approvals: no idea box.
+  const approvals = ACCESS_PRESETS.find(p => p.id === 'approvals')!;
+  const moves = movesForPreset(approvals.windows, approvals.partsOn);
+  eq(moves.find(m => m.id === 'creation.seed_input_client')?.state, 'hidden',
+    'Approvals only does not open the idea lane');
+  // Everything opens it with the rest of the window.
+  const full = ACCESS_PRESETS.find(p => p.id === 'full')!;
+  const fullMoves = movesForPreset(full.windows, full.partsOn);
+  eq(fullMoves.find(m => m.id === 'creation.seed_input_client')?.state, 'active',
+    'Everything opens the idea lane');
+});
+
+test('a taken suggestion stops rendering separately, by the same rule her side uses', async () => {
+  const { pendingSuggestions, suggestionTaken, fileSuggestion } = await import('../lib/intake/suggestions.ts');
+  const { emptyBody } = await import('../lib/tree/body.ts');
+  const now = '2026-08-16T12:00:00.000Z';
+  let body = emptyBody(now);
+  body = fileSuggestion(body, { text: 'Diwali offer reel', by: 'guest:x', now, writer: 'client' });
+  // Case-insensitive title match — exactly what "On the board" tests.
+  ok(suggestionTaken('  diwali OFFER reel ', ['Diwali offer reel']), 'match is forgiving');
+  eq(pendingSuggestions(body, []).length, 1, 'unclaimed: renders in the Idea column');
+  eq(pendingSuggestions(body, ['Diwali offer reel']).length, 0,
+    'taken: the real card renders instead, never both');
 });

@@ -93,10 +93,17 @@ export interface BoardProps {
    * decides: it is the one that knows whether the strategy has locked.
    */
   lockBanner?: boolean;
+  /**
+   * Rendered at the foot of the IDEA column only (2026-08-16). The client's
+   * Creation passes the idea lane here (their pending suggestions and the
+   * add box) so a client's idea lives where ideas live, without this board
+   * learning anything about suggestions. Owner callers pass nothing.
+   */
+  ideaExtra?: React.ReactNode;
 }
 
 export default function Board({
-  profileId, hue, readOnly, onOpenPiece, lockBanner = false,
+  profileId, hue, readOnly, onOpenPiece, lockBanner = false, ideaExtra,
 }: BoardProps) {
   const { dispatch, selectedMonth: month, setSelectedMonth } = useApp();
   const { data } = useClient(profileId);
@@ -183,6 +190,7 @@ export default function Board({
           onOpen={onOpenPiece}
           profileId={profileId}
           month={month}
+          extra={b.stage.id === 'idea' ? ideaExtra : undefined}
         />
       ))}
     </div>
@@ -317,6 +325,7 @@ export default function Board({
                         payload: { clientId: profileId, cardId, stage: 'rejected' },
                       })
                     : undefined}
+                  extra={b.stage.id === 'idea' ? ideaExtra : undefined}
                 />
               ))}
             </div>
@@ -478,7 +487,7 @@ function PieceCard({ card, hue, pillars, onOpen, draggable, dim }: {
   );
 }
 
-function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen, profileId, month, onReject }: {
+function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen, profileId, month, onReject, extra }: {
   stage: { id: ContentStage; label: string };
   cards: ContentCard[];
   hue: string;
@@ -490,6 +499,8 @@ function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen, p
   month: string;
   /** Present only on the Review column: one tap records the rejection. */
   onReject?: (cardId: string) => void;
+  /** Present only on the Idea column, only for a client: the idea lane. */
+  extra?: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dndId('col', stage.id), disabled: readOnly });
   return (
@@ -528,6 +539,7 @@ function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen, p
           <AddEntry profileId={profileId} stage={stage.id} month={month} compact />
         </div>
       )}
+      {extra}
     </div>
   );
 }
@@ -538,7 +550,7 @@ function StageColumn({ stage, cards, hue, pillars, readOnly, dragging, onOpen, p
  * The whole section is a drop target, so a piece can be moved here too. The
  * prototype does the same: the stage is the target, in both shapes.
  */
-function StageRows({ stage, cards, hue, readOnly, onOpen, profileId, month }: {
+function StageRows({ stage, cards, hue, readOnly, onOpen, profileId, month, extra }: {
   stage: { id: ContentStage; label: string };
   cards: ContentCard[];
   hue: string;
@@ -546,6 +558,8 @@ function StageRows({ stage, cards, hue, readOnly, onOpen, profileId, month }: {
   onOpen: (id: string) => void;
   profileId: string;
   month: string;
+  /** Present only on the Idea section, only for a client: the idea lane. */
+  extra?: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dndId('row', stage.id), disabled: readOnly });
   return (
@@ -569,6 +583,7 @@ function StageRows({ stage, cards, hue, readOnly, onOpen, profileId, month }: {
           <AddEntry profileId={profileId} stage={stage.id} month={month} compact />
         </div>
       )}
+      {extra && <div className="border-t border-divider px-3 py-2.5">{extra}</div>}
     </div>
   );
 }

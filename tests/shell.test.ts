@@ -528,7 +528,8 @@ test('10. every window is granted by a door and removed with it', () => {
   const before = windowsForBinding(state, 'merushri', 'career-bubble').map(w => w.id);
   ok(before.includes('creation'), 'the creation window is granted');
   const off = allOff(state, 'career-bubble', [
-    'creation.review', 'creation.scheduling', 'assets.client_upload', 'references.from_client',
+    'creation.review', 'creation.scheduling', 'creation.seed_input_client',
+    'assets.client_upload', 'references.from_client',
   ]);
   const after = windowsForBinding(off, 'merushri', 'career-bubble').map(w => w.id);
   ok(!after.includes('creation'), 'revoking every switch removes the window');

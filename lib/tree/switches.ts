@@ -274,11 +274,19 @@ export const SWITCHES: SwitchDeclaration[] = [
   // which read literally implied a client write into the seed bank — S19 forbids
   // it and the path's `audience: owner` already blocks it.
   S({
+    // 2026-08-16, her order seeing the live client board: "there is no option
+    // for them to add an idea (that should also have been there)". Two
+    // corrections follow. REQUIRES moved off `creation.engine`: a client
+    // suggesting an idea has nothing to do with her Engine Room, and hiding
+    // the Engine would have killed this lane invisibly — the honest
+    // prerequisite is the board the idea is for. DEFAULT flipped to active:
+    // every client may bring ideas unless she unticks it, which is now a
+    // part under Creation on the What-they-see screen.
     id: 'creation.seed_input_client', owns: [],
-    requires: ['creation.engine', 'client_access.login'], dependents: [],
-    audience: 'client', allowed_states: ['active', 'hidden'], suggested_default: 'hidden',
+    requires: ['creation.board', 'client_access.login'], dependents: [],
+    audience: 'client', allowed_states: ['active', 'hidden'], suggested_default: 'active',
     derived_from: 'working-mode: does this client bring ideas',
-    note: 'A WORKING-MODE FLAG, not a write grant. It governs the intake parameter "client-ideas" (does this client bring ideas), and its only effect is that the intake round asks for them. It opens no door into work-log/creation/topics — that path is audience: owner (S19, spec 23 §10).',
+    note: 'A WORKING-MODE FLAG, not a write grant. It governs the client-ideas lane: the Add-an-idea control on the client’s Idea column, and the intake round asking for ideas. It opens no door into work-log/creation — a suggestion files as an intake ANSWER through give:intake (spec 22 §7.5), and only she puts a card on the board (S19, spec 23 §10).',
   }),
   S({
     id: 'creation.making', owns: ['work-log/creation/making'], requires: ['creation.board'],

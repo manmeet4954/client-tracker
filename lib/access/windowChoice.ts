@@ -88,7 +88,7 @@ export const WINDOW_CHOICES: WindowChoice[] = [
     // the switch it always rode; nothing new is granted, only regrouped.
     key: 'creation', label: 'Creation',
     line: 'The real board and its tabs, read only, exactly as you see it.',
-    switches: ['creation.review', 'creation.scheduling', 'assets.client_upload', 'references.from_client'],
+    switches: ['creation.review', 'creation.scheduling', 'creation.seed_input_client', 'assets.client_upload', 'references.from_client'],
     parts: [
       {
         key: 'board', label: 'Board', switch: 'creation.scheduling',
@@ -97,6 +97,13 @@ export const WINDOW_CHOICES: WindowChoice[] = [
       {
         key: 'approvals', label: 'Approvals', switch: 'creation.review',
         line: 'They can approve a piece or ask for a revision, on the piece itself.',
+      },
+      {
+        // 2026-08-16, her order: the client can add an idea, on the Idea
+        // column where it belongs. It files as a suggestion for her to take
+        // or leave — nothing reaches the board without her.
+        key: 'ideas', label: 'Add ideas', switch: 'creation.seed_input_client',
+        line: 'They can add an idea on the board, for you to take or leave.',
       },
       {
         key: 'assets', label: 'Assets', switch: 'assets.client_upload',

@@ -28,7 +28,7 @@ import Logs from '@/components/creation/Logs';
 import AssetsScreen from '@/components/creation/AssetsScreen';
 import ReferencesScreen from '@/components/creation/ReferencesScreen';
 import CostumeView from '@/components/CostumeView';
-import { ClientPiecePanel } from '@/components/shell/ClientWindows';
+import { ClientIdeaLane, ClientPiecePanel } from '@/components/shell/ClientWindows';
 
 interface Section { id: string; label: string; switch: string; render: () => React.ReactNode }
 
@@ -251,10 +251,13 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
   const profile = renderProfile(state, profileId, role);
   const on = (s: string) => renderState(profile, s, 'client') === 'active';
 
-  // Board shows when either of its switches is on: with only Approvals ticked
-  // the board is still where the waiting piece lives.
+  // Board shows when any of its switches is on: with only Approvals ticked the
+  // board is still where the waiting piece lives, and with only Add-ideas
+  // ticked the board is still where the Idea column is (2026-08-16).
+  const ideasOn = on('creation.seed_input_client');
   const tabs = [
-    ...(on('creation.scheduling') || on('creation.review') ? [{ id: 'board', label: 'Board' }] : []),
+    ...(on('creation.scheduling') || on('creation.review') || ideasOn
+      ? [{ id: 'board', label: 'Board' }] : []),
     ...(on('assets.client_upload') ? [{ id: 'assets', label: 'Assets' }] : []),
     ...(on('references.from_client') ? [{ id: 'references', label: 'References' }] : []),
   ];
@@ -286,7 +289,8 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
 
       <div className="-mx-4 md:-mx-7">
         {current === 'board' && (
-          <Board profileId={profileId} hue={accent} readOnly onOpenPiece={openPiece} />
+          <Board profileId={profileId} hue={accent} readOnly onOpenPiece={openPiece}
+            ideaExtra={ideasOn ? <ClientIdeaLane profileId={profileId} /> : undefined} />
         )}
         {current === 'assets' && <AssetsView clientId={profileId} />}
         {current === 'references' && <ReferencesScreen profileId={profileId} />}
