@@ -16,7 +16,11 @@ import { CREATION_TABS, rendered } from '@/lib/shell/nav';
 import { accentFor, renderProfile, shellRole } from '@/lib/shell/profile';
 import { renderState } from '@/lib/tree/render';
 import PreviewsView from '@/components/PreviewsView';
-import AssetsView from '@/components/AssetsView';
+// AssetsView is no longer imported here (2026-08-17). It was the CLIENT's
+// assets screen while her own side rendered AssetsScreen: one feature, two
+// components, drifting apart. The client now gets hers from the SECTIONS map.
+// The component itself stays where the legacy /client/[id]/assets route mounts
+// it and is not deleted while that address still answers.
 import MomentumMeter from '@/components/MomentumMeter';
 import EngineRoomView from '@/components/EngineRoomView';
 // The restructure, phase 2. Each of these replaces a screen that used to be its
@@ -305,12 +309,25 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
   // asked with role 'client'. The switches decide, exactly as they do for her,
   // and a section she adds later appears for clients with no further work —
   // which is the whole point of the plug rule.
-  const boardSections = (SECTIONS['board']?.({
+  // 2026-08-17, generalised from the board to EVERY tab. Assets was the second
+  // proven dissection: her side renders AssetsScreen (553 lines) and a client
+  // was given AssetsView (453) — two components for one feature, which is the
+  // drift rule 0 exists to stop. Reading her map means a client gets whichever
+  // component SHE renders, for every tab, forever.
+  //
+  // References is the one tab still mounted below rather than from here, and
+  // the reason is recorded honestly: her `references.our_vision` is
+  // audience:'owner', so it resolves hidden for a client and the tab would
+  // vanish. A client rides `references.from_client` instead — the same
+  // ReferencesScreen component either way, so the FEATURE is whole; it is the
+  // SWITCH that is dissected. Spec 36 §3 collapses that, and until it does,
+  // moving References here would take the tab away rather than complete it.
+  const sections = (SECTIONS[current ?? '']?.({
     id: profileId, accent, seedId: '', readOnly: !ideasOn, openPiece,
   }) ?? [])
     .map(s => ({ ...s, state: renderState(profile, s.switch, 'client') }))
     .filter(s => s.state !== 'hidden');
-  const activeSection = boardSections.find(s => s.id === section) ?? boardSections[0];
+  const activeSection = sections.find(s => s.id === section) ?? sections[0];
 
   return (
     <Screen>
@@ -323,9 +340,9 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
             active={current ?? ''}
           />
         )}
-        {current === 'board' && boardSections.length > 1 && (
+        {sections.length > 1 && (
           <Segmented
-            segments={boardSections.map(s => ({ id: s.id, label: s.label }))}
+            segments={sections.map(s => ({ id: s.id, label: s.label }))}
             active={activeSection?.id ?? ''}
             onSelect={setSection}
           />
@@ -333,9 +350,11 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
       </div>
 
       <div className="-mx-4 md:-mx-7">
-        {current === 'board' && activeSection?.render()}
-        {current === 'assets' && <AssetsView clientId={profileId} />}
-        {current === 'references' && <ReferencesScreen profileId={profileId} />}
+        {/* Her sections, whichever tab this is. See the note above for why
+            References is still mounted by hand. */}
+        {activeSection ? activeSection.render()
+          : current === 'references' ? <ReferencesScreen profileId={profileId} />
+          : null}
         {!current && (
           <p className="p-8 text-sm text-faint">Nothing here is open for you yet.</p>
         )}

@@ -183,17 +183,20 @@ test('1g. a plug is a whole feature: the client Board tab reads HER sections', (
   const page = readFileSync(join(ROOT, 'app/profile/[id]/creation/[tab]/page.tsx'), 'utf8');
   const client = page.slice(page.indexOf('function ClientCreation'));
 
-  ok(/SECTIONS\['board'\]\?\.\(/.test(client),
-    "the client's Board tab builds its views from the SAME SECTIONS map her side reads");
+  // Generalised 2026-08-17 from the board to EVERY tab, after Assets turned
+  // out to be the second dissection: her side rendered AssetsScreen, a client
+  // got AssetsView. One feature, two components.
+  ok(/SECTIONS\[current \?\? ''\]\?\.\(/.test(client),
+    "the client's tabs build their views from the SAME SECTIONS map her side reads");
   ok(/renderState\(profile, s\.switch, 'client'\)/.test(client),
-    'and asks her switches per section, exactly as her side does');
+    'and ask her switches per section, exactly as her side does');
 
-  // Every section she has for the board must be reachable for a client. If a
-  // sixth view is added to SECTIONS.board, this keeps passing for free — which
-  // is the whole point. What it catches is someone reintroducing a hard-coded
-  // subset.
+  // If she adds a view to any Creation tab, clients get it for free — that is
+  // the point. What this catches is someone reintroducing a hard-coded subset.
   ok(!/current === 'board' && <Board/.test(client),
     'the board is never mounted directly here: that bypasses her section list');
+  ok(!/current === 'assets' && <AssetsView/.test(client),
+    'and neither is a second assets component: her AssetsScreen comes from the map');
 
   // The board must be WRITABLE when her switch says so. A kanban board that
   // cannot move a card is not a board.
