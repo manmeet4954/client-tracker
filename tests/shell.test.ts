@@ -198,6 +198,26 @@ test('1e. a client can always get out: Log out is in the shell they are looking 
     'and returns them to the sign-in screen');
 });
 
+test('1f. logging out actually clears the cookie: the clear matches the set', () => {
+  // 2026-08-17. The session is SET with secure + sameSite; the DELETE cleared
+  // it WITHOUT them. A browser matches a cookie on its attributes, so the
+  // delete silently missed in Safari and she was locked into a client login
+  // inside her own app. The two must come from the same helper, forever.
+  const auth = readFileSync(join(ROOT, 'app/api/auth/route.ts'), 'utf8');
+  const del = auth.slice(auth.indexOf('export async function DELETE'));
+  ok(/cookieOptionsForRole/.test(del),
+    'the clear takes its attributes from the same helper as the set');
+  ok(/maxAge: 0/.test(del) && /expires: new Date\(0\)/.test(del),
+    'and expires the cookie two ways, because older Safari honours only one');
+  ok(!/set\(SESSION_COOKIE, '', \{ httpOnly: true, path: '\/', maxAge: 0 \}\)/.test(del),
+    'the hand-written attribute list that caused this is gone');
+
+  // And the tab starts over, so nothing of the previous person survives it.
+  const ctx = readFileSync(join(ROOT, 'contexts/AppContext.tsx'), 'utf8');
+  ok(/async function logout\(\)[\s\S]{0,700}?window\.location\.replace\('\/'\)/.test(ctx),
+    'logout reloads the page from zero');
+});
+
 test('1d. the only route out of a profile is the shelf', () => {
   const frame = readFileSync(join(ROOT, 'components/shell/Frame.tsx'), 'utf8');
   const outward = [...frame.matchAll(/href="(\/[^"]*)"/g)].map(m => m[1]);

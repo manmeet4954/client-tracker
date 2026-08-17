@@ -46,8 +46,23 @@ export async function POST(req: Request) {
 }
 
 // DELETE → log out (clear the session cookie).
+//
+// 2026-08-17: THIS DID NOT CLEAR THE COOKIE, and it locked her out of her own
+// app for an afternoon. The session is SET with `secure` and `sameSite: lax`
+// (cookieOptionsForRole); this cleared it without them. A browser matches a
+// cookie on its attributes, and Safari is the strictest about it, so the
+// delete silently missed. The screen flipped to the passcode gate for a
+// moment, then the next load found the cookie still there and signed the
+// person straight back in as whoever they were.
+//
+// The clear now carries the SAME attributes as the set, from the same helper,
+// so the two can never drift apart again. `expires` rides along with `maxAge`
+// because older Safari honours only the former.
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(SESSION_COOKIE, '', { httpOnly: true, path: '/', maxAge: 0 });
+  // Any role gives the same base attributes; only `maxAge` differs, and we
+  // override that here. Passing the owner is just a way to ask for the base.
+  const { maxAge: _ignored, ...base } = { maxAge: 0, ...cookieOptionsForRole('owner' as Role) };
+  res.cookies.set(SESSION_COOKIE, '', { ...base, maxAge: 0, expires: new Date(0) });
   return res;
 }

@@ -79,6 +79,39 @@ Everything else waits behind it. Do not start a second thing.
 
 ## 5. Recent sessions
 
+## 2026-08-17, evening — THE SCREEN THAT LOCKED HER OUT OF HER OWN APP
+
+Her report: "Even my code is not working. My login is also not working."
+
+**A session cookie is per BROWSER, not per tab.** She signed in as a client to
+test the view, landed on the zero-profile screen, and from that moment every
+tab in that browser was that client — her owner tab included. The app never
+showed her the passcode gate, because it already held a valid session, so her
+owner code had nothing to type into. That screen carried no Log out, so there
+was no way back. The only escapes were a private window or clearing cookies.
+
+It also explains "whenever we make the change, the profile closes": she was
+never signed in as herself, so the changes she thought she was making were
+never hers to make.
+
+**Read this before diagnosing any future "login is broken" report:**
+
+1. Ask which BROWSER, and whether a client login was ever used in it. A stale
+   client cookie beats her passcode every time, silently.
+2. A private window is the instant test: no cookie, so the gate appears.
+3. "This workspace is closed for now" is NEVER an auth failure. The person is
+   already signed in. It means their role has zero profiles.
+
+Fixed: that screen carries Log out. This is the SECOND missing-exit defect
+found today, one screen further out than the morning's — the Frame fix covers
+a client inside a profile shell, and a client with zero profiles never reaches
+it. **When adding a screen a non-owner can land on, the question is not "does
+this look right", it is "can they get out".**
+
+Live and verified in the served chunks.
+
+---
+
 ## 2026-08-17, later — A CLIENT CAN LOG OUT, AND THE CODE THAT OPENED NOTHING
 
 Both found by her in a real client login on the live app, an hour apart. Live

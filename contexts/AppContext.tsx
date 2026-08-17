@@ -1277,6 +1277,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     loadedRef.current = false;
     setStatus('needsAuth');
+    // 2026-08-17: and then start the browser over. Flipping React to the gate
+    // left this tab holding the previous person's loaded state, a pending
+    // autosave and a live poll; if any of those landed after the cookie went,
+    // or if she simply refreshed, the tab came back as whoever it just was.
+    // A logout should leave nothing behind, so the page reloads from zero.
+    if (typeof window !== 'undefined') window.location.replace('/');
   }
 
   if (isPublic) return <>{children}</>;
