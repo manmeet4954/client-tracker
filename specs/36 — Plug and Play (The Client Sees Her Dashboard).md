@@ -1,40 +1,91 @@
 # 36 — Plug and Play: the client sees her dashboard
 
 **Written:** 2026-08-17
+**Rewritten:** 2026-08-17, same day, after she rejected the first version's concept
 **Status:** written, not built
-**Ordered by:** Manmeet, directly, on 2026-08-17
+**Ordered by:** Manmeet, directly
 
 ---
 
-## 1. Her words
+## 1. The concept. Read this section twice before writing any code.
 
-> "I'm not sure why it is rebuilding the whole thing when we have the dashboard
-> set up. We just need to improve the plugins' plug-and-play feature correctly
-> to make these visible to the clients and usable for them. I just have to tell
-> you what things I don't want them to have."
+### A PLUG IS A WHOLE FEATURE.
 
-And, the day before, correcting the third rebuild of the same box:
+Not a capability. Not a permission. Not a row in a switch table. **A whole,
+working feature, exactly as it works for her.**
 
-> "You don't have to build anything new. You just have to pick the features that
-> are already there in my dashboard."
+Plug in the Board and a client gets **the board**: drag a card between stages,
+add a card in any column, tap a card and edit it. Everything a board does.
+
+There is one decision per plug and it is binary. **In, or out.** She does not
+decide whether the board can drag. A board drags. That is what a board is.
+
+### Her correction, which this rewrite exists to encode
+
+> "On the client side, things work in a board. One feature is that it should
+> work like a board. There is absolute dumbness in not being able to do that. I
+> think you are at fault for not being able to understand the plug-and-play
+> feature."
+
+And the day before, on the same mistake in a different place:
+
+> "You don't have to build anything new. You just have to pick the features
+> that are already there in my dashboard."
+
+### The anti-pattern this replaces, named so it is recognisable
+
+**Dissection.** Taking one feature apart, shipping a fraction of it, and
+waiting to be asked for the rest.
+
+The worked example, from the day this spec was written. A client was given the
+Board with:
+
+- dragging off
+- editing off
+- adding allowed in one column only
+- and a line saying "Read only"
+
+Four separate asks from her to assemble one feature she already owned. Each fix
+addressed the exact thing she had just named and stopped there. That is the
+failure. **The unit of work was a capability when it should have been a
+feature.**
+
+### The test to apply before shipping anything client-facing
+
+Name the feature. List everything it does on HER screen. A client with that
+plug in gets **all of it**. If the list you shipped is shorter than the list she
+has, you have dissected a feature and the work is wrong — no matter how many
+tests pass.
+
+### The only legitimate exception
+
+A capability may be withheld from a plug **only** when it is named explicitly
+in §5 below, with the reason written down and her word on it. Not as a default,
+not as caution, not because it seemed safer. Silence means the client gets it.
 
 ---
 
-## 2. The concept in one paragraph
+## 2. The plugs
 
-Her dashboard is already built. There is no client product to build. **Every
-feature she has is a plug.** A client login opens her real screens, her real
-components, her real names, with writing turned off where it should be. A tick
-in Settings decides whether a plug is in or out. She names what to hide; she
-never asks for something to be built client-visible, because everything already
-is.
+The plug list is **her own navigation** (`lib/shell/nav.ts`). Not a separate
+table that someone maintains by hand, because a hand-maintained list is how the
+client shell fell four features behind hers.
+
+**Strategy:** The brand · Brand book · Profile mockup · Channels · Lock ·
+Lifecycle · Intake history
+**Intake:** Intake
+**Creation:** Engine · Board · Assets · References · Logs
+**Analysis:** Now · Slices · Scorecard · Funnel · Compare · Goals · Verdicts ·
+Health
+
+Twenty-one plugs. Each whole. A feature she adds later becomes a plug the day
+she adds it, with no further work.
 
 ---
 
-## 3. Why this is not how it works today
+## 3. Why the code cannot do this today
 
-Two lines of policy, in two files, both saying the same thing in opposite
-directions:
+Two lines of policy, in two files, each vetoing what the other allows.
 
 **`lib/tree/render.ts`, step 5 — what a client's screen may draw:**
 
@@ -54,157 +105,187 @@ export function clientMayRead(path: string): boolean {
 }
 ```
 
-The numbers that matter:
-
 | | count |
 |---|---|
 | switches marked `audience: 'owner'` | **68** |
 | switches marked `client` or `both` | 28 |
 | declarations carrying a `client_door` | **29** |
 
-So 68 of her 96 features are invisible to a client **no matter what she ticks**,
-and a path with no hand-declared door is invisible even if its switch is on.
-Making one feature client-visible today means editing `switches.ts`,
-`features.ts`, `declarations.ts` and usually `access.ts` and `windowChoice.ts`
-as well. That is a build, every time. **That is the entire reason her toggles
-feel fake and every request turns into a rebuild.**
+68 of 96 features are invisible to a client whatever she ticks, and a path with
+no hand-declared door is invisible even when its switch is on. Making one
+feature client-visible today means editing four or five files. **That is why
+every request of hers became a build, and why her toggles felt fake.**
+
+### And the second, worse problem: the switches are already dissected
+
+One board is governed by FOUR switches: `creation.board`,
+`creation.scheduling`, `creation.review`, `creation.seed_input_client`. So even
+after the vetoes are removed, the client shell would still be assembling a
+board out of parts, and still shipping fractions of one.
+
+**Collapsing that is the heart of this spec, not a detail of it.**
 
 ---
 
-## 4. The ruling
+## 4. The ruling on defaults
 
-Asked on 2026-08-17 which parts must be permanently off-limits to a client, she
-answered: **nothing is hard-blocked.** Every feature becomes a toggle, the
-Engine included.
+Asked what must be permanently off-limits: **nothing is hard-blocked.** Every
+plug is togglable, the Engine included.
 
-Asked what a client should get in Analysis, she answered: **her real tabs, each
-its own toggle, except Verdicts, which stays hers.**
+So the defaults carry the protection, and no default is ever a reason to ship
+half a feature:
 
-Reconciled, since "nothing is hard-blocked" and "Verdicts stays mine" must both
-hold: **every switch is togglable; the DEFAULT is what protects her.**
+- **Off by default:** Engine, Logs, Verdicts, Lock, Lifecycle, Intake history.
+  Her workshop and her private decisions.
+- **On by default:** everything else.
+- **No position is forbidden.** She can put the Engine in for a client if she
+  wants to, and take anything else out.
 
-- Her workshop defaults **OFF**: `creation.engine` and everything under it
-  (drafting, gates, costume, briefs, taste rules), `logs.*`, the effort and
-  money meters, `analysis.verdicts`, her private per-profile notes.
-- Everything else defaults **ON**.
-- No position is forbidden. She can tick the Engine on for a client if she
-  ever wants to, and untick anything else.
-
-Rule 1 of `CLAUDE.md` is untouched and constrains the defaults above: nothing
-AI-generated reaches a client without her curating it, which is precisely why
-the drafting family starts off.
+`CLAUDE.md` rule 1 stands and is why the drafting family starts out: nothing
+AI-generated reaches a client without her curating it. That constrains the
+DEFAULT. It never justifies shipping a plug with pieces missing.
 
 ---
 
-## 5. What gets built
+## 5. The named exceptions
 
-### 5.1 One helper, asked by both sides
+The complete list of capabilities withheld from a plug that is otherwise in.
+Anything not on this list is included. **Adding to this list requires her word.**
 
-The read resolver and the payload filter must never disagree. Today they are
-two hand-kept copies of the same policy, which is how the client sidebar came
-to show tabs whose data the server had already stripped.
+| Plug | Withheld | Why |
+|---|---|---|
+| Board | Delete a card | Removal is hers; a client moves and edits, never destroys. |
+| Board | The gates, seed and caption-drift readings in the card panel | Craft machinery, spec 24 §13.1. The client's panel shows the piece, not how it was made. |
+| Analysis (all tabs) | Anything unpublished | Spec 27 §14, unchanged: nothing on an analysis path travels until she has approved it. |
 
-Add ONE function, and make both call it:
+Three rows. If a fourth is proposed, it is a conversation with her, not a
+judgement call in a build session.
+
+---
+
+## 6. What gets built
+
+### 6.1 One plug, one switch, one answer
+
+Collapse the per-capability switches into **one plug switch per feature** for
+the client-facing question. Internally the existing switches stay — they are
+her own controls and her spec set depends on them — but the client's answer to
+"is the Board in?" is ONE value, and everything the board does rides on it.
 
 ```ts
-// lib/tree/clientVisibility.ts
-export function clientPosition(switchId: string, config: SwitchConfig): PathState
+// lib/tree/plugs.ts
+export function plugState(plugId: string, config: SwitchConfig): PathState
 ```
 
-- Her explicit position in `config` wins, always. This is what makes a toggle
-  real.
-- With no explicit position, fall back to the default for that switch's family
-  (§4 above).
-- `audience: 'owner'` no longer vetoes. It becomes the marker that sets the
-  default to off, and nothing more.
-- A missing `client_door` no longer means invisible. Doors keep governing
-  WRITES, where they are the real security boundary, and stop governing sight.
+No caller may ask a sub-question. There is no client-facing
+`creation.board.canDrag`. A board drags.
 
-### 5.2 `renderState` step 5, rewritten
+### 6.2 Both sides ask the same function
 
-Delete the `audience === 'owner'` veto and the `needed.length === 0` veto.
-Ask `clientPosition` instead. Keep the door check for writes and keep the
-resting lifecycles.
+The read resolver and the payload filter must never disagree; today they are
+two hand-kept copies of one policy, which is how the client shell came to show
+tabs whose data the server had already stripped.
 
-### 5.3 `clientMayRead`, rewritten
+- `renderState` step 5: delete the `audience === 'owner'` veto and the
+  `needed.length === 0` veto. Ask `plugState`.
+- `clientMayRead`: takes the config, returns what `plugState` says. An
+  unaddressed path still returns false — that guard is about the tree being
+  complete, not about clients.
+- Doors keep governing **writes**, where they are the real boundary. They stop
+  governing sight.
 
-Takes the config. Returns what `clientPosition` says. An unaddressed path still
-returns false: that guard is about the tree being complete, not about clients.
-
-### 5.4 The window and tab tables
+### 6.3 The window and tab tables are generated
 
 `WINDOWS` in `lib/access.ts` and `WINDOW_CHOICES` in `windowChoice.ts` stop
-being hand-maintained lists of four. They are **generated from her own nav**
-(`lib/shell/nav.ts`), so a tab she has is a tab a client can be given. Adding a
-screen to her dashboard makes it available to clients automatically, forever.
+being hand-maintained lists and are derived from `lib/shell/nav.ts`. A screen
+she adds becomes available to clients automatically, forever.
 
-Analysis gains its eight real tabs this way: Now, Slices, Scorecard, Funnel,
-Compare, Goals, Verdicts (default off), Health.
+### 6.4 The Settings screen
 
-### 5.5 The Settings screen
+One row per plug, grouped by folder, default marked, nothing missing — because
+the list is generated from the same nav. She reads it as "what they get", not
+as a permissions matrix.
 
-Her What-they-see panel lists every plug, grouped by folder, with a tick each
-and the default marked. No feature is missing from the list, because the list
-is generated from the same nav.
+### 6.5 The client's screens mount HER components
+
+Every one. `Board`, `EditPiece`, `AssetsView`, `ReferencesScreen`, the Analysis
+tabs. A component whose name begins with `Client` may exist only to arrange her
+components, never to reimplement one.
 
 ---
 
-## 6. What must NOT change
+## 7. What must NOT change
 
-These are the real boundaries and none of them is what she was complaining
-about. Do not touch them while doing the above.
+Real boundaries, none of which is what she was complaining about:
 
-1. `allowedClientIds` — a client reaches their own profiles and no others. This
-   is the actual security boundary. Untouched.
-2. `mergeRoleWrite` — a restricted role's write may only land on its own
-   profiles. Untouched.
-3. The four give-points and their doors. Writing stays exactly as declared.
+1. `allowedClientIds` — a client reaches their own profiles and no others. The
+   actual security boundary. Untouched.
+2. `mergeRoleWrite` — a restricted role's write lands only on its own profiles.
+3. The four give-points and their doors. Writing stays as declared.
 4. `CLAUDE.md` rule 1: nothing AI-generated reaches a client uncurated.
-5. The resting lifecycles: paused, closing and archived still drop everything
-   client-facing to read-only.
+5. Resting lifecycles: paused, closing and archived still drop everything
+   client-facing to read-only. **This is the one place "read only" is honest.**
 
 ---
 
-## 7. Separate defect found on 2026-08-17, fix inside this spec
+## 8. The separate defect this spec also closes
 
-A client login currently receives **all 30 legacy `ClientData` slices** for
-their profile. Only `body` is filtered. So `brand.strategy` (her private
-strategy notes), `coldCalls`, `orders`, `leadAnswers`, `momentum` and `goals`
-are all sitting in the JSON a client's browser downloads. Nothing draws them,
-so nothing has been seen, and a code comment in `ClientWindows.tsx` claims
-`brand.strategy` is deliberately excluded — which is true of what is drawn and
+A client login receives **all 30 legacy `ClientData` slices** for their profile.
+Only `body` is filtered. So `brand.strategy` (her private notes), `coldCalls`,
+`orders`, `leadAnswers`, `momentum` and `goals` sit in the JSON their browser
+downloads. Nothing draws them, so nothing has been seen, and a comment in
+`ClientWindows.tsx` claims `brand.strategy` is excluded — true of what is drawn,
 false of what is sent.
 
-`filterStateForRole` must filter the legacy slices the same way it filters the
-body, through the same `clientPosition` helper.
+`filterStateForRole` must filter the legacy slices through the same
+`plugState`.
 
 ---
 
-## 8. Acceptance
+## 9. Acceptance
 
-1. She unticks Engine for a client; the Engine tab disappears from their shell
-   AND its paths leave their payload. She ticks it back; it returns. No code
-   change either way.
-2. She ticks Scorecard for a client. They see her real Scorecard, read-only.
-   Verdicts stays off until she ticks it.
-3. No component named `Client*` renders a feature that exists elsewhere. The
-   client's Board, Assets, References and Analysis tabs are HER components with
-   `readOnly`.
-4. A client's payload contains no path whose plug is off, checked in a browser
-   network tab, not by reading code.
+Every check is performed by **using the running app as a client**. Green tests
+are not acceptance for this spec — the suite reads source files as text and
+cannot see a screen.
+
+1. **The board is a board.** With Board in, a client drags a card between every
+   stage, adds in every column, and edits title, pillar, format, date, link and
+   note. Nothing on §5's list is missing.
+2. **The same test, for every other plug.** Assets uploads. References opens.
+   Intake answers. Each Analysis tab shows what hers shows. For each one: her
+   screen and their screen do the same things.
+3. **Out means gone.** Take a plug out: the tab disappears AND its paths leave
+   the payload, checked in a browser network tab. Put it back: it returns. No
+   code change either way.
+4. **The Engine round-trips.** She puts it in for a test client and it appears;
+   she takes it out and it goes. Nothing is hard-blocked.
 5. `brand.strategy` is absent from a client's payload.
-6. Every acceptance check above is verified by LOOKING at the running app.
-   Green tests are not acceptance for this spec.
+6. **No `Client*` component reimplements a feature that exists elsewhere.**
+7. **The dissection check.** For each plug: list what it does on her screen,
+   list what it does on theirs, diff the two. The only differences permitted are
+   §5's three rows.
 
 ---
 
-## 9. Cost and risk
+## 10. Cost and risk
 
-Real work: the two resolvers, the two tables, the Settings panel, the legacy
-slice filter, and the tests that pin the old vetoes. Roughly a full build
-session, not a quick fix.
+A full build session: the two resolvers, the plug collapse, the generated
+tables, the Settings screen, the legacy slice filter, and the tests that pin
+the old vetoes.
 
 The risk worth naming: inverting a default from hidden to visible means a
-mistake exposes something rather than hiding it. That is why §4 gives her
-workshop an off default and why §8.4 and §8.5 are checked in a browser against
-the real payload rather than asserted in a test file.
+mistake exposes rather than hides. That is why §4 gives her workshop an off
+default, and why §9.3 and §9.5 are checked against the real payload in a
+browser rather than asserted in a test file.
+
+---
+
+## 11. For whoever builds this
+
+The mistake this spec exists to prevent has been made four times in three days,
+by sessions that each believed they were following instructions. It does not
+feel like a mistake while you are making it. It feels like being careful.
+
+If you find yourself about to ship a feature with a piece missing, and the
+reason is caution rather than §5, **you are making it right now.** Ship the
+whole feature or ask her.

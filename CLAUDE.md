@@ -82,7 +82,19 @@ Anything bigger than a quick fix gets a spec FILE here first, before code.
 
 ## Rules (do not violate)
 
-0. **THE PLUG RULE. Never build a client version of something she already has.** Her ruling, 2026-08-17: "you don't have to build anything new. You just have to pick the features that are already there in my dashboard." A client sees HER screen, HER component, HER names, with writing turned off. Every feature is a plug she ticks on or off. If you catch yourself writing a new component whose name contains "Client", stop: the answer is to mount the existing one with `readOnly`. This exact mistake has been made and undone three times (the client idea box, 08-15, 08-16, 08-17), and it is the single most expensive habit in this project's history.
+0. **THE PLUG RULE. A plug is a WHOLE FEATURE, and you never build a client version of one she already has.**
+
+   Her ruling, 2026-08-17: *"On the client side, things work in a board. One feature is that it should work like a board. There is absolute dumbness in not being able to do that."* And: *"you don't have to build anything new. You just have to pick the features that are already there in my dashboard."*
+
+   **A plug is not a capability, a permission, or a switch row. It is a whole working feature, exactly as it works for her.** Plug in the Board and a client gets the board: drag, add in any column, tap to edit. There is one decision per plug and it is binary, in or out. She does not decide whether a board can drag. A board drags.
+
+   **The anti-pattern is DISSECTION:** taking one feature apart, shipping a fraction, and waiting to be asked for the rest. On 2026-08-17 a client was given the Board with dragging off, editing off, adding in one column only, and a "Read only" line. It took four separate demands from her to assemble one feature she already owned. Each fix answered exactly what she had just named and stopped there. **The unit of work was a capability when it should have been a feature.**
+
+   **The test, before shipping anything client-facing:** name the feature, list everything it does on HER screen, and confirm a client with that plug gets all of it. A shorter list means you dissected a feature and the work is wrong, however many tests pass. The only permitted omissions are the three named in spec 36 §5; anything else needs her word first.
+
+   If you are about to withhold a piece of a feature and the reason is caution rather than spec 36 §5, **you are making this mistake right now.** It does not feel like a mistake while you make it. It feels like being careful.
+
+   If you catch yourself writing a component whose name starts with `Client`, stop. A `Client*` component may only ARRANGE her components, never reimplement one.
 
 0b. **Nothing is gated on intake being complete or on a locked strategy.** Her ruling, 2026-08-17: "We are not keeping it for the clients, and it won't be kept for me as well." This rule has been removed from five separate places (08-11 x3, 08-16, 08-17). If you find a sixth home, remove it and say so in STATE.md. The lock gates GENERATION inside the engine and nothing else. Her switches are the one authority on what renders.
 

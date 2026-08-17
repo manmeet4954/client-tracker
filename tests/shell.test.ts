@@ -175,6 +175,32 @@ test('1c. dynamic: the navigation for profile A never names profile B', () => {
   }
 });
 
+test('1g. a plug is a whole feature: the client Board tab reads HER sections', () => {
+  // 2026-08-17, spec 36 §1. Twice in one day a client was given a fraction of
+  // one feature: the board with dragging and editing off, then the Board tab
+  // without its Slides view. Both came from this file hand-listing what a
+  // client gets instead of reading her own list.
+  const page = readFileSync(join(ROOT, 'app/profile/[id]/creation/[tab]/page.tsx'), 'utf8');
+  const client = page.slice(page.indexOf('function ClientCreation'));
+
+  ok(/SECTIONS\['board'\]\?\.\(/.test(client),
+    "the client's Board tab builds its views from the SAME SECTIONS map her side reads");
+  ok(/renderState\(profile, s\.switch, 'client'\)/.test(client),
+    'and asks her switches per section, exactly as her side does');
+
+  // Every section she has for the board must be reachable for a client. If a
+  // sixth view is added to SECTIONS.board, this keeps passing for free — which
+  // is the whole point. What it catches is someone reintroducing a hard-coded
+  // subset.
+  ok(!/current === 'board' && <Board/.test(client),
+    'the board is never mounted directly here: that bypasses her section list');
+
+  // The board must be WRITABLE when her switch says so. A kanban board that
+  // cannot move a card is not a board.
+  ok(/readOnly: !ideasOn/.test(client),
+    'the board is read-only only when she has not switched it on');
+});
+
 test('1e. a client can always get out: Log out is in the shell they are looking at', () => {
   // 2026-08-17, from her own client login on the live app: "there is no lockout
   // feature or something like that that should be there, and they should be

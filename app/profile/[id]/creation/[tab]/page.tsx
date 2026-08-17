@@ -230,14 +230,30 @@ const SECTIONS: Record<string, (a: SectionArgs) => Section[]> = {
 
 
 /**
- * The client's Creation: her folder, her tabs, filtered by her switches
- * (2026-08-16). The board is HER component with every write disabled, because
- * a second board drawn specially for clients would drift from the real one
- * within a week. Tapping a card opens the client piece panel, and a
- * Review-stage piece carries its verdict controls there — the Approvals
- * digest tab that stood beside the board is gone. The tabs are real
- * addresses (/creation/board, /creation/assets, /creation/references), so
- * anything bookmarked keeps working.
+ * The client's Creation: HER folder, HER tabs, HER sections, HER components,
+ * filtered by HER switches. This function ARRANGES; it renders nothing of its
+ * own (CLAUDE.md rule 0).
+ *
+ * It was rewritten twice on 2026-08-17, both times for the same fault, and the
+ * history is the point:
+ *
+ *  1. The board was mounted with every write disabled and an Add card bolted
+ *     on. Her verdict: "when we have built this as a kanban board, why do I
+ *     have to give each and every instruction one by one... I cannot move this
+ *     card to the other stages."
+ *  2. The Board TAB was mounted without its Slides view, because this function
+ *     hand-listed what a client gets instead of reading her own list. Her
+ *     verdict: "the slide option is missing in the creation part."
+ *
+ * Both are DISSECTION (spec 36 §1): shipping a fraction of a feature and
+ * waiting to be asked for the rest. The cure is structural rather than a
+ * promise — the sections come from the SAME `SECTIONS` map her side reads, so
+ * a view she adds appears for clients with no work here at all. If you find
+ * yourself adding a hand-written list of what a client may see to this file,
+ * that is the mistake coming back.
+ *
+ * The tabs are real addresses (/creation/board, /creation/assets,
+ * /creation/references), so anything bookmarked keeps working.
  */
 function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
   profileId: string;
@@ -247,10 +263,11 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
   path: string;
   search: string;
 }) {
-  const { state, role, selectedMonth } = useApp();
+  const { state, role } = useApp();
   const router = useRouter();
   const profile = renderProfile(state, profileId, role);
   const on = (s: string) => renderState(profile, s, 'client') === 'active';
+  const [section, setSection] = useState<string | null>(null);
 
   // Board shows when any of its switches is on: with only Approvals ticked the
   // board is still where the waiting piece lives, and with only Add-ideas
@@ -277,39 +294,46 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
     router.replace(q ? `${path}?${q}` : path, { scroll: false });
   }
 
+  // HER SECTIONS, not a client list of them (2026-08-17, her report: "the
+  // slide option is missing in the creation part... where you can preview the
+  // options"). Creation → Board is ONE tab with TWO views on her screen, Board
+  // and Slides, and the client was given one of them. That is dissection again
+  // (spec 36 §1): the plug is the Board TAB, and a client with it in gets
+  // everything the tab does.
+  //
+  // So the client's Board tab reads the SAME `SECTIONS` map her side reads,
+  // asked with role 'client'. The switches decide, exactly as they do for her,
+  // and a section she adds later appears for clients with no further work —
+  // which is the whole point of the plug rule.
+  const boardSections = (SECTIONS['board']?.({
+    id: profileId, accent, seedId: '', readOnly: !ideasOn, openPiece,
+  }) ?? [])
+    .map(s => ({ ...s, state: renderState(profile, s.switch, 'client') }))
+    .filter(s => s.state !== 'hidden');
+  const activeSection = boardSections.find(s => s.id === section) ?? boardSections[0];
+
   return (
     <Screen>
-      {tabs.length > 1 && (
-        <Segmented
-          segments={tabs.map(t => ({
-            id: t.id, label: t.label, href: `/profile/${profileId}/creation/${t.id}`,
-          }))}
-          active={current ?? ''}
-        />
-      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        {tabs.length > 1 && (
+          <Segmented
+            segments={tabs.map(t => ({
+              id: t.id, label: t.label, href: `/profile/${profileId}/creation/${t.id}`,
+            }))}
+            active={current ?? ''}
+          />
+        )}
+        {current === 'board' && boardSections.length > 1 && (
+          <Segmented
+            segments={boardSections.map(s => ({ id: s.id, label: s.label }))}
+            active={activeSection?.id ?? ''}
+            onSelect={setSection}
+          />
+        )}
+      </div>
 
       <div className="-mx-4 md:-mx-7">
-        {current === 'board' && (
-          // THE BOARD IS THE BOARD (2026-08-17, her report, seeing the live
-          // client view): "when we have built this as a kanban board, why do I
-          // have to give each and every instruction one by one... there is no
-          // edit feature here. I cannot move this card to the other stages."
-          //
-          // She was right and it was the plug rule broken again: a client got
-          // her board with the board switched off, and an Add card bolted on
-          // top. A kanban board that cannot move a card is not a board. When
-          // "Add ideas" is ticked, a client gets the REAL board — drag between
-          // stages, add in any column, tap to edit — writing the same
-          // MOVE_CONTENT_CARD and UPDATE_CONTENT_CARD hers writes. The server
-          // merge already accepts a bound client's own contentCards, and a
-          // forged write at an unbound profile still never lands.
-          //
-          // `ideaExtra` is only needed while the board is READ ONLY: once it is
-          // writable, Board draws AddEntry at the foot of every column itself,
-          // and passing it here as well would draw two.
-          <Board profileId={profileId} hue={accent} readOnly={!ideasOn} onOpenPiece={openPiece}
-            ideaExtra={undefined} />
-        )}
+        {current === 'board' && activeSection?.render()}
         {current === 'assets' && <AssetsView clientId={profileId} />}
         {current === 'references' && <ReferencesScreen profileId={profileId} />}
         {!current && (

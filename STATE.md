@@ -79,6 +79,38 @@ Everything else waits behind it. Do not start a second thing.
 
 ## 5. Recent sessions
 
+## 2026-08-17, night — A PLUG IS A WHOLE FEATURE. SPEC 36 REWRITTEN.
+
+Her verdict, and it was correct: *"On the client side, things work in a board.
+One feature is that it should work like a board. There is absolute dumbness in
+not being able to do that. I think you are at fault for not being able to
+understand the plug-and-play feature."*
+
+**The misunderstanding, named:** plug-and-play was read as a list of
+CAPABILITIES switched on one at a time. It is not. A plug is a WHOLE WORKING
+FEATURE. One decision per plug, binary, in or out. She does not decide whether
+a board can drag. A board drags.
+
+**What it cost:** a client got the Board with dragging off, editing off, adding
+in one column only, and a "Read only" line. Four separate demands from her to
+assemble one feature she already owned. Each fix answered exactly what she had
+just named and stopped there.
+
+**Fixed in code and live:** with "Add ideas" ticked, a client gets the real
+board — drag between stages, add in any column, tap to edit via HER exported
+`EditPiece`. Same actions, same slice, same declared path.
+
+**Fixed in the documents, which matters more:** spec 36 rewritten from the
+concept up, with the dissection anti-pattern named, the plug list derived from
+her nav, and a §5 that is the COMPLETE list of anything withheld (three rows,
+and adding a fourth needs her word). `CLAUDE.md` rule 0 rewritten to match.
+
+**The registry itself is dissected** and spec 36 §3 now says so: one board is
+governed by four switches. Collapsing that is the heart of the spec, not a
+detail.
+
+---
+
 ## 2026-08-17, night — AND LOG OUT NEVER CLEARED THE COOKIE
 
 The real root cause under the entry below, found after she said the new Log
