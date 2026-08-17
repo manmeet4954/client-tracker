@@ -28,7 +28,8 @@ import Logs from '@/components/creation/Logs';
 import AssetsScreen from '@/components/creation/AssetsScreen';
 import ReferencesScreen from '@/components/creation/ReferencesScreen';
 import CostumeView from '@/components/CostumeView';
-import { ClientIdeaLane, ClientPiecePanel } from '@/components/shell/ClientWindows';
+import { ClientPiecePanel } from '@/components/shell/ClientWindows';
+import AddEntry from '@/components/creation/AddEntry';
 
 interface Section { id: string; label: string; switch: string; render: () => React.ReactNode }
 
@@ -246,7 +247,7 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
   path: string;
   search: string;
 }) {
-  const { state, role } = useApp();
+  const { state, role, selectedMonth } = useApp();
   const router = useRouter();
   const profile = renderProfile(state, profileId, role);
   const on = (s: string) => renderState(profile, s, 'client') === 'active';
@@ -290,7 +291,15 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
       <div className="-mx-4 md:-mx-7">
         {current === 'board' && (
           <Board profileId={profileId} hue={accent} readOnly onOpenPiece={openPiece}
-            ideaExtra={ideasOn ? <ClientIdeaLane profileId={profileId} /> : undefined} />
+            // HER OWN add-post card, not a client-special box (2026-08-17, her
+            // correction: "you don't have to build anything new... the add post
+            // feature is in my dashboard, where you can select the pillar,
+            // where you can add the content and everything"). Same component,
+            // same ADD_CONTENT_CARD, same card downstream; the server merge
+            // already accepts a bound client's own contentCards.
+            ideaExtra={ideasOn
+              ? <AddEntry profileId={profileId} stage="idea" month={selectedMonth} compact />
+              : undefined} />
         )}
         {current === 'assets' && <AssetsView clientId={profileId} />}
         {current === 'references' && <ReferencesScreen profileId={profileId} />}

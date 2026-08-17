@@ -425,15 +425,40 @@ test('the Add-ideas part is hers to tick, and the presets treat it right', () =>
     'Everything opens the idea lane');
 });
 
-test('a taken suggestion stops rendering separately, by the same rule her side uses', async () => {
-  const { pendingSuggestions, suggestionTaken, fileSuggestion } = await import('../lib/intake/suggestions.ts');
-  const { emptyBody } = await import('../lib/tree/body.ts');
-  const now = '2026-08-16T12:00:00.000Z';
-  let body = emptyBody(now);
-  body = fileSuggestion(body, { text: 'Diwali offer reel', by: 'guest:x', now, writer: 'client' });
-  // Case-insensitive title match — exactly what "On the board" tests.
-  ok(suggestionTaken('  diwali OFFER reel ', ['Diwali offer reel']), 'match is forgiving');
-  eq(pendingSuggestions(body, []).length, 1, 'unclaimed: renders in the Idea column');
-  eq(pendingSuggestions(body, ['Diwali offer reel']).length, 0,
-    'taken: the real card renders instead, never both');
+// REWRITTEN 2026-08-17, her correction: the client-special lane box lasted one
+// day. The client's Idea column renders HER AddEntry card, writing a real
+// ContentCard — so the pin that matters is the SERVER one: a bound client's
+// own card merges; a forged card on an unbound profile never lands.
+test('a client\'s added card lands on their own board, and nowhere else', async () => {
+  const { mergeRoleWrite } = await import('../lib/access.ts');
+  const { state, role } = guestOnUnlockedProfile();
+  const card = {
+    id: 'card-idea-1', pillarId: '', title: 'Diwali offer reel', hook: '', content: 'their draft',
+    link: '', stage: 'idea', contentType: 'reel', role: '', scheduledDate: '', postUrl: '',
+    notes: '', customValues: {}, createdMonth: '2026-08', createdAt: NOW, updatedAt: NOW,
+  };
+  const theirs = structuredClone(state);
+  theirs.clientData[PROFILE] = {
+    ...theirs.clientData[PROFILE],
+    contentCards: [...(theirs.clientData[PROFILE].contentCards ?? []), card as never],
+  };
+  const merged = mergeRoleWrite(state, theirs, role);
+  ok((merged.clientData[PROFILE].contentCards ?? []).some(c => c.id === 'card-idea-1'),
+    'a bound client\'s idea card merges into their own profile');
+  // The forge: the same card aimed at a profile this login is NOT bound to.
+  const other = Object.keys(state.clientData).find(id => id !== PROFILE)!;
+  const forged = structuredClone(state);
+  forged.clientData[other] = {
+    ...forged.clientData[other],
+    contentCards: [...(forged.clientData[other].contentCards ?? []), card as never],
+  };
+  const refused = mergeRoleWrite(state, forged, role);
+  eq((refused.clientData[other].contentCards ?? []).some(c => c.id === 'card-idea-1'), false,
+    'an unbound profile never takes the write');
+});
+
+test('the on-the-board match rule is forgiving, exactly as her intake front reads it', async () => {
+  const { suggestionTaken } = await import('../lib/intake/suggestions.ts');
+  ok(suggestionTaken('  diwali OFFER reel ', ['Diwali offer reel']), 'match is case- and space-blind');
+  eq(suggestionTaken('Diwali offer reel', ['Something else']), false, 'no match, no flag');
 });

@@ -1,5 +1,31 @@
 # STATE - Client Dashboard
 
+## 2026-08-17, small hours — HER CARD, NOT A CLIENT-SPECIAL BOX
+
+1018 tests. Typecheck clean. Her correction, verbatim enough to keep: "you
+don't have to build anything new. You just have to pick the features that are
+already there in my dashboard... the add post feature... where you can select
+the pillar, where you can add the content and everything."
+
+The one-field idea box built yesterday lasted a day, and its mistake is the
+lesson: INCLUDE THE EXISTING FEATURE, never build a thinner client version of
+it. The client's Idea column now renders HER AddEntry card - pillar, format,
+date, link, draft, note - the same component, writing the same ContentCard
+through ADD_CONTENT_CARD. No server change: mergeRoleWrite has always merged
+a bound client's own contentCards (the same wholesale clientData merge the
+legacy client logins use daily), and the new test pins both halves: a bound
+client's card lands, a forged write at an unbound profile never does.
+
+ClientIdeaLane deleted (tombstone in ClientWindows.tsx). pendingSuggestions
+deleted with it; suggestionTaken stays (Known.tsx "On the board" flag). The
+"Add ideas" tick under Creation now governs her card on their column. The
+suggestions LANE (spec 22 §7.5) remains for what it already holds; nothing
+new writes to it.
+
+NOT DEPLOYED with this entry's writing; deploy is hers per DEPLOY.md.
+
+---
+
 ## 2026-08-16, night — THE IDEA LANE MOVES TO THE IDEA COLUMN
 
 1017 tests. Typecheck clean. Her order, seeing the live client board: "there

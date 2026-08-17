@@ -79,11 +79,6 @@ export function suggestionTaken(text: string, cardTitles: string[]): boolean {
   return cardTitles.some(title => title.trim().toLowerCase() === t);
 }
 
-/** The suggestions she has not yet taken, newest first. */
-export function pendingSuggestions(body: ProfileBody, cardTitles: string[]): TopicSuggestion[] {
-  return readSuggestions(body).filter(s => !suggestionTaken(s.text, cardTitles));
-}
-
 /** Deterministic, tiny, and only for id uniqueness within one instant. */
 function hash(s: string): number {
   let h = 0;
