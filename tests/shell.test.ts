@@ -20,6 +20,7 @@ import type { PathState } from '../lib/tree/contract.ts';
 import type { Lifecycle } from '../lib/tree/objects.ts';
 import { renderState, containerState } from '../lib/tree/render.ts';
 import { cascadeOf } from '../lib/tree/switches.ts';
+import { clientKey } from '../lib/tree/plugs.ts';
 import { setSwitchPosition } from '../lib/strategy/derivation.ts';
 import { isCutOver, renderProfile, staysOnLegacy } from '../lib/shell/profile.ts';
 import { APPS, ANALYSIS_TABS, CREATION_TABS, landingPath, nodeState, rendered } from '../lib/shell/nav.ts';
@@ -607,7 +608,22 @@ test('10. every window is granted by a door and removed with it', () => {
   ok(!after.includes('creation'), 'revoking every switch removes the window');
 });
 
-test('10b. no switch position renders the workshop for a client', () => {
+test('10b. her workshop stays out of a client\'s reach at every position of HER switch', () => {
+  // REWRITTEN 2026-08-17 for spec 36. Before it, `audience: 'owner'` vetoed a
+  // client outright, so this test could list anything and pass. The veto is
+  // gone: what keeps the workshop out now is `plugDefault` in lib/tree/plugs.ts,
+  // and this is the test that proves it still does.
+  //
+  // TWO NAMES LEFT THIS LIST ON HER ORDER, and the distinction is the point:
+  // `analysis.compare` and `analysis.sync_health` are TABS ON HER SCREEN
+  // (Compare and Health), so under her ruling they are plugs a client may have.
+  // They were never workshop; they were only unreachable. `analysis.verdicts`
+  // and `analysis.pulse_owner` stay, because Verdicts is hers by her explicit
+  // word and the pulse is her own reading.
+  //
+  // The list below is HER MACHINERY: how the work is made, what it cost, how
+  // the strategy was decided, and her desk. None of it is a feature on a
+  // client's screen, and no position of HER switch may put it there.
   const state = shellState();
   const workshop = [
     'creation.engine', 'creation.seed_extraction', 'creation.costume', 'creation.brief',
@@ -616,7 +632,7 @@ test('10b. no switch position renders the workshop for a client', () => {
     'logs.effort_meter', 'logs.engine_runs', 'logs.feedback',
     'strategy.derivation', 'strategy.gate_set', 'strategy.switchboard', 'strategy.lock',
     'shelf.profiles', 'shelf.today_strip', 'shelf.weekly_pulse', 'shelf.add_profile',
-    'analysis.verdicts', 'analysis.compare', 'analysis.sync_health', 'analysis.pulse_owner',
+    'analysis.verdicts', 'analysis.pulse_owner',
     'owner.chat', 'owner.taste_rules',
   ];
   for (const position of ['active', 'history', 'hidden'] as PathState[]) {
@@ -631,6 +647,36 @@ test('10b. no switch position renders the workshop for a client', () => {
       eq(renderState(profile, id, 'client'), 'hidden', `${id} at ${position} reached a client`);
     }
   }
+});
+
+test('10b-ii. and nothing is hard-blocked: she can put any of it in, deliberately', () => {
+  // Her ruling, 2026-08-17, asked directly: nothing is hard-blocked. Every plug
+  // above is OUT by default and stays out at any position of HER switch — but
+  // an explicit CLIENT position of hers puts it in. That is the difference
+  // between a default and a wall, and it is why `plugDefault` is a default.
+  const state = shellState();
+  const forced = { ...state, clientData: { ...state.clientData } };
+  let body = forced.clientData['career-bubble'].body!;
+  // Her own switch on, AND her client-facing position on. Both are required:
+  // rule 3 says a client is never shown what her own screen does not have.
+  body = setSwitchPosition(body, 'creation.engine', 'active', NOW, false);
+  body = setSwitchPosition(body, clientKey('creation.engine'), 'active', NOW, false);
+  forced.clientData['career-bubble'] = { ...forced.clientData['career-bubble'], body };
+  eq(renderState(renderProfile(forced, 'career-bubble', 'merushri'), 'creation.engine', 'client'),
+    'active', 'the Engine goes in when she says so');
+});
+
+test('10b-iii. a client is never shown what her own screen does not have', () => {
+  // Rule 3. Her client position alone is not enough: a plug is never more alive
+  // for them than for her, or the client shell would be inventing a feature.
+  const state = shellState();
+  const forced = { ...state, clientData: { ...state.clientData } };
+  let body = forced.clientData['career-bubble'].body!;
+  body = setSwitchPosition(body, 'creation.engine', 'hidden', NOW, false);
+  body = setSwitchPosition(body, clientKey('creation.engine'), 'active', NOW, false);
+  forced.clientData['career-bubble'] = { ...forced.clientData['career-bubble'], body };
+  eq(renderState(renderProfile(forced, 'career-bubble', 'merushri'), 'creation.engine', 'client'),
+    'hidden', 'her own OFF still wins');
 });
 
 test('10c. the window list never grows past her folders', () => {

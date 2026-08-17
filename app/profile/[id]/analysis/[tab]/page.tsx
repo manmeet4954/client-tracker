@@ -32,8 +32,16 @@ export default function AnalysisTabPage({ params }: { params: { id: string; tab:
   const known = ANALYSIS_TABS.find(t => t.id === params.tab);
   if (!known) notFound();
 
+  // A CLIENT RENDERS THIS PAGE TOO (2026-08-17, spec 36). It used to answer
+  // `notFound()` for anyone but her, because a client's Analysis was one
+  // approved monthly summary — her eight tabs reduced to a single curated page,
+  // which is the dissection pattern spec 36 §1 exists to stop.
+  //
+  // Her ruling, asked directly: the client sees her REAL TABS, with the real
+  // numbers, live. `rendered(...)` is asked with THEIR role, so each tab
+  // appears exactly when her plug for it is in — Verdicts starts out, the rest
+  // start in, and every one of them is hers to move.
   const kind = shellRole(state, role, params.id);
-  if (kind !== 'owner') notFound();   // a client's analysis is the Results window
 
   const tabs = rendered(ANALYSIS_TABS, renderProfile(state, params.id, role), kind)
     .map(t => ({ id: t.id, label: t.label, state: t.state }));

@@ -79,6 +79,60 @@ Everything else waits behind it. Do not start a second thing.
 
 ## 5. Recent sessions
 
+## 2026-08-17, night — SPEC 36 IS BUILT. THE TWO VETOES ARE GONE.
+
+1029 tests. Typecheck clean. Production build green.
+
+**What changed.** `lib/tree/plugs.ts` is new and is the single answer to "does
+this client see this feature". Both the render resolver and the payload filter
+ask it, so they can never disagree again — and they did disagree, which is how
+the client shell came to draw tabs whose data the server had already stripped.
+
+The two vetoes are deleted:
+ - `render.ts`: `if (dec.audience === 'owner') return 'hidden'` (68 of 96)
+ - `render.ts`: `if (needed.length === 0) return 'hidden'` (no door, no sight)
+ - `access.ts`: `clientMayRead`'s audience+door test, for clients
+
+`audience` is now a fact about who a switch was written for, not a veto. Doors
+still govern WRITING, where they are the real boundary; they no longer govern
+sight.
+
+**The model.** A client's position lives in its own namespace, `client:<id>`,
+so turning the Engine on for HERSELF can never turn it on for a client. Three
+rules: her explicit client position wins; else the default; and never more
+alive than her own switch.
+
+**Defaults.** Her workshop out (Engine, Logs, Verdicts, Lock, Lifecycle,
+Intake history). Her screens in. Anything unnamed in her navigation stays out.
+Nothing is hard-blocked — test 10b-ii pins that she can put the Engine in.
+
+**Analysis is her real tabs now.** The `notFound()` for non-owners is gone.
+Her ruling, asked directly: the client sees the real numbers, live. Spec 27
+§14's publication gate for clients went with it; her approval flow is
+untouched and staff keep the old behaviour.
+
+**Her private slices no longer travel** (spec 36 §8): brand.strategy, cold
+calls, orders, lead answers and momentum are blanked from a client's payload.
+They were never drawn, but they were being sent. "Nothing renders it" is not
+a boundary.
+
+**Four failures the suite caught, worth keeping:**
+ 1. Her SWITCHBOARD was travelling (`context/content-strategy/toolset`) — every
+    position including hidden ones. Now on a never-travels list.
+ 2. `work-log/analysis/digests` is owned by TWO switches; asking only
+    `switchForPath` hid the client's own digests behind her owner switch.
+ 3. The default list CLOSED features clients already had (review deep-links).
+    The rule now: the inversion may only ever ADD.
+ 4. Two tests encoded rules she overruled today; rewritten, keeping every
+    check that still guards ownership rather than timing.
+
+**NOT YET DONE, and honest about it:** the Settings screen still lists the old
+window/part table, so the newly-opened plugs have no toggle of their own yet —
+they run on defaults. That is the next piece. And nothing here was checked in
+a browser; there is no local env on this machine.
+
+---
+
 ## 2026-08-17, night — A PLUG IS A WHOLE FEATURE. SPEC 36 REWRITTEN.
 
 Her verdict, and it was correct: *"On the client side, things work in a board.

@@ -18,6 +18,7 @@ import { minState, stateRank } from './contract.ts';
 import type { Lifecycle } from './objects.ts';
 import { doorsOpenAt } from './objects.ts';
 import { doorsForSwitch, effectiveState, resolveSwitch } from './switches.ts';
+import { plugState } from './plugs.ts';
 
 /** The three logins the shell can render for. Staff is §19's open question. */
 export type ShellRole = 'owner' | 'client' | 'staff';
@@ -135,15 +136,39 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
   //     profile that is still working?". Only the SHELL is decided here.
   //     (the gate that stood here is removed; see the note above)
 
-  // 5 — the audience and the door (S19, PLAN §4).
+  // 5 — the plug (spec 36). ONE question, asked in one place.
   if (role === 'owner') return state;
-  if (dec.audience === 'owner') return 'hidden';   // the workshop, in any switch position
   if (role === 'staff') return state;              // staff work inside her side (§19, interim)
 
+  // THE TWO VETOES THAT STOOD HERE ARE GONE (2026-08-17, spec 36):
+  //
+  //   if (dec.audience === 'owner') return 'hidden';   // 68 of 96 switches
+  //   if (needed.length === 0) return 'hidden';        // "no door, no sight"
+  //
+  // Between them they made 68 of her 96 features invisible to a client
+  // WHATEVER she ticked, and made a path with no hand-declared door invisible
+  // even with its switch on. Adding one feature to a client's view meant
+  // editing four or five files, which is why every request of hers became a
+  // build and why her toggles felt fake. Her words: "I just have to tell you
+  // what things I don't want them to have."
+  //
+  // `audience` is now a fact about who a switch was written for, not a veto.
+  // `lib/tree/plugs.ts` decides, and the payload filter asks the SAME function,
+  // so a screen can never again be drawn over data the server stripped.
+  const plug = plugState(switchId, profile.config);
+  if (plug === 'hidden') return 'hidden';
+  state = minState(state, plug);
+
+  // The doors still govern WRITING, where they are the real boundary and
+  // CLAUDE.md rule 2 applies. They no longer govern sight. A switch with no
+  // door is readable when her plug says so; it is still unwritable, because
+  // `clientMayWriteAt` is a separate question with a separate answer.
   const held = profile.doors ?? doorsOpenAt(profile.lifecycle);
   const needed = doorsForSwitch(switchId);
-  if (needed.length === 0) return 'hidden';        // no door, no sight
-  if (!needed.some(d => held.includes(d))) return 'hidden';
+  if (needed.length > 0 && !needed.some(d => held.includes(d))) {
+    // Their binding does not hold this door: readable, never writable.
+    return minState(state, 'history');
+  }
   return state;
 }
 

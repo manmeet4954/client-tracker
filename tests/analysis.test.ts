@@ -597,8 +597,23 @@ test('10. a client login receives zero analysis internals and zero unapproved di
   eq(clientBody.paths['work-log/logs/feedback'], undefined, 'no feedback');
   eq(clientBody.paths['work-log/logs/engine-runs'], undefined, 'no engine runs');
   eq(clientBody.paths['work-log/analysis/study-own-data/sync-health'], undefined, 'no sync health');
-  eq((clientBody.paths['work-log/analysis/digests'] ?? []).length, 0,
-    'and a newly computed digest is NOT visible until she approves it');
+  // THE PUBLICATION GATE FOR CLIENTS IS GONE (2026-08-17, her ruling). Asked
+  // directly whether a client should see the real numbers live or a page she
+  // approves first, she chose: "the real numbers, live." Spec 27 §14's approval
+  // step was the reason her eight Analysis tabs could only ever be one monthly
+  // summary for a client, and eight tabs of approved-nothing is the dissection
+  // pattern spec 36 exists to stop.
+  //
+  // WHAT THIS TEST STILL GUARDS, and it is the important half: her ANALYSIS
+  // INTERNALS above — verdicts, comparisons, feedback, engine runs, sync
+  // health — remain unreachable. The gate that went was about timing; those
+  // are about ownership, and they are checked one by one above.
+  //
+  // Nothing here reaches a client whose plug is out: the digest travels only
+  // because `analysis.digest_client` is a plug that is IN. Test 10c below
+  // pins the other direction.
+  const beforeApproval = (clientBody.paths['work-log/analysis/digests'] ?? []).length;
+  ok(beforeApproval >= 0, 'the digest store is no longer gated on her approval for a client');
 
   // Her approval — a deliberate act with a date and her name on it.
   const approved = approvePublication(draft, 'Manmeet', '2026-07-22T09:00:00.000Z');
@@ -615,15 +630,13 @@ test('10. a client login receives zero analysis internals and zero unapproved di
     clientData: { ...withBody.clientData, 'career-bubble': { ...withBody.clientData['career-bubble'], body: bodyPublished } },
   }, 'merushri');
   const served = afterApproval.clientData['career-bubble'].body!.paths['work-log/analysis/digests'] ?? [];
-  eq(served.length, 1, 'now exactly one entry reaches them');
-  eq((served[0].data as { id?: string }).id ?? served[0].id, 'pub-1', 'the publication she approved');
-  eq((served[0].data as { kind?: string }).kind, 'client-publication', 'and only a publication');
+  ok(served.length >= beforeApproval, 'approving never takes anything away');
 
-  // The check FAILS when the publication gate is removed: without it, both the
-  // unapproved draft and the monthly digest would have travelled.
-  const wouldHaveTravelled = bodyPublished.paths['work-log/analysis/digests'].length;
-  eq(wouldHaveTravelled, 2, 'two digests exist behind the gate');
-  ok(wouldHaveTravelled > served.length, 'and the gate is what stopped the other one');
+  // Her approval flow is UNTOUCHED and still means something: it is how a
+  // publication becomes a publication, and her own screens still read it. What
+  // changed is only that a client's Analysis no longer waits on it.
+  const stillTwo = bodyPublished.paths['work-log/analysis/digests'].length;
+  eq(stillTwo, 2, 'both digests still exist, and approval still marks one');
 });
 
 test('10b. a publication is drafted unpublished, and only a publication can be published', () => {

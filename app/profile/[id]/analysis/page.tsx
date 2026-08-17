@@ -15,16 +15,20 @@ import { AnalysisWindow } from '@/components/shell/ClientWindows';
 export default function AnalysisLanding({ params }: { params: { id: string } }) {
   const { state, role } = useApp();
   const router = useRouter();
+  // 2026-08-17, spec 36: EVERYONE lands on the first tab their plugs render.
+  // This used to branch — she went to her tabs, a client got a single curated
+  // summary — and that branch was the dissection: her eight Analysis tabs
+  // reduced to one page. Her ruling: the client sees the real tabs, live.
   const kind = shellRole(state, role, params.id);
-  const first = kind === 'owner'
-    ? rendered(ANALYSIS_TABS, renderProfile(state, params.id, role), kind)[0]
-    : undefined;
+  const first = rendered(ANALYSIS_TABS, renderProfile(state, params.id, role), kind)[0];
 
   useEffect(() => {
-    if (kind !== 'owner') return;
-    router.replace(first ? `/profile/${params.id}/analysis/${first.id}` : `/profile/${params.id}`);
-  }, [kind, first, params.id, router]);
+    if (first) router.replace(`/profile/${params.id}/analysis/${first.id}`);
+  }, [first, params.id, router]);
 
-  if (kind !== 'owner') return <AnalysisWindow profileId={params.id} />;
-  return null;
+  if (first) return null;
+  // No Analysis tab is plugged in. The published summary is still a real
+  // feature of hers, so it is what stands here rather than an empty screen —
+  // and if she has that switched off too, it says so itself.
+  return <AnalysisWindow profileId={params.id} />;
 }

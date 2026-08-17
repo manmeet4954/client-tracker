@@ -8,6 +8,7 @@ import { LIFECYCLE_POLICY, doorsOpenAt } from './tree/objects.ts';
 import { pathState } from './tree/switches.ts';
 import { renderState } from './tree/render.ts';
 import { switchConfigFromBody, withDerivedLogin } from './strategy/derivation.ts';
+import { plugStateForPath } from './tree/plugs.ts';
 import { isCutOver, renderProfile, staysOnLegacy } from './shell/profile.ts';
 import { clientMayWrite, clientMayRead, clientMayWriteAt, clientMayReadAt } from './tree/validate.ts';
 import { findDeclaration } from './tree/declarations.ts';
@@ -271,6 +272,34 @@ function applySwitchStates(
   return out;
 }
 
+/**
+ * The legacy slices that are HERS, blanked before a client's payload is sent.
+ *
+ * Spec 36 §8, found in the 2026-08-17 audit. `filterStateForRole` filtered the
+ * path-addressed `body` and passed all 30 legacy slices through untouched, so a
+ * client's browser downloaded her private strategy notes, her cold calls, her
+ * orders, her lead answers, her effort and money figures and her goals. Nothing
+ * DREW them, so nothing had been seen — and a comment in ClientWindows.tsx
+ * claimed `brand.strategy` was excluded, which was true of what was drawn and
+ * false of what was sent.
+ *
+ * "Nothing renders it" is not a boundary. This is.
+ *
+ * `brand` is kept but its `strategy` field — her private per-profile notes — is
+ * emptied; the client's Brand window reads tagline, audience and voice from the
+ * same object and those are theirs to see.
+ */
+function withoutHerSlices(data: ClientData): Partial<ClientData> {
+  return {
+    brand: { ...data.brand, strategy: '' },
+    coldCalls: [],
+    orders: [],
+    leadAnswers: [],
+    observations: undefined,
+    momentum: undefined,
+  } as Partial<ClientData>;
+}
+
 function filterBodyForNonOwner(
   body: ProfileBody | undefined, kind: 'client' | 'staff', lifecycle: Lifecycle | undefined,
 ): ProfileBody | undefined {
@@ -279,25 +308,46 @@ function filterBodyForNonOwner(
   // A client login is additionally scoped by the doors its lifecycle opens
   // (spec 22 §11.1): at `setup` that is intake, and nothing else.
   const doors = kind === 'client' ? doorsOpenAt(lifecycle) : null;
+  // Spec 36: a CLIENT's payload is decided by the plug layer, the same function
+  // `renderState` asks. Two hand-kept copies of one policy is how the shell
+  // came to draw tabs whose data this filter had already stripped.
+  const config = kind === 'client'
+    ? withDerivedLogin(switchConfigFromBody(body), '')
+    : {};
   const paths: ProfileBody['paths'] = {};
   for (const p of Object.keys(body.paths)) {
-    if (!clientMayRead(p)) continue;
-    if (doors && !clientMayReadAt(p, doors)) continue;
+    if (kind === 'client') {
+      // THE VETOES ARE GONE (spec 36). `clientMayRead`'s two conditions —
+      // audience not owner, AND a hand-declared door — made 68 of 96 features
+      // unreachable whatever she ticked. Her plug decides now.
+      if (plugStateForPath(p, config) === 'hidden') continue;
+    } else {
+      // Staff work inside her side and are a different question, untouched.
+      if (!clientMayRead(p)) continue;
+    }
     if (p === PIECE_PATH) {
-      // Entry-level narrowing, server side, for EVERY non-owner login — staff
-      // included. The engine's internals are hers (spec 24 §13.1).
+      // KEPT, and named in spec 36 §5 as a deliberate exception: the engine's
+      // internals are hers (spec 24 §13.1). The client's panel shows the piece,
+      // never how it was made.
       paths[p] = narrowPieces(body.paths[p]);
       continue;
     }
-    if (findDeclaration(p)?.client_door === ANALYSIS_DOOR) {
-      // Spec 27 §14. Every non-owner login, staff included: nothing on an
-      // analysis path travels until she has approved it.
+    if (kind !== 'client' && findDeclaration(p)?.client_door === ANALYSIS_DOOR) {
       paths[p] = publishedOnly(p, body.paths[p]);
       continue;
     }
-    paths[p] = doors && (p === STRATEGY_PREFIX || p.startsWith(STRATEGY_PREFIX + '/'))
-      ? lockedOnly(body.paths[p])
-      : body.paths[p];
+    // `publishedOnly` FOR A CLIENT IS GONE (2026-08-17, her ruling). Asked
+    // whether a client should see the real numbers live or a page she approves
+    // first, she chose: "the real numbers, live." Spec 27 §14's approval step
+    // was why her eight Analysis tabs could only ever be one monthly summary,
+    // and eight tabs of approved-nothing is the dissection pattern again. Staff
+    // keep the old behaviour above; her own approval flow is untouched and the
+    // digest still exists for anyone who wants it.
+    //
+    // `lockedOnly` on strategy paths is gone with it: that was the "nothing
+    // until the strategy locks" rule, overruled the same day, surviving in the
+    // payload after five removals from the render side.
+    paths[p] = body.paths[p];
   }
   // her sort queue is never client-facing; and a switch she has set to hidden
   // takes its paths out of the payload entirely (§6).
@@ -341,7 +391,11 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
     // owner` has to mean the same thing for the intern as for a client.
     const kind = bindingKind(norm, role, id);
     const lifecycle = norm.clients.find(c => c.id === id)?.lifecycle;
-    clientData[id] = { ...data, body: filterBodyForNonOwner(data.body, kind, lifecycle) };
+    clientData[id] = {
+      ...data,
+      ...(kind === 'client' ? withoutHerSlices(data) : {}),
+      body: filterBodyForNonOwner(data.body, kind, lifecycle),
+    };
   });
   // Shared lists (spec 12): inject a window onto any other client's list that
   // is shared with one of this role's clients. The window carries `sharedFrom`

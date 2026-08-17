@@ -6,6 +6,7 @@ import { run } from './harness.ts';
 import './tree.declarations.test.ts';
 import './tree.scopes.test.ts';
 import './access.security.test.ts';
+import './access.plugs.test.ts';   // spec 36 — the plug layer
 import './tree.migrate.test.ts';
 import './intake.test.ts';
 import './strategy.test.ts';
