@@ -79,6 +79,33 @@ Everything else waits behind it. Do not start a second thing.
 
 ## 5. Recent sessions
 
+## 2026-08-17, later — A CLIENT CAN LOG OUT, AND THE CODE THAT OPENED NOTHING
+
+Both found by her in a real client login on the live app, an hour apart. Live
+and verified by fetching the served chunks, not by a status code.
+
+**Log out** existed in three places and none was where a client is: the desk
+(hers), the legacy clients list, and the multi-profile picker. A client holding
+ONE profile is redirected past that picker straight into their workspace, so
+they had no way out at all. It sits at the foot of the client's own sidebar
+now. Deletes the session server side, returns them to sign-in. Test-pinned.
+
+**A code that opened nothing.** "Make their code" was enabled by a name alone,
+so an invite could be made before a profile was ticked. Signing in with it hit
+"This workspace is closed for now" — which reads as a broken app and is really
+an unticked box. The button waits for a profile now, and an existing invite
+that opens nothing is no longer grey text.
+
+Worth remembering: **that message has exactly two causes** — the invite opens
+no profiles, or every profile it opens is paused, closing or archived. It is
+never an auth failure; the person is already signed in when they see it.
+
+**Merushri across two profiles needs NO code.** One invite carries a list of
+profiles, and the picker renders itself for anyone holding two or more
+(`client_access.mini_shelf`, fixed, structural). Tick both on one invite.
+
+---
+
 ## 2026-08-17 — THE LOCK GATE'S FIFTH HOME, AND THE FALSE RESTING LINE
 
 Her ruling: the intake/strategy gate is overruled for clients AND for her.

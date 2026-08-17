@@ -15,7 +15,7 @@ import MiniShelf from '@/components/shell/MiniShelf';
 import { isCutOver, staysOnLegacy } from '@/lib/shell/profile';
 
 export default function ShelfPage() {
-  const { state, role, windows } = useApp();
+  const { state, role, windows, logout } = useApp();
   const router = useRouter();
 
   // Their own bindings only. The payload never carried anyone else's (spec 21
@@ -48,11 +48,28 @@ export default function ShelfPage() {
   if (role === 'owner') return <Shelf />;
   if (only) return null;
   if (mine.length === 0) {
+    // 2026-08-17. THIS SCREEN WAS A TRAP and it locked her out of her own app.
+    //
+    // A session cookie is per BROWSER, not per tab. She signed in as a client
+    // to test, landed here, and every tab in that browser was then that client
+    // — her own included. The app never showed her the passcode gate, because
+    // it already held a valid session, so her owner code had nothing to type
+    // into. And this screen had no Log out, so there was no way back. The only
+    // escapes were a private window or clearing cookies by hand.
+    //
+    // Whoever lands here, whatever the reason, the way out is on the screen.
     return (
-      <div className="flex h-screen items-center justify-center px-6 text-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-sm text-stone-500">
           This workspace is closed for now. Manmeet can reopen it.
         </p>
+        <button
+          type="button"
+          onClick={logout}
+          className="rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-600 hover:text-stone-900"
+        >
+          Log out
+        </button>
       </div>
     );
   }
