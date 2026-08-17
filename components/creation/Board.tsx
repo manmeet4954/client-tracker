@@ -106,7 +106,12 @@ export default function Board({
   profileId, hue, readOnly, onOpenPiece, lockBanner = false, ideaExtra,
 }: BoardProps) {
   const { dispatch, selectedMonth: month, setSelectedMonth } = useApp();
-  const { data } = useClient(profileId);
+  const { client, data } = useClient(profileId);
+  // Read-only and resting are two different facts (2026-08-17). A client's
+  // board is always read-only; only a paused profile is resting.
+  const resting = client?.lifecycle === 'paused'
+    || client?.lifecycle === 'closing'
+    || client?.lifecycle === 'archived';
 
   const [view, setView] = useState('board');
   const [dragging, setDragging] = useState<string | null>(null);
@@ -294,7 +299,7 @@ export default function Board({
         <span className="text-[12.5px] text-muted">
           <span className="tnum font-semibold text-text">{postedLine(tally, formatMonthLabel(month))}</span>{' '}
           <span className="hidden text-faint lg:inline">{performanceLine(tally)}</span>
-          {readOnly && <span className="ml-2 font-semibold text-accent-text">{boardNote(true)}</span>}
+          {readOnly && <span className="ml-2 font-semibold text-accent-text">{boardNote(true, resting)}</span>}
         </span>
       </div>
 

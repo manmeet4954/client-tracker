@@ -38,7 +38,7 @@ git remote named `client-tracker`.
 Set this once so the commands below can be pasted as-is:
 
 ```
-VAULT="/Users/manmeetkaur/Desktop/Manmeet Brain"
+VAULT="/Users/manmeetkaur/Manmeet Brain"
 ```
 
 ### Step 0 — Get current

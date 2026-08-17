@@ -143,11 +143,21 @@ export function bareId(value: string): string {
   return cut === -1 ? value : value.slice(cut + 1);
 }
 
-/** The line under the four views. It is the only place the read-only state speaks twice. */
-export function boardNote(readOnly: boolean): string {
-  return readOnly
+/**
+ * The line under the four views.
+ *
+ * 2026-08-17: the read-only line used to say "This profile is resting, so
+ * nothing here moves." A CLIENT's board is always read-only — that is how they
+ * read her board without editing it — so every client on a perfectly active
+ * profile was told their account was paused. Two different facts had one
+ * sentence. They are separate now: `resting` is the lifecycle actually being
+ * paused, and it is the only case that may say so.
+ */
+export function boardNote(readOnly: boolean, resting = false): string {
+  if (!readOnly) return 'Drag a piece to move it. Review and scheduling are states, not screens.';
+  return resting
     ? 'Read only. This profile is resting, so nothing here moves.'
-    : 'Drag a piece to move it. Review and scheduling are states, not screens.';
+    : 'Read only. This is the plan as it stands.';
 }
 
 // ── Pillars ──────────────────────────────────────────────────────────────────

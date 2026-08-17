@@ -28,12 +28,22 @@ This folder is the only memory. Chat history is not. If a decision was made, it 
 ## Read order for a fresh session
 
 1. This file, fully.
-2. `STATE.md`: where things stand and the single next step.
+2. `STATE.md`: short by design. What is live, the rules she has ruled on, the single next step.
 3. `types/index.ts`: the entire data model in one file.
 4. `lib/access.ts`: the roles and what each may see and write.
 5. The page and component pair for whatever section you are touching.
 
 Then report back in two lines: where the project stands and what the next step is. Only then start work.
+
+**Do not read `STATE-ARCHIVE.md` as part of this.** It is 2,500 lines of history, kept complete so no decision is lost. Go into it when you need to know WHY something is the way it is, never to find out what is true now.
+
+---
+
+## What `npm test` does and does not prove
+
+`npm test` runs about 1,000 checks with no browser, no React and no DOM. Most of them read source files as **text** and assert that certain strings appear. They are good at catching a rule being deleted. They prove **nothing** about whether a screen renders, looks right, or is usable.
+
+So: **never report "1018 tests pass" to Manmeet as evidence that a screen is correct.** It is not. If you changed something she will look at, either run it and look at it, or tell her plainly that you have not seen it yet. Reporting green tests over a broken screen is the fastest way to lose her trust, and it has already happened.
 
 ---
 
@@ -71,6 +81,10 @@ Anything bigger than a quick fix gets a spec FILE here first, before code.
 ---
 
 ## Rules (do not violate)
+
+0. **THE PLUG RULE. Never build a client version of something she already has.** Her ruling, 2026-08-17: "you don't have to build anything new. You just have to pick the features that are already there in my dashboard." A client sees HER screen, HER component, HER names, with writing turned off. Every feature is a plug she ticks on or off. If you catch yourself writing a new component whose name contains "Client", stop: the answer is to mount the existing one with `readOnly`. This exact mistake has been made and undone three times (the client idea box, 08-15, 08-16, 08-17), and it is the single most expensive habit in this project's history.
+
+0b. **Nothing is gated on intake being complete or on a locked strategy.** Her ruling, 2026-08-17: "We are not keeping it for the clients, and it won't be kept for me as well." This rule has been removed from five separate places (08-11 x3, 08-16, 08-17). If you find a sixth home, remove it and say so in STATE.md. The lock gates GENERATION inside the engine and nothing else. Her switches are the one authority on what renders.
 
 1. **Clients see curated content only.** Anything AI-generated inside KRNL is internal drafting material. Nothing generated goes client-facing without Manmeet curating it first.
 2. **Never weaken server-side role filtering to fix a UI problem.** The access rules in `lib/access.ts` are the product's guarantee.

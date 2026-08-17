@@ -300,10 +300,18 @@ test('the month headline counts the agenda it is written above', () => {
 suite('Board — read only when the profile is resting, not when strategy is open');
 
 test('the note under the views says which state the board is in', () => {
-  eq(boardNote(true), 'Read only. This profile is resting, so nothing here moves.', 'a resting profile');
+  // 2026-08-17: read-only and resting are two different facts. A CLIENT's board
+  // is always read-only, so the old single sentence told every client on an
+  // active profile that their account was paused. Only a genuinely resting
+  // profile may say so now.
+  eq(boardNote(true, true), 'Read only. This profile is resting, so nothing here moves.',
+    'a resting profile says it is resting');
+  eq(boardNote(true), 'Read only. This is the plan as it stands.',
+    'a client reading an ACTIVE profile is never told it is resting');
   eq(boardNote(false), 'Drag a piece to move it. Review and scheduling are states, not screens.',
     'a working profile');
-  ok(!/Strategy/.test(boardNote(true)), 'and it never blames the strategy for it');
+  ok(!/Strategy/.test(boardNote(true, true)), 'and it never blames the strategy for it');
+  ok(!/resting/.test(boardNote(true)), 'the word never reaches an active profile');
 });
 
 test('nothing moves and nothing is ticked off while it reads', () => {

@@ -788,19 +788,26 @@ test('14. migrated but unlocked: the card opens the new shell anyway', () => {
   eq(composeCard(state, divine).href, '/profile/divine-studio', 'the new shell, unlocked');
 });
 
-test('14b. and an unlocked profile renders Creation read-only rather than empty', () => {
-  // REWRITTEN 2026-08-16. This test used to pin `hidden` for the client before
-  // the lock — the FOURTH home of the rule she killed on 2026-08-11 ("get rid
-  // of this rule that they can't use or see anything without a set strategy
-  // for clients"). Three homes went that day; the resolver's client branch
-  // survived and is why her Content and Assets toggles moved nothing. The lock
-  // now decides nothing for a client: her switches do. Her own side keeps the
-  // quiet waiting shell, exactly as before.
+test('14b. an unlocked profile renders Creation fully, for her and for a client', () => {
+  // REWRITTEN 2026-08-17 on her ruling: "I don't want to keep the first rule,
+  // which was that you cannot see the strategy and the analysis part until and
+  // unless intake is complete. That is something that is overruled. We are not
+  // keeping it for the clients, and it won't be kept for me as well."
+  //
+  // The client half went on 2026-08-16 (the rule's fourth home). This pins the
+  // FIFTH and last: the resolver dropped her OWN Creation, Analysis, Assets,
+  // References, Logs and Platforms to `history` on any unlocked profile. It is
+  // why her own dashboard kept going quiet on profiles she was still setting
+  // up. The lock now decides NOTHING about what renders, for anyone.
   const state = shellState();
   const unlocked = renderProfile(state, 'divine-studio', 'owner');
   ok(!unlocked.strategy_locked, 'divine has not locked');
-  eq(renderState(unlocked, 'creation.board', 'owner'), 'history',
-    'her side reads the board and cannot move it');
+  eq(renderState(unlocked, 'creation.board', 'owner'), 'active',
+    'her own board is fully workable with no lock in place');
+  for (const s of ['analysis.always_live', 'assets.library', 'references.our_vision']) {
+    ok(renderState(unlocked, s, 'owner') !== 'history',
+      `${s} is not held back by the lock either`);
+  }
   eq(renderState(renderProfile(state, 'divine-studio', 'merushri'), 'creation.board', 'client'), 'active',
     'and a client sees what her switches say, lock or no lock');
 

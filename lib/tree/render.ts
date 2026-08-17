@@ -42,14 +42,10 @@ export interface RenderProfile {
   doors?: ClientDoor[];
 }
 
-/** The switch families a profile still in `setup` may render (spec 28 §5.8). */
-
-/** Creation and analysis are shut until strategy locks (spec 22 §8.7). */
-const AFTER_LOCK_FAMILIES = ['creation', 'analysis', 'assets', 'references', 'logs', 'platforms'];
-
-function family(switchId: string): string {
-  return switchId.split('.')[0];
-}
+// AFTER_LOCK_FAMILIES and family() lived here and are gone (2026-08-17). They
+// existed only to shut Creation, Analysis, Assets, References, Logs and
+// Platforms until a strategy was locked. She overruled that rule for everyone,
+// herself included, so the list has nothing left to name.
 
 /**
  * Does this thing exist right now, for this login, on this profile?
@@ -67,7 +63,6 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
   let state: PathState = effectiveState(switchId, profile.config);
 
   // 2 — the lifecycle (S22, as corrected by spec 22 §11.1).
-  const fam = family(switchId);
   // The setup gate LIVED HERE and is gone (2026-08-11, her order: "get rid of
   // this rule that they can't use or see anything without a set strategy for
   // clients"). It hid every non-setup family from clients on a new profile,
@@ -89,14 +84,30 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
     return 'hidden';
   }
 
-  // 4 — the lock (spec 22 §8.7), OWNER AND STAFF ONLY.
+  // 4 — THE LOCK GATE IS GONE ENTIRELY (2026-08-17, her ruling).
   //
-  //     Her design says what happens on her side before the lock: an unlocked
-  //     profile's board RENDERS. So these families resolve to `history` — the
-  //     quiet, waiting shell — for her and for staff. That half is untouched;
-  //     she works inside it every day.
+  //     Her words: "I don't want to keep the first rule, which was that you
+  //     cannot see the strategy and the analysis part until and unless intake
+  //     is complete. That is something that is overruled. We are not keeping it
+  //     for the clients, and it won't be kept for me as well."
   //
-  //     THE CLIENT BRANCH THAT LIVED HERE IS GONE (2026-08-16). It returned
+  //     This was the FIFTH home of that rule. The client branch went on
+  //     2026-08-16; three more went on 2026-08-11 (setup's one-door policy, the
+  //     setup branch above, the Brand window's needsLockedStrategy). This last
+  //     one hit HER: on any profile whose strategy was not locked, her own
+  //     Creation, Analysis, Assets, References, Logs and Platforms all dropped
+  //     to `history` — read-only, with a line explaining nothing moves. It is
+  //     why her own dashboard kept going quiet on profiles she was mid-way
+  //     through setting up.
+  //
+  //     `strategy_locked` stays on the profile because the ENGINE still reads
+  //     it: generation needs a strategy, and each engine surface gates itself
+  //     on its own flag (lib/strategy/derivation.ts §8.7). What the lock no
+  //     longer does is decide whether a SHELL renders. Her switches are the one
+  //     authority on that, for her and for a client alike, bounded only by the
+  //     resting lifecycles (step 2) and the doors (step 5).
+  //
+  //     THE CLIENT BRANCH THAT LIVED HERE WENT FIRST (2026-08-16). It returned
   //     `hidden` for every after-lock family on an unlocked profile, whatever
   //     her switches said — and it was the FOURTH home of the rule she killed
   //     on 2026-08-11: "get rid of this rule that they can't use or see
@@ -122,9 +133,7 @@ export function renderState(profile: RenderProfile, switchId: string, role: Shel
   //     chat's `guardPath` and the Creation screen — ask this resolver with the
   //     lock set aside, and read the answer as "is this switched on, on a
   //     profile that is still working?". Only the SHELL is decided here.
-  if (!profile.strategy_locked && AFTER_LOCK_FAMILIES.includes(fam) && role !== 'client') {
-    state = minState(state, 'history');
-  }
+  //     (the gate that stood here is removed; see the note above)
 
   // 5 — the audience and the door (S19, PLAN §4).
   if (role === 'owner') return state;
