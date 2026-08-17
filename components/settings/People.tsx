@@ -129,8 +129,18 @@ export default function People() {
               );
             })}
           </div>
+          {/* 2026-08-17, from her own live test. A code could be made with a
+              name alone, so it opened nothing, and the person signing in with
+              it met "This workspace is closed for now" — a dead end that looks
+              like a broken app and is really an unticked box. A code that opens
+              nothing is not a code, so the button waits for a profile. */}
+          {!picked.length && (
+            <p className="mt-2 text-[12.5px] text-faint">
+              Tick at least one profile above. A code with none opens nothing.
+            </p>
+          )}
           <div className="mt-2.5 flex gap-2">
-            <button type="button" onClick={create} disabled={!name.trim()}
+            <button type="button" onClick={create} disabled={!name.trim() || !picked.length}
               className="rounded-xl bg-ink px-4 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40">
               Make their code
             </button>
@@ -150,7 +160,14 @@ export default function People() {
               <div className="flex items-start gap-3">
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold text-text">{invite.name}</span>
-                  <span className="mt-0.5 block text-[12.5px] leading-[1.5] text-faint">
+                  {/* An invite that opens nothing is the one state here that
+                      needs her eye: the person can sign in and still be told
+                      the workspace is closed. It stops being grey text. */}
+                  <span className={`mt-0.5 block text-[12.5px] leading-[1.5] ${
+                    invite.profileIds.length === 0 && !invite.revokedAt
+                      ? 'font-semibold text-accent-text'
+                      : 'text-faint'
+                  }`}>
                     {inviteLine(invite, nameOf)}
                   </span>
                 </span>

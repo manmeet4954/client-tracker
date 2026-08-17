@@ -175,6 +175,29 @@ test('1c. dynamic: the navigation for profile A never names profile B', () => {
   }
 });
 
+test('1e. a client can always get out: Log out is in the shell they are looking at', () => {
+  // 2026-08-17, from her own client login on the live app: "there is no lockout
+  // feature or something like that that should be there, and they should be
+  // able to log out."
+  //
+  // Log out existed in THREE places and none was where a client actually is —
+  // the desk (hers), the legacy clients list, and the multi-profile picker. A
+  // client holding ONE profile is redirected past that picker straight into
+  // their workspace, so they had no way out at all.
+  const frame = readFileSync(join(ROOT, 'components/shell/Frame.tsx'), 'utf8');
+  ok(/\{!isOwner && \(\s*<button[\s\S]{0,400}?onClick=\{logout\}/.test(frame),
+    'the client shell carries a Log out button');
+  ok(/Log out/.test(frame), 'and it says so in plain words');
+
+  // It must reach the server, not just forget locally: a cookie left alive is
+  // not a logout. The context is the one caller and it deletes the session.
+  const ctx = readFileSync(join(ROOT, 'contexts/AppContext.tsx'), 'utf8');
+  ok(/async function logout\(\)[\s\S]{0,200}?fetch\('\/api\/auth', \{ method: 'DELETE' \}/.test(ctx),
+    'logout deletes the session server side');
+  ok(/async function logout\(\)[\s\S]{0,400}?setStatus\('needsAuth'\)/.test(ctx),
+    'and returns them to the sign-in screen');
+});
+
 test('1d. the only route out of a profile is the shelf', () => {
   const frame = readFileSync(join(ROOT, 'components/shell/Frame.tsx'), 'utf8');
   const outward = [...frame.matchAll(/href="(\/[^"]*)"/g)].map(m => m[1]);

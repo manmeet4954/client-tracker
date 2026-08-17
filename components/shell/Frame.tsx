@@ -26,7 +26,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
-  BarChart3, ChevronLeft, List, MessageCircle, PanelLeftClose, PanelLeftOpen, PenLine,
+  BarChart3, ChevronLeft, List, LogOut, MessageCircle, PanelLeftClose, PanelLeftOpen, PenLine,
   SlidersHorizontal, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -108,7 +108,7 @@ function activeIdOf(items: Item[], tail: string): string | null {
 export default function ProfileFrame({
   profileId, children,
 }: { profileId: string; children: React.ReactNode }) {
-  const { state, role, windows } = useApp();
+  const { state, role, windows, logout } = useApp();
   const { client, data } = useClient(profileId);
   const pathname = usePathname() ?? '';
   const search = useSearchParams();
@@ -288,6 +288,30 @@ export default function ProfileFrame({
         </nav>
 
         <div className="flex-1" />
+
+        {/* Log out — 2026-08-17, on her report from a real client login.
+            It existed in three places and none of them was where a client
+            actually is: the desk (hers), the legacy clients list, and the
+            multi-profile picker. A client holding ONE profile is redirected
+            past that picker straight into their workspace, so they had no way
+            out at all. Whoever they are, however many profiles they hold, the
+            way out is at the foot of the sidebar they are looking at.
+            The owner keeps hers on the desk; a second one here would be two. */}
+        {!isOwner && (
+          <button
+            type="button"
+            onClick={logout}
+            title={railOpen ? undefined : 'Log out'}
+            className={`mb-1 flex items-center gap-[11px] rounded-[13px] py-[11px] text-[14.5px] font-semibold tracking-[-.01em] text-white/[.82] hover:bg-white/[.06] ${
+              railOpen ? 'px-3' : 'justify-center px-0'
+            }`}
+          >
+            <span className="flex items-center" style={{ color: 'rgba(255,255,255,.7)' }}>
+              <LogOut size={18} strokeWidth={1.9} />
+            </span>
+            {railOpen && <span className="flex-1 text-left">Log out</span>}
+          </button>
+        )}
 
         {/* The lock's standing state used to be printed here on every screen of
             every profile, next to the same thing on the shelf and a banner on

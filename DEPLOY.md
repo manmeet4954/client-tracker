@@ -6,6 +6,20 @@ invent a shortcut. If any step looks unclear, stop and ask Manmeet.
 
 ---
 
+## The live address
+
+**https://client-tracker-rose.vercel.app**
+
+Written down here on 2026-08-17 because it was recorded nowhere and a session
+could not verify its own deploy without asking her for it.
+
+**Verifying a deploy really landed:** do NOT grep the page HTML. Next embeds the
+not-found text in every page, so that proves nothing (this wasted an evening on
+2026-08-16). Fetch the served JS chunks and grep for a string only the new code
+contains, or open it in a real browser and look.
+
+---
+
 ## The picture in one paragraph
 
 The live app is a **separate GitHub repo**, `manmeet4954/client-tracker`. Vercel
