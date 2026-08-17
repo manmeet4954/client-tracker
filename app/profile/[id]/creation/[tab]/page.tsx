@@ -290,16 +290,25 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
 
       <div className="-mx-4 md:-mx-7">
         {current === 'board' && (
-          <Board profileId={profileId} hue={accent} readOnly onOpenPiece={openPiece}
-            // HER OWN add-post card, not a client-special box (2026-08-17, her
-            // correction: "you don't have to build anything new... the add post
-            // feature is in my dashboard, where you can select the pillar,
-            // where you can add the content and everything"). Same component,
-            // same ADD_CONTENT_CARD, same card downstream; the server merge
-            // already accepts a bound client's own contentCards.
-            ideaExtra={ideasOn
-              ? <AddEntry profileId={profileId} stage="idea" month={selectedMonth} compact />
-              : undefined} />
+          // THE BOARD IS THE BOARD (2026-08-17, her report, seeing the live
+          // client view): "when we have built this as a kanban board, why do I
+          // have to give each and every instruction one by one... there is no
+          // edit feature here. I cannot move this card to the other stages."
+          //
+          // She was right and it was the plug rule broken again: a client got
+          // her board with the board switched off, and an Add card bolted on
+          // top. A kanban board that cannot move a card is not a board. When
+          // "Add ideas" is ticked, a client gets the REAL board — drag between
+          // stages, add in any column, tap to edit — writing the same
+          // MOVE_CONTENT_CARD and UPDATE_CONTENT_CARD hers writes. The server
+          // merge already accepts a bound client's own contentCards, and a
+          // forged write at an unbound profile still never lands.
+          //
+          // `ideaExtra` is only needed while the board is READ ONLY: once it is
+          // writable, Board draws AddEntry at the foot of every column itself,
+          // and passing it here as well would draw two.
+          <Board profileId={profileId} hue={accent} readOnly={!ideasOn} onOpenPiece={openPiece}
+            ideaExtra={undefined} />
         )}
         {current === 'assets' && <AssetsView clientId={profileId} />}
         {current === 'references' && <ReferencesScreen profileId={profileId} />}
@@ -309,7 +318,8 @@ function ClientCreation({ profileId, accent, pieceId, tab, path, search }: {
       </div>
 
       {pieceId && (
-        <ClientPiecePanel profileId={profileId} pieceId={pieceId} onClose={closePiece} />
+        <ClientPiecePanel profileId={profileId} pieceId={pieceId} onClose={closePiece}
+          mayEdit={ideasOn} />
       )}
     </Screen>
   );

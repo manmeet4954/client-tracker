@@ -79,6 +79,37 @@ Everything else waits behind it. Do not start a second thing.
 
 ## 5. Recent sessions
 
+## 2026-08-17, night — AND LOG OUT NEVER CLEARED THE COOKIE
+
+The real root cause under the entry below, found after she said the new Log
+out button "still not working".
+
+The session cookie is SET with `{ httpOnly, secure, sameSite: 'lax', path }`.
+The DELETE cleared it with `{ httpOnly, path, maxAge: 0 }` — **no secure, no
+sameSite.** A browser matches a cookie on its attributes, and Safari is the
+strictest, so the clear silently missed. The screen flipped to the passcode
+gate for a moment, the cookie stayed alive, and the next load signed her
+straight back in as the client she had been testing.
+
+That is the whole reason her OWN passcode looked broken: she was never shown a
+real gate, and every tab in a browser shares the one cookie.
+
+Verified live by reading the response header, which now carries
+`Secure; HttpOnly; SameSite=lax; Max-Age=0; Expires=1970`.
+
+Also: logout reloads the page from zero now. Flipping React to the gate left
+the tab holding the previous person's state, a pending autosave and a live
+poll, any of which could land after the cookie went.
+
+**THE LESSON, worth more than the fix:** a cookie's clear must come from the
+same helper as its set. Test 1f pins that by name. Three separate fixes today
+chased this one bug (the client sidebar, the zero-profile screen, then this)
+because each time the exit was treated as a UI problem when it was a cookie
+problem. **When a logout "does nothing", read the Set-Cookie header before
+touching a component.**
+
+---
+
 ## 2026-08-17, evening — THE SCREEN THAT LOCKED HER OUT OF HER OWN APP
 
 Her report: "Even my code is not working. My login is also not working."

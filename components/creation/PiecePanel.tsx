@@ -420,7 +420,7 @@ export default function PiecePanel({ cardId, onClose }: {
 
 // ── The panel itself ─────────────────────────────────────────────────────────
 
-function Panel({ title, onClose, children }: {
+export function Panel({ title, onClose, children }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
@@ -466,7 +466,11 @@ const EDIT_FIELD =
 
 /** The same fields a piece is born with, prefilled, saved through the same
  *  action. Only the name is required, exactly as at birth. */
-function EditPiece({ card, pillars, allCards, onCancel, onSave }: {
+/**
+ * The card editor. EXPORTED 2026-08-17 so the client panel mounts THIS one.
+ * Her rule 0: never build a client version of a feature she already has.
+ */
+export function EditPiece({ card, pillars, allCards, onCancel, onSave }: {
   card: ContentCard;
   pillars: ContentPillar[];
   allCards: ContentCard[];

@@ -21,6 +21,7 @@ import type { BodyEntry, ReviewVerdict } from '@/lib/tree/objects';
 import { fileAnswer } from '@/lib/intake/rounds';
 import { applySkip, openFormFor, writeSkipped } from '@/lib/intake/form';
 import ClientForm from '@/components/intake/ClientForm';
+import { EditPiece, Panel } from '@/components/creation/PiecePanel';
 import { accentFor, renderProfile } from '@/lib/shell/profile';
 import { renderState } from '@/lib/tree/render';
 import { generateId } from '@/lib/utils';
@@ -255,10 +256,14 @@ export function ClientIntakeWindow({ profileId }: { profileId: string }) {
  * ADD_CONTENT_CARD. Nothing client-special exists on this lane any more.
  */
 
-export function ClientPiecePanel({ profileId, pieceId, onClose }: {
+export function ClientPiecePanel({ profileId, pieceId, onClose, mayEdit = false }: {
   profileId: string; pieceId: string; onClose: () => void;
+  /** Her board switch for this client. When it is on, they edit the piece with
+   *  HER editor — the same EditPiece, the same UPDATE_CONTENT_CARD (rule 0). */
+  mayEdit?: boolean;
 }) {
-  const { state, role, dispatch } = useApp();
+  const { state, role, dispatch, saveNow } = useApp();
+  const [editing, setEditing] = useState(false);
   const { client, data } = useClient(profileId);
   const [note, setNote] = useState('');
   const [feel, setFeel] = useState('');
@@ -306,6 +311,27 @@ export function ClientPiecePanel({ profileId, pieceId, onClose }: {
     setSaidTo(VERDICT_WORDS[verdict].toLowerCase());
   }
 
+  // HER editor, not a client copy of one (rule 0). Same component, same fields,
+  // same UPDATE_CONTENT_CARD. Only reachable when her board switch is on for
+  // this client, and only on a card that exists in their own profile.
+  if (editing && card) {
+    return (
+      <Panel title={card.title || 'Untitled post'} onClose={onClose}>
+        <EditPiece
+          card={card}
+          pillars={data.pillars ?? []}
+          allCards={data.contentCards ?? []}
+          onCancel={() => setEditing(false)}
+          onSave={next => {
+            dispatch({ type: 'UPDATE_CONTENT_CARD', payload: { clientId: profileId, card: next } });
+            void saveNow();
+            setEditing(false);
+          }}
+        />
+      </Panel>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[rgba(23,21,26,.34)]" onClick={onClose}>
       <div
@@ -317,6 +343,12 @@ export function ClientPiecePanel({ profileId, pieceId, onClose }: {
             <p className="text-[15px] font-semibold text-stone-900">{title}</p>
             <p className="mt-0.5 text-xs uppercase tracking-wide text-stone-400">{stageLine(stage)}</p>
           </div>
+          {mayEdit && card && (
+            <button type="button" onClick={() => setEditing(true)}
+              className="flex-none text-[12.5px] font-semibold text-stone-500 hover:text-stone-900">
+              Edit
+            </button>
+          )}
           <button type="button" onClick={onClose} aria-label="Close" className="flex text-stone-400 hover:text-stone-700">
             <X size={19} strokeWidth={2.2} />
           </button>
