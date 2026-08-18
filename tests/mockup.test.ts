@@ -526,6 +526,22 @@ test('the PNG is captured at true size, not at whatever the window was', () => {
   ok(/width: PHONE_WIDTH/.test(c), 'drawn at the phone’s true width');
   ok(/downloadPng\(shot\.current/.test(c), 'never at the scaled, visible one');
 
+  // THE NEW PROFILE ONLY, on her instruction after seeing the first file. The
+  // pair made a poor picture anyway: the screenshot and the mockup are
+  // different heights, so one side always ended in a band of empty black.
+  const off = c.slice(c.indexOf('const offscreen'));
+  ok(!/beforeImageUrl/.test(off.slice(0, 400)), 'the download is the proposed profile alone');
+
+  // AND THE PICTURES HAVE TO SURVIVE THE CAPTURE. Without crossOrigin the
+  // browser taints the canvas, html-to-image drops each image WITHOUT AN ERROR,
+  // and the file arrives with an empty avatar, empty highlights and a blank
+  // grid. The silence is what made her first download hard to explain.
+  const phone = readFileSync(join(process.cwd(), 'components/mockup/Phone.tsx'), 'utf8');
+  ok(/<img src=\{url\} alt="" crossOrigin="anonymous"/.test(phone),
+    'every picture on the phone asks for a readable copy');
+  const helper2 = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
+  ok(/mode: 'cors'/.test(helper2), 'and the export fetches them the same way');
+
   // One helper, not a third copy of the pattern.
   const helper = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
   ok(/fonts\?\.ready/.test(helper),

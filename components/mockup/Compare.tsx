@@ -65,7 +65,7 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
     if (!shot.current || saving) return;
     setSaving(true);
     try {
-      await downloadPng(shot.current, pngName([mockup.username || mockup.name, has ? 'before-and-after' : 'profile', mockup.date]), { background: bg });
+      await downloadPng(shot.current, pngName([mockup.username || mockup.name, 'profile', mockup.date]), { background: bg });
     } catch {
       // A remote image that refuses to be read cross-origin is the one real
       // failure here, and it is not worth a dialog: the picture is still on
@@ -79,18 +79,22 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
     <button type="button" onClick={save} disabled={saving}
       className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted hover:text-text disabled:opacity-50">
       <Download size={14} strokeWidth={2.2} />
-      {saving ? 'Saving…' : 'Download as PNG'}
+      {saving ? 'Saving…' : 'Download the new profile'}
     </button>
   );
 
   // Drawn at true size, off the side of the page, only so it can be captured.
+  // THE NEW PROFILE ONLY (2026-08-17, her instruction after seeing the first
+  // file: "just give the option to download the after version, the new
+  // proposed version").
+  //
+  // The pair made a poor picture anyway: their screenshot and the mockup are
+  // different heights, so one side always ended in a band of empty black. The
+  // thing worth sending is the profile she has proposed.
   const offscreen = (
     <div aria-hidden className="pointer-events-none fixed left-[-99999px] top-0">
-      <div ref={shot} style={{ background: bg, padding: 16, display: 'flex', gap: 16 }}>
-        {has && (
-          <img src={mockup.beforeImageUrl} alt="" style={{ width: PHONE_WIDTH, alignSelf: 'flex-start' }} />
-        )}
-        <div style={{ width: PHONE_WIDTH }}><Phone mockup={mockup} /></div>
+      <div ref={shot} style={{ width: PHONE_WIDTH, background: bg }}>
+        <Phone mockup={mockup} />
       </div>
     </div>
   );
@@ -146,7 +150,7 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
               before is a dishonest before. */}
           <Frame bg={bg}>
             <img src={mockup.beforeImageUrl} alt="Their profile as it is today"
-              className="block w-full" />
+              crossOrigin="anonymous" className="block w-full" />
           </Frame>
         </div>
         <div>

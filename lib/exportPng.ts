@@ -26,6 +26,14 @@ export async function downloadPng(node: HTMLElement, filename: string, opts?: {
     pixelRatio: opts?.pixelRatio ?? 2,
     cacheBust: true,
     backgroundColor: opts?.background,
+    // The pictures live on Cloudinary, so they are fetched cross-origin before
+    // being inlined. Without `mode: 'cors'` the browser taints the canvas, the
+    // image is dropped WITHOUT AN ERROR, and the file comes back with an empty
+    // avatar, empty highlight circles and a blank grid. That is exactly what
+    // her first download looked like, and the silence is what made it hard to
+    // see. The `<img>` tags ask for it too (crossOrigin), because both halves
+    // are needed.
+    fetchRequestInit: { mode: 'cors', cache: 'no-cache' },
   });
 
   const a = document.createElement('a');

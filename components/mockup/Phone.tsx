@@ -280,8 +280,13 @@ function ImageSlot({ url, onFile, editing, className, wrapperClassName, wrapperS
   const input = useRef<HTMLInputElement>(null);
   const can = editing && !!onFile;
 
+  // `crossOrigin` is what lets the PNG export read these pixels (2026-08-17).
+  // Without it the browser taints the canvas, html-to-image drops the image
+  // silently, and the download comes out with an empty avatar, empty highlight
+  // circles and a blank grid — which is exactly what her first download looked
+  // like. Cloudinary serves the header; the tag has to ask for it.
   const picture = url
-    ? <img src={url} alt="" style={innerStyle}
+    ? <img src={url} alt="" crossOrigin="anonymous" style={innerStyle}
         className={`${className ?? ''} ${innerClassName ?? ''} object-cover`} />
     : <div style={innerStyle} className={`${className ?? ''} ${innerClassName ?? ''} bg-current opacity-10`} />;
 
