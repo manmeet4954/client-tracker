@@ -5,6 +5,8 @@
 // tests/. Nothing here renders React: everything the screen does that could be
 // wrong is in lib/mockup/profile.ts, which is the point of that file.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { suite, test, ok, eq, throws } from './harness.ts';
 import { emptyBody, putEntry, readPath } from '../lib/tree/body.ts';
 import { findDeclaration } from '../lib/tree/declarations.ts';
@@ -349,4 +351,29 @@ test('29. no em dash anywhere a person reads', () => {
     ...FURNITURE.controls, ...FURNITURE.stats.map(s => `${s.value} ${s.label}`),
   ];
   for (const line of lines) ok(!line.includes('—'), `"${line}" has an em dash`);
+});
+
+suite('the grid says it can be filled — 2026-08-17');
+
+test('an empty slot shows an affordance while editing, and a filled one never does', () => {
+  // Her question: "in the mockup can i not add the image in this grid to view
+  // the post". She could. Every slot has opened a file picker since it was
+  // built. But an EMPTY slot was drawn as flat grey with nothing to say so,
+  // and a control nobody can see is a control nobody has.
+  const phone = readFileSync(join(process.cwd(), 'components/mockup/Phone.tsx'), 'utf8');
+
+  ok(/\{!url && \(/.test(phone), 'the hint is drawn only when the slot is empty');
+  ok(/pointer-events-none/.test(phone), 'and never eats the click meant for the slot');
+
+  // The whole tile must be the target. It was `className="block"` on the
+  // button, so the control was only as tall as its content.
+  ok(/className="relative block h-full w-full cursor-pointer"/.test(phone),
+    'the button fills the slot it sits in');
+
+  // A filled slot stays exactly the picture: this screen exists to show the
+  // grid as it will really look, and furniture over her photos would break it.
+  const slot = phone.slice(phone.indexOf('function ImageSlot'));
+  const guards = [...slot.matchAll(/\{(!?)url &&/g)].map(m => m[1]);
+  ok(guards.length > 0, 'the hint is guarded on whether the slot is filled');
+  ok(guards.every(g => g === '!'), 'and every guard is the EMPTY one: no icon over a photo');
 });

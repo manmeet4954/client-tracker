@@ -21,7 +21,7 @@
 
 import { useRef } from 'react';
 import Image from 'next/image';
-import { BadgeCheck, Bell, ChevronLeft, Link2, MoreHorizontal, Pin, UserPlus } from 'lucide-react';
+import { BadgeCheck, Bell, ChevronLeft, Link2, MoreHorizontal, Pin, Plus, UserPlus } from 'lucide-react';
 import {
   FURNITURE, THEMES, displayLink, orderedTiles,
   type EditableField, type ProfileMockupRecord,
@@ -268,8 +268,25 @@ function ImageSlot({ url, onFile, editing, className, wrapperClassName, wrapperS
   return (
     <div className={wrapperClassName} style={wrapperStyle}>
       <button type="button" onClick={() => input.current?.click()}
-        aria-label={`Change the ${label}`} className="block">
+        aria-label={url ? `Change the ${label}` : `Add a ${label}`}
+        className="relative block h-full w-full cursor-pointer">
         {picture}
+        {/* 2026-08-17, her question: "in the mockup can i not add the image in
+            this grid to view the post". She could — every slot has opened a
+            file picker since the day it was built — but an EMPTY one was drawn
+            as flat grey with nothing to say so, and a control nobody can see is
+            a control nobody has. So while she is editing, an empty slot shows
+            what it is for.
+
+            Only an empty one. A filled slot stays exactly the picture, because
+            the whole point of this screen is seeing the grid as it will really
+            look, and furniture drawn over her photos would break that. */}
+        {!url && (
+          <span aria-hidden
+            className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-40">
+            <Plus size={18} strokeWidth={2} />
+          </span>
+        )}
       </button>
       <input
         ref={input}
