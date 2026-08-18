@@ -416,3 +416,29 @@ test('ONE compare view, and a client gets it with the upload absent', () => {
   ok(/renderState\(rp, 'strategy\.profile_mockup', 'client'\)/.test(brand),
     'it rides the same plug her own Profile mockup panel rides');
 });
+
+test('the two columns are the same width and the same height', () => {
+  // Her note, seeing it live: "both the mockups currently looks unbalanced,
+  // can u make the aspect ratio similar, easy for comparison." Two things were
+  // wrong: the screenshot filled its column while the phone capped itself at
+  // 392px, and each column's height was whatever its content happened to be.
+  // Comparing two things drawn at different scales is the one job this screen
+  // must not fail at.
+  const c = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
+
+  ok(/max-w-\[392px\]/.test(c), 'both columns are capped to the phone’s own width');
+  ok(/items-stretch/.test(c), 'the grid stretches both cells to the taller one');
+  ok(/h-full w-full object-cover object-top/.test(c),
+    'so the screenshot ends exactly where the phone does, keeping the top');
+
+  // No fixed height may be guessed: the phone grows with the bio, and a
+  // hard-coded number would drift the moment it does.
+  // `min-h-` on the EMPTY upload box is fine and deliberate: with no
+  // screenshot there is nothing to match a height to. What must never appear
+  // is a fixed height on either rendered column.
+  ok(!/(?<!min-)h-\[\d+px\]/.test(c), 'no hard-coded height on either column');
+
+  // The Replace/Remove row must not sit inside a column, or it pushes one out
+  // of line with the other.
+  ok(/md:col-span-2/.test(c), 'the controls sit under the pair, not inside one side');
+});

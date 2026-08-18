@@ -45,21 +45,41 @@ export default function Compare({ mockup, onBefore, onClearBefore }: {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid items-stretch gap-4 md:grid-cols-2">
       <Frame label="Now">
         {has ? (
-          <div className="relative overflow-hidden rounded-[24px] border border-hairline bg-sunken">
-            {/* Their real screenshot, whatever shape it is. `w-full` keeps it
-                the same width as the phone beside it so the two read as a pair,
-                and the height follows the picture rather than being cropped to
-                match — a cropped before is a dishonest before. */}
-            <img src={mockup.beforeImageUrl} alt="Their profile as it is today" className="w-full" />
-          </div>
+          <>
+            {/* MATCHED TO THE PHONE (2026-08-17, her note: "both the mockups
+                currently looks unbalanced, can u make the aspect ratio similar,
+                easy for comparison").
+                
+                Two things were wrong. The screenshot filled the column while
+                the phone capped itself at 392px, so they were different widths.
+                And their heights were whatever their content happened to be.
+                
+                Both columns are now the same width, and the grid stretches
+                both cells to the taller of the two, so `h-full` here makes the
+                screenshot end exactly where the phone does. No fixed height is
+                guessed: whatever the phone grows to, the before matches it.
+                
+                `object-top` keeps the part that is being compared - the name,
+                the bio, the link, the first rows of the grid. A phone
+                screenshot is far taller than what the mockup draws, so
+                something has to give at the BOTTOM, which is the end of a feed
+                nobody is comparing. */}
+            <div className="h-full overflow-hidden rounded-[22px] border border-hairline bg-sunken">
+              <img
+                src={mockup.beforeImageUrl}
+                alt="Their profile as it is today"
+                className="h-full w-full object-cover object-top"
+              />
+            </div>
+          </>
         ) : (
           <button
             type="button"
             onClick={() => input.current?.click()}
-            className="flex h-[420px] w-full flex-col items-center justify-center gap-2 rounded-[24px] border border-dashed border-hairline bg-sunken text-muted hover:text-text"
+            className="flex h-full min-h-[420px] w-full flex-col items-center justify-center gap-2 rounded-[22px] border border-dashed border-hairline bg-sunken text-muted hover:text-text"
           >
             <ImagePlus size={22} strokeWidth={1.8} />
             <span className="text-[13px] font-semibold">Add a screenshot of their profile now</span>
@@ -69,25 +89,27 @@ export default function Compare({ mockup, onBefore, onClearBefore }: {
             </span>
           </button>
         )}
-        {mine && has && (
-          <div className="mt-2 flex items-center gap-3">
-            <button type="button" onClick={() => input.current?.click()}
-              className="text-[12.5px] font-semibold text-muted hover:text-text">
-              Replace
-            </button>
-            <button type="button" onClick={onClearBefore}
-              className="text-[12.5px] font-semibold text-muted hover:text-accent-text">
-              Remove
-            </button>
-          </div>
-        )}
       </Frame>
 
       <Frame label="With KRNL">
-        <div className="overflow-hidden rounded-[24px] border border-hairline">
+        <div className="h-full overflow-hidden rounded-[22px] border border-hairline">
           <Phone mockup={mockup} />
         </div>
       </Frame>
+
+      {/* Under the pair, so it can never push one column out of line. */}
+      {mine && has && (
+        <div className="flex items-center gap-3 md:col-span-2">
+          <button type="button" onClick={() => input.current?.click()}
+            className="text-[12.5px] font-semibold text-muted hover:text-text">
+            Replace the screenshot
+          </button>
+          <button type="button" onClick={onClearBefore}
+            className="text-[12.5px] font-semibold text-muted hover:text-accent-text">
+            Remove
+          </button>
+        </div>
+      )}
 
       {mine && (
         <input
@@ -108,10 +130,13 @@ export default function Compare({ mockup, onBefore, onClearBefore }: {
 
 /** A labelled column. The label is the only thing drawn outside the picture. */
 function Frame({ label, children }: { label: string; children: React.ReactNode }) {
+  // `max-w-[392px]` is the phone's own width (Phone.tsx). Capping BOTH columns
+  // to it is what stops the screenshot rendering wider than the thing it is
+  // being compared against on a big screen.
   return (
-    <div>
+    <div className="mx-auto flex h-full w-full max-w-[392px] flex-col">
       <p className="mb-1.5 text-[11.5px] font-bold uppercase tracking-[.11em] text-faint">{label}</p>
-      {children}
+      <div className="min-h-0 flex-1">{children}</div>
     </div>
   );
 }
