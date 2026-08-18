@@ -74,10 +74,16 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
       // cached those images without CORS for the copy on screen, and served
       // the cached, unreadable one to the capture. Inlined here, there is
       // nothing left for it to refuse.
+      // `|| original` MATTERS (2026-08-17). The version before this blanked a
+      // picture it could not inline, so when the fetch failed for ALL of them
+      // the file came back completely empty — my "graceful" fallback turned a
+      // partial failure into a total one, three times. Falling back to the
+      // original address can only ever be as good as doing nothing.
+      const keep = async (u: string) => (await toDataUrl(u)) || u;
       const [avatarUrl, highlights, tiles] = await Promise.all([
-        toDataUrl(mockup.avatarUrl),
-        Promise.all(mockup.highlights.map(async h => ({ ...h, imageUrl: await toDataUrl(h.imageUrl) }))),
-        Promise.all(mockup.tiles.map(async t => ({ ...t, imageUrl: await toDataUrl(t.imageUrl) }))),
+        keep(mockup.avatarUrl),
+        Promise.all(mockup.highlights.map(async h => ({ ...h, imageUrl: await keep(h.imageUrl) }))),
+        Promise.all(mockup.tiles.map(async t => ({ ...t, imageUrl: await keep(t.imageUrl) }))),
       ]);
       setShotMockup({ ...mockup, avatarUrl, highlights, tiles });
 

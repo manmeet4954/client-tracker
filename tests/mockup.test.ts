@@ -561,3 +561,24 @@ test('the PNG is captured at true size, not at whatever the window was', () => {
     'fonts are awaited: capturing early renders the fallback face, and on a mockup the type IS the design');
   ok(/pixelRatio: opts\?\.pixelRatio \?\? 2/.test(helper), 'retina by default');
 });
+
+test('the picture proxy is same-origin, and closed to everything else', () => {
+  // Three browser-side attempts failed for one underlying reason: the pictures
+  // live on another origin and the browser would not let the canvas read them,
+  // from cache and then on a direct fetch, SILENTLY each time. A server has no
+  // same-origin rule, so this reads them and hands them back from our address.
+  const route = readFileSync(join(process.cwd(), 'app/api/img/route.ts'), 'utf8');
+  ok(/allowedHosts/.test(route), 'it is not an open proxy');
+  ok(/target\.protocol !== 'https:'/.test(route), 'https only');
+  ok(/NEXT_PUBLIC_SUPABASE_URL/.test(route), 'the storage host is taken from config, never typed twice');
+  ok(/!type\.startsWith\('image\/'\)/.test(route), 'and only pictures come back through it');
+
+  const helper = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
+  ok(/\/api\/img\?u=\$\{encodeURIComponent\(url\)\}/.test(helper), 'the export reads through it');
+
+  // The fallback that made this WORSE: blanking a picture it could not inline
+  // meant that when the fetch failed for all of them, the file came back empty.
+  const c = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
+  ok(/\(await toDataUrl\(u\)\) \|\| u/.test(c),
+    'a picture that cannot be inlined keeps its address, never becomes nothing');
+});

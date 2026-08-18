@@ -65,7 +65,13 @@ export async function downloadPng(node: HTMLElement, filename: string, opts?: {
 export async function toDataUrl(url: string): Promise<string> {
   if (!url || url.startsWith('data:')) return url;
   try {
-    const res = await fetch(url, { mode: 'cors', cache: 'reload' });
+    // THROUGH OUR OWN SERVER (2026-08-17, after three failed browser-side
+    // attempts). The pictures live on another origin and the browser refused
+    // to let the canvas read them, from cache and then on a direct fetch, each
+    // time SILENTLY. A server has no same-origin rule, so `/api/img` fetches
+    // the picture and hands it back from this app's address, and there is
+    // nothing left to refuse.
+    const res = await fetch(`/api/img?u=${encodeURIComponent(url)}`, { cache: 'no-store' });
     if (!res.ok) return '';
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
