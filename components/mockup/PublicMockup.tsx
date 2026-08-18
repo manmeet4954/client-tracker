@@ -20,7 +20,8 @@
 // exactly as spec 35 requires, and there is no editing affordance in any state.
 
 import { useState } from 'react';
-import Phone from '@/components/mockup/Phone';
+import Phone, { PHONE_WIDTH } from '@/components/mockup/Phone';
+import Scaled from '@/components/mockup/Scaled';
 import Compare from '@/components/mockup/Compare';
 import { THEMES, type ProfileMockupRecord } from '@/lib/mockup/profile';
 
@@ -38,8 +39,14 @@ export default function PublicMockup({ mockup, initial }: {
   if (!canCompare) {
     return (
       <div className="flex min-h-screen flex-col items-center sm:py-8" style={{ background: bg }}>
-        <main className="w-full sm:max-w-[470px]">
-          <Phone mockup={mockup} />
+        {/* PHONE_WIDTH, not 470 (2026-08-17, her note: "just the new profile
+            here is cutting off from the right side"). The phone is laid out at
+            430 and sat inside a 470 box, so 40px of flat background ran down
+            the right of it and read as the screen being cut. The box is the
+            phone's own width now, and <Scaled> fits it to a narrower screen
+            without reflowing a single line. */}
+        <main className="w-full" style={{ maxWidth: PHONE_WIDTH }}>
+          <Scaled width={PHONE_WIDTH}><Phone mockup={mockup} /></Scaled>
         </main>
         <p className="py-4 text-[11px] text-stone-400">Profile mockup</p>
       </div>
@@ -63,12 +70,13 @@ export default function PublicMockup({ mockup, initial }: {
         ))}
       </div>
 
-      <main className={view === 'compare' ? 'mx-auto w-full max-w-[980px]' : 'mx-auto w-full max-w-[470px]'}>
+      <main className="mx-auto w-full"
+        style={{ maxWidth: view === 'compare' ? 980 : PHONE_WIDTH }}>
         {view === 'compare'
           ? <Compare mockup={mockup} />
           : (
             <div className="overflow-hidden rounded-[22px]" style={{ background: bg }}>
-              <Phone mockup={mockup} />
+              <Scaled width={PHONE_WIDTH}><Phone mockup={mockup} /></Scaled>
             </div>
           )}
       </main>

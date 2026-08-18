@@ -5,7 +5,7 @@
 // tests/. Nothing here renders React: everything the screen does that could be
 // wrong is in lib/mockup/profile.ts, which is the point of that file.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { suite, test, ok, eq, throws } from './harness.ts';
 import { emptyBody, putEntry, readPath } from '../lib/tree/body.ts';
@@ -511,74 +511,30 @@ test('on a phone the pair stays side by side', () => {
   ok(/px-2 py-4 sm:px-4/.test(pub), 'the pair gets the edges back on a small screen');
 });
 
-test('the PNG is captured at true size, not at whatever the window was', () => {
-  // Her request: "also incorporate the version of downloading the mockup as a
-  // png."
-  //
-  // The catch, and the reason this test exists: what is ON SCREEN lives inside
-  // a `transform: scale()` — that is what makes it responsive — so capturing
-  // the visible node would bake in whatever size the window happened to be and
-  // hand her a small, soft file. The capture points at an offscreen copy drawn
-  // at the phone's true width instead.
-  const c = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
-  ok(/fixed left-\[-99999px\]/.test(c), 'there is an offscreen copy');
-  ok(/<div ref=\{shot\}/.test(c), 'and the capture points at THAT');
-  ok(/width: PHONE_WIDTH/.test(c), 'drawn at the phone’s true width');
-  ok(/downloadPng\(shot\.current/.test(c), 'never at the scaled, visible one');
 
-  // THE NEW PROFILE ONLY, on her instruction after seeing the first file. The
-  // pair made a poor picture anyway: the screenshot and the mockup are
-  // different heights, so one side always ended in a band of empty black.
-  const off = c.slice(c.indexOf('const offscreen'));
-  ok(!/beforeImageUrl/.test(off.slice(0, 400)), 'the download is the proposed profile alone');
 
-  // AND THE PICTURES HAVE TO SURVIVE THE CAPTURE. Without crossOrigin the
-  // browser taints the canvas, html-to-image drops each image WITHOUT AN ERROR,
-  // and the file arrives with an empty avatar, empty highlights and a blank
-  // grid. The silence is what made her first download hard to explain.
-  // SECOND ATTEMPT AT THIS BUG, and the lesson is the useful part. Adding
-  // `crossOrigin` to the tags was not enough: the browser had ALREADY cached
-  // those pictures without CORS for the copy on screen, and served the cached,
-  // unreadable one to the capture. Asking politely cannot undo a cached
-  // refusal. So the pictures are fetched by US and inlined before the shot,
-  // and there is nothing left for the browser to refuse.
-  const helper2 = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
-  ok(/export async function toDataUrl/.test(helper2), 'pictures are inlined, not linked');
-  ok(/cache: 'reload'/.test(helper2), 'and fetched past the poisoned cache entry');
-  ok(/cacheBust: false/.test(helper2),
-    'cache-busting is OFF: it appends a query string, which corrupts a data URL');
-  ok(/export async function imagesReady/.test(helper2),
-    'and every picture is decoded before the shot, so no half-drawn grid');
+test('the solo view is the phone’s own width, and the download is gone', () => {
+  // Her instruction: "it's not working, so I want to share the link with the
+  // client. I want you to remove that 'Download the new profile' thing." Five
+  // attempts failed for one reason worth keeping: the pictures live on another
+  // origin, the browser would not let a canvas read them, and it refused
+  // SILENTLY — so every attempt looked like a layout fault and got a layout
+  // fix. The link does the job the export was for.
+  // Assert on the CODE, not the file: the note above the component quotes her
+  // words on purpose, and a naive search finds itself. That has now caught me
+  // twice, which is the point of writing it down here.
+  const raw = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
+  const c = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok(!/downloadPng|offscreen|exportPng/.test(c), 'no export machinery survives');
+  ok(!existsSync(join(process.cwd(), 'lib/exportPng.ts')), 'and its helper is gone with it');
+  ok(!existsSync(join(process.cwd(), 'app/api/img/route.ts')), 'and so is the proxy it needed');
 
-  ok(/setShotMockup\(\{ \.\.\.mockup, avatarUrl, highlights, tiles \}\)/.test(c),
-    'the avatar, the highlights and the tiles are ALL inlined, not just the avatar');
-  ok(/const offscreen = shotMockup \? \(/.test(c),
-    'and the second copy only exists while she is saving');
-
-  // One helper, not a third copy of the pattern.
-  const helper = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
-  ok(/fonts\?\.ready/.test(helper),
-    'fonts are awaited: capturing early renders the fallback face, and on a mockup the type IS the design');
-  ok(/pixelRatio: opts\?\.pixelRatio \?\? 2/.test(helper), 'retina by default');
-});
-
-test('the picture proxy is same-origin, and closed to everything else', () => {
-  // Three browser-side attempts failed for one underlying reason: the pictures
-  // live on another origin and the browser would not let the canvas read them,
-  // from cache and then on a direct fetch, SILENTLY each time. A server has no
-  // same-origin rule, so this reads them and hands them back from our address.
-  const route = readFileSync(join(process.cwd(), 'app/api/img/route.ts'), 'utf8');
-  ok(/allowedHosts/.test(route), 'it is not an open proxy');
-  ok(/target\.protocol !== 'https:'/.test(route), 'https only');
-  ok(/NEXT_PUBLIC_SUPABASE_URL/.test(route), 'the storage host is taken from config, never typed twice');
-  ok(/!type\.startsWith\('image\/'\)/.test(route), 'and only pictures come back through it');
-
-  const helper = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
-  ok(/\/api\/img\?u=\$\{encodeURIComponent\(url\)\}/.test(helper), 'the export reads through it');
-
-  // The fallback that made this WORSE: blanking a picture it could not inline
-  // meant that when the fetch failed for all of them, the file came back empty.
-  const c = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
-  ok(/\(await toDataUrl\(u\)\) \|\| u/.test(c),
-    'a picture that cannot be inlined keeps its address, never becomes nothing');
+  // "Just the new profile here is cutting off from the right side": the phone
+  // is 430 wide and sat inside a 470 box, so 40px of flat background ran down
+  // the right of it and read as the screen being cut.
+  const pub = readFileSync(join(process.cwd(), 'components/mockup/PublicMockup.tsx'), 'utf8');
+  ok(!/max-w-\[470px\]/.test(pub), 'the box is no longer wider than the phone');
+  ok(/maxWidth: PHONE_WIDTH/.test(pub), 'it is the phone’s own width');
+  ok(/<Scaled width=\{PHONE_WIDTH\}><Phone/.test(pub),
+    'and it scales to a narrow screen rather than reflowing');
 });

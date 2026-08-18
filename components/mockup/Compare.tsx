@@ -27,15 +27,23 @@
 // whole thing. Nothing reflows. One SIZE control drives both columns together,
 // because two things sized differently cannot be compared.
 //
+// DOWNLOAD AS PNG LIVED HERE AND IS GONE (2026-08-17, her instruction:
+// "it's not working, so I want to share the link with the client. I want you
+// to remove that 'Download the new profile' thing").
+//
+// It never worked, across five attempts, and the reason is worth keeping: the
+// pictures live on another origin, the browser refused to let a canvas read
+// them, and it refused SILENTLY — so every attempt looked like a layout fault
+// and got a layout fix. The link does the job the export was for.
+//
 // ONE COMPONENT, mounted by her screen and by a client's alike. Their copy is
 // this view with the controls absent, never a second one (CLAUDE.md rule 0).
 
-import { useRef, useState } from 'react';
-import { Download, ImagePlus } from 'lucide-react';
+import { useRef } from 'react';
+import { ImagePlus } from 'lucide-react';
 import Phone, { PHONE_WIDTH } from '@/components/mockup/Phone';
 import Scaled from '@/components/mockup/Scaled';
 import { THEMES, type ProfileMockupRecord } from '@/lib/mockup/profile';
-import { downloadPng, imagesReady, pngName, toDataUrl } from '@/lib/exportPng';
 
 export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
   mockup: ProfileMockupRecord;
@@ -51,83 +59,6 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
   // One number for the pair. 100 fills the space it is given.
   const size = mockup.framing.after.zoom;
 
-  // ── Saving it as a picture ────────────────────────────────────────────────
-  //
-  // The capture points at an OFFSCREEN copy drawn at the phone's true width,
-  // never at what is on screen. What is on screen lives inside a
-  // `transform: scale()` — that is what makes it responsive — so capturing it
-  // would bake in whatever size the window happened to be and produce a small,
-  // soft file. Offscreen it is always 430 per phone, however the page is sized.
-  const shot = useRef<HTMLDivElement>(null);
-  const [saving, setSaving] = useState(false);
-  // The record the offscreen copy draws, with every picture already inlined.
-  // Null until she asks for a download, so the page carries no second copy of
-  // the images while she is just looking at it.
-  const [shotMockup, setShotMockup] = useState<ProfileMockupRecord | null>(null);
-
-  async function save() {
-    if (saving) return;
-    setSaving(true);
-    try {
-      // FETCH THE PICTURES OURSELVES (2026-08-17, second attempt at this bug).
-      // `crossOrigin` on the tags was not enough: the browser had already
-      // cached those images without CORS for the copy on screen, and served
-      // the cached, unreadable one to the capture. Inlined here, there is
-      // nothing left for it to refuse.
-      // `|| original` MATTERS (2026-08-17). The version before this blanked a
-      // picture it could not inline, so when the fetch failed for ALL of them
-      // the file came back completely empty — my "graceful" fallback turned a
-      // partial failure into a total one, three times. Falling back to the
-      // original address can only ever be as good as doing nothing.
-      const keep = async (u: string) => (await toDataUrl(u)) || u;
-      const [avatarUrl, highlights, tiles] = await Promise.all([
-        keep(mockup.avatarUrl),
-        Promise.all(mockup.highlights.map(async h => ({ ...h, imageUrl: await keep(h.imageUrl) }))),
-        Promise.all(mockup.tiles.map(async t => ({ ...t, imageUrl: await keep(t.imageUrl) }))),
-      ]);
-      setShotMockup({ ...mockup, avatarUrl, highlights, tiles });
-
-      // Let React paint it, then let the pictures decode, before the shot.
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      if (shot.current) {
-        await imagesReady(shot.current);
-        await downloadPng(shot.current, pngName([mockup.username || mockup.name, 'profile', mockup.date]), { background: bg });
-      }
-    } catch {
-      // One unreadable picture costs that picture, never the download, and
-      // never a dialog: the profile is still on screen either way.
-    } finally {
-      setShotMockup(null);
-      setSaving(false);
-    }
-  }
-
-  const saveButton = (
-    <button type="button" onClick={save} disabled={saving}
-      className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted hover:text-text disabled:opacity-50">
-      <Download size={14} strokeWidth={2.2} />
-      {saving ? 'Saving…' : 'Download the new profile'}
-    </button>
-  );
-
-  // Drawn at true size, off the side of the page, only so it can be captured.
-  // THE NEW PROFILE ONLY (2026-08-17, her instruction after seeing the first
-  // file: "just give the option to download the after version, the new
-  // proposed version").
-  //
-  // The pair made a poor picture anyway: their screenshot and the mockup are
-  // different heights, so one side always ended in a band of empty black. The
-  // thing worth sending is the profile she has proposed.
-  const offscreen = shotMockup ? (
-    <div aria-hidden className="pointer-events-none fixed left-[-99999px] top-0">
-      {/* The rounded frame she sees on screen, so the file looks like the
-          thing she was looking at rather than a bare rectangle. */}
-      <div ref={shot} style={{ width: PHONE_WIDTH, background: bg, borderRadius: 22, overflow: 'hidden' }}>
-        <Phone mockup={shotMockup} />
-      </div>
-    </div>
-  ) : null;
-
   if (!has) {
     return (
       <div>
@@ -135,8 +66,6 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
           <Label>{mine ? 'With KRNL' : 'Your profile'}</Label>
           <Frame bg={bg}><Scaled width={PHONE_WIDTH}><Phone mockup={mockup} /></Scaled></Frame>
         </div>
-        <div className="mt-3 flex justify-center">{saveButton}</div>
-        {offscreen}
         {mine && (
           <>
             <SizeControl value={size} onChange={onSize} />
@@ -188,8 +117,6 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
         </div>
       </div>
 
-      <div className="mt-3 flex justify-center">{saveButton}</div>
-      {offscreen}
 
       {mine && (
         <>
