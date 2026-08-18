@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { Pencil, Plus } from 'lucide-react';
 import { useApp, useClient } from '@/contexts/AppContext';
 import { generateId, CLIENT_COLORS } from '@/lib/utils';
-import { CLIENT_GOALS, DEFAULT_PLATFORMS, type BrandOverview } from '@/types';
+import { CLIENT_GOALS, DEFAULT_PLATFORMS, type BrandOverview, type ContentPillar } from '@/types';
 import { factAnswers, type FactAnswer } from '@/lib/intake/factsRound';
 
 export default function FactRows({ profileId, brandHref }: {
@@ -264,6 +264,40 @@ function PillarsFact({ profileId, answer }: { profileId: string; answer?: FactAn
   const [color, setColor] = useState<string | null>(null);
   const nextColor = color ?? CLIENT_COLORS[pillars.length % CLIENT_COLORS.length];
 
+  // Editing one that already exists (2026-08-17).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState<string | null>(null);
+
+  function saveEdit(p: ContentPillar) {
+    const n = editName.trim();
+    if (!n) return;                                  // a nameless pillar is not a pillar
+    if (n !== p.name || (editColor && editColor !== p.color)) {
+      dispatch({
+        type: 'UPDATE_PILLAR',
+        payload: { clientId: profileId, pillar: { ...p, name: n, color: editColor ?? p.color } },
+      });
+    }
+    setEditingId(null);
+  }
+
+  /**
+   * Removing a pillar does NOT remove the work filed under it: the reducer
+   * moves those posts to Unsorted, and only the legacy topic cards go with it.
+   * The old Pillars screen asked "Delete this pillar and all its topic cards?",
+   * which reads as though a month of posts is about to vanish. It is not, and
+   * the question should say what actually happens.
+   */
+  function remove(p: ContentPillar) {
+    const filed = (data.contentCards ?? []).filter(c => c.pillarId === p.id).length;
+    const line = filed
+      ? `Remove "${p.name}"? The ${filed} post${filed === 1 ? '' : 's'} filed under it stay, and move to Unsorted.`
+      : `Remove "${p.name}"?`;
+    if (!confirm(line)) return;
+    dispatch({ type: 'DELETE_PILLAR', payload: { clientId: profileId, pillarId: p.id } });
+    setEditingId(null);
+  }
+
   function add() {
     const n = name.trim();
     if (!n) return;
@@ -281,13 +315,61 @@ function PillarsFact({ profileId, answer }: { profileId: string; answer?: FactAn
   return (
     <FactCard label="Pillars" question="What do they talk about?"
       answer={pillars.length ? undefined : answer}>
+      {/* A pillar is EDITABLE here (2026-08-17, her request: "give me edit
+          access to rename or delete the pillars"). It was add-only, so a typo
+          was permanent and a pillar she stopped using could never leave.
+          UPDATE_PILLAR and DELETE_PILLAR already existed and are what the old
+          Pillars screen used; this is the same feature at the address she
+          actually works from, not a second one. Tap a pillar to open it. */}
       {pillars.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {pillars.map(p => (
-            <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-control px-2.5 py-1 text-[12px] font-semibold text-text">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: p.color }} />
-              {p.name}
-            </span>
+            editingId === p.id ? (
+              <span key={p.id} className="inline-flex w-full flex-col gap-2 rounded-xl border border-[rgba(23,21,26,.12)] bg-white p-2.5 sm:w-auto sm:flex-row sm:items-center">
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') saveEdit(p);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  className="min-w-0 flex-1 rounded-lg border border-[rgba(23,21,26,.12)] px-2.5 py-1.5 text-[13px] text-text focus:border-accent focus:outline-none"
+                />
+                <span className="flex items-center gap-1.5">
+                  {CLIENT_COLORS.slice(0, 6).map(c => (
+                    <button key={c} type="button" aria-label={`Use colour ${c}`} onClick={() => setEditColor(c)}
+                      className={`h-5 w-5 rounded-full ${c === (editColor ?? p.color) ? 'ring-2 ring-ink ring-offset-1' : ''}`}
+                      style={{ backgroundColor: c }} />
+                  ))}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <button type="button" onClick={() => saveEdit(p)}
+                    className="rounded-lg bg-ink px-3 py-1.5 text-[12px] font-semibold text-white">
+                    Save
+                  </button>
+                  <button type="button" onClick={() => setEditingId(null)}
+                    className="rounded-lg px-2 py-1.5 text-[12px] font-semibold text-muted hover:text-text">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={() => remove(p)}
+                    className="rounded-lg px-2 py-1.5 text-[12px] font-semibold text-muted hover:text-accent-text">
+                    Remove
+                  </button>
+                </span>
+              </span>
+            ) : (
+              <button
+                key={p.id}
+                type="button"
+                title={`Edit ${p.name}`}
+                onClick={() => { setEditingId(p.id); setEditName(p.name); setEditColor(null); }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-control px-2.5 py-1 text-[12px] font-semibold text-text hover:bg-[rgba(23,21,26,.09)]"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+                {p.name}
+              </button>
+            )
           ))}
         </div>
       )}
