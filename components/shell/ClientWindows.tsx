@@ -22,6 +22,8 @@ import { fileAnswer } from '@/lib/intake/rounds';
 import { applySkip, openFormFor, writeSkipped } from '@/lib/intake/form';
 import ClientForm from '@/components/intake/ClientForm';
 import { EditPiece, Panel } from '@/components/creation/PiecePanel';
+import Compare from '@/components/mockup/Compare';
+import { readMockups } from '@/lib/mockup/profile';
 import { accentFor, renderProfile } from '@/lib/shell/profile';
 import { renderState } from '@/lib/tree/render';
 import { generateId } from '@/lib/utils';
@@ -59,8 +61,12 @@ function Empty({ children }: { children: React.ReactNode }) {
 // ── Brand — the locked strategy summary and their obligations ────────────────
 
 export function BrandWindow({ profileId }: { profileId: string }) {
+  const { state, role } = useApp();
   const { data } = useClient(profileId);
   const body = data.body;
+  const rp = renderProfile(state, profileId, role);
+  // The newest one she has not archived. Same reader her own screen uses.
+  const mockup = body ? (readMockups(body)[0] ?? null) : null;
   const rows: { path: string; label: string; text: string }[] = [];
   for (const path of Object.keys(body?.paths ?? {})) {
     if (path !== STRATEGY && !path.startsWith(`${STRATEGY}/`)) continue;
@@ -112,6 +118,19 @@ export function BrandWindow({ profileId }: { profileId: string }) {
             </div>
           )}
       </Section>
+      {/* THEIR PROFILE, BEFORE AND AFTER (2026-08-17, her brief: "when someone
+          is given the link, they can see the optimized profile, but they can
+          also see the before version of their profile... compare them in
+          parallel"). It rides `strategy.profile_mockup` — the same plug her own
+          Profile mockup panel rides — so it appears exactly when she has that
+          switched on for them, and it is HER Compare component with the upload
+          absent, never a client copy of one. */}
+      {mockup && renderState(rp, 'strategy.profile_mockup', 'client') !== 'hidden' && (
+        <Section title="Your profile">
+          <Compare mockup={mockup} />
+        </Section>
+      )}
+
       <Section title="Requested from you">
         {obligations.length === 0
           ? <Empty>No outstanding requests.</Empty>

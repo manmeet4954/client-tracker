@@ -16,8 +16,10 @@ import { useApp, useClient } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
 import { generateId } from '@/lib/utils';
 import Phone from '@/components/mockup/Phone';
+import Compare from '@/components/mockup/Compare';
 import {
   archiveMockup, copyMockup, copyName, findMockup, newMockup, prettyDate, readMockups,
+  setBeforeImage,
   rename, setAvatar, setField, setHighlightImage, setHighlightLabel, setTheme, setTileImage,
   togglePin, writeMockup, mockupLine,
   type EditableField, type MockupTheme, type ProfileMockupRecord,
@@ -197,8 +199,21 @@ export default function MockupScreen({ profileId }: { profileId: string }) {
         </div>
       </div>
 
-      {/* The phone. Nothing is drawn on top of it. */}
-      <div className="mt-3 overflow-hidden rounded-[28px] border border-hairline">
+      {/* BEFORE AND AFTER (2026-08-17). Their real profile, screenshotted, beside
+          the one being built. It is the thing she actually shows a client, so
+          it sits above the editor rather than behind a tab. The same component
+          renders on a client's Brand window with the upload absent. */}
+      <div className="mt-4">
+        <Compare
+          mockup={current}
+          onBefore={f => withUpload(f, url => save(setBeforeImage(current, url, new Date().toISOString())))}
+          onClearBefore={() => save(setBeforeImage(current, '', new Date().toISOString()))}
+        />
+      </div>
+
+      {/* The phone, editable. Nothing is drawn on top of it. */}
+      <p className="mt-6 text-[11.5px] font-bold uppercase tracking-[.11em] text-faint">Edit the new one</p>
+      <div className="mt-1.5 overflow-hidden rounded-[28px] border border-hairline">
         <Phone
           mockup={current}
           onField={(f: EditableField, v: string) =>

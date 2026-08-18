@@ -78,6 +78,17 @@ export interface ProfileMockupRecord {
   highlights: MockupHighlight[];
   tiles: MockupTile[];
 
+  /**
+   * THEIR PROFILE AS IT IS TODAY — a screenshot she uploads (2026-08-17, her
+   * choice when asked how the "before" should be made). Not a second mockup:
+   * the point of a before is that it is undeniably real, and a rebuilt one
+   * invites the answer "you made that look bad on purpose".
+   *
+   * Empty until she uploads one, and an empty one is simply not shown. A
+   * mockup with no before is still a complete mockup.
+   */
+  beforeImageUrl: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -144,6 +155,7 @@ export function newMockup(input: NewMockupInput): ProfileMockupRecord {
     bio: '',
     link: '',
     avatarUrl: '',
+    beforeImageUrl: '',
     highlights: Array.from({ length: HIGHLIGHT_COUNT }, (_, i) => ({
       id: highlightId(i), label: '', imageUrl: '',
     })),
@@ -191,6 +203,7 @@ export function normalizeMockup(raw: Partial<ProfileMockupRecord> | null | undef
     avatarUrl: str(r.avatarUrl),
     highlights,
     tiles,
+    beforeImageUrl: str(r.beforeImageUrl),
     createdAt: str(r.createdAt),
     updatedAt: str(r.updatedAt),
   };
@@ -213,6 +226,14 @@ export function setField(
 
 export function setAvatar(m: ProfileMockupRecord, url: string, now: string): ProfileMockupRecord {
   return { ...m, avatarUrl: url, updatedAt: now };
+}
+
+/**
+ * Their profile as it is today. Passing '' removes it, which is how she takes
+ * a wrong screenshot back out without touching anything else.
+ */
+export function setBeforeImage(m: ProfileMockupRecord, url: string, now: string): ProfileMockupRecord {
+  return { ...m, beforeImageUrl: url, updatedAt: now };
 }
 
 /** Dark or light. Nothing else about the mockup changes with it. */

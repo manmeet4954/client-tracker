@@ -12,6 +12,7 @@ import { emptyBody, putEntry, readPath } from '../lib/tree/body.ts';
 import { findDeclaration } from '../lib/tree/declarations.ts';
 import { findSwitch } from '../lib/tree/switches.ts';
 import {
+  setBeforeImage,
   FURNITURE, HIGHLIGHT_COUNT, MAX_PINS, MOCKUP_ENTRY_TYPE, MOCKUP_PATH, TILE_COUNT,
   TILE_RATIO, TOO_MANY_PINS,
   archiveMockup, centreCropRect, copyMockup, copyName, coverBox, displayLink, findMockup,
@@ -376,4 +377,42 @@ test('an empty slot shows an affordance while editing, and a filled one never do
   const guards = [...slot.matchAll(/\{(!?)url &&/g)].map(m => m[1]);
   ok(guards.length > 0, 'the hint is guarded on whether the slot is filled');
   ok(guards.every(g => g === '!'), 'and every guard is the EMPTY one: no icon over a photo');
+});
+
+suite('before and after, and a client can see both — 2026-08-17');
+
+test('the before is a screenshot on the record, and empty until she adds one', () => {
+  // Her choice when asked how a "before" should be made: a screenshot of their
+  // real profile. A rebuilt before invites the one answer that ruins the
+  // point - "you made that look bad on purpose".
+  const m = newMockup({ id: 'm1', shareId: 's1', name: 'Onboarding', date: '2026-08-17', now: NOW });
+  eq(m.beforeImageUrl, '', 'a new mockup has no before');
+
+  const withBefore = setBeforeImage(m, 'https://img/before.png', NOW);
+  eq(withBefore.beforeImageUrl, 'https://img/before.png', 'she adds one');
+  eq(setBeforeImage(withBefore, '', NOW).beforeImageUrl, '', 'and can take it back out');
+
+  // It survives a round trip through the body, like every other field.
+  const back = normalizeMockup(JSON.parse(JSON.stringify(withBefore)));
+  eq(back.beforeImageUrl, 'https://img/before.png', 'it is stored, not derived');
+
+  // A mockup made before this field existed is still a valid mockup.
+  const legacy = normalizeMockup({ id: 'old', username: 'riti' });
+  eq(legacy.beforeImageUrl, '', 'an older record reads as having no before');
+});
+
+test('ONE compare view, and a client gets it with the upload absent', () => {
+  // Rule 0: a client sees HER component. The upload is a prop, so its absence
+  // is what makes their copy read-only - not a second component drawn for them.
+  const compare = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
+  ok(/onBefore\?:/.test(compare), 'the upload is optional');
+  ok(/const mine = !!onBefore/.test(compare), 'and its absence is what makes it read-only');
+  ok(/import Phone from/.test(compare), 'the after is HER phone, not a picture of one');
+
+  const client = readFileSync(join(process.cwd(), 'components/shell/ClientWindows.tsx'), 'utf8');
+  const brand = client.slice(client.indexOf('export function BrandWindow'), client.indexOf('function labelOf'));
+  ok(/<Compare mockup=\{mockup\} \/>/.test(brand), "the client's Brand window mounts it");
+  ok(!/onBefore/.test(brand), 'and never passes an upload');
+  ok(/renderState\(rp, 'strategy\.profile_mockup', 'client'\)/.test(brand),
+    'it rides the same plug her own Profile mockup panel rides');
 });
