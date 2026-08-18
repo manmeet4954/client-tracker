@@ -81,7 +81,15 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
 
   return (
     <div>
-      <div className="mx-auto grid items-start gap-4 md:grid-cols-2"
+      {/* TWO COLUMNS AT EVERY SIZE (2026-08-17, her note: "on the phone, it
+          doesn't look that good... it's not optimized"). It was `md:grid-cols-2`,
+          so on a phone the two stacked and she had to SCROLL between them —
+          and two things you cannot see at once are not a comparison. They are
+          side by side at every width now; the phone scales, so half a narrow
+          screen still shows a whole profile rather than a cropped one. The gap
+          tightens on small screens because every pixel of width is a pixel of
+          profile. */}
+      <div className="mx-auto grid grid-cols-2 items-start gap-2 sm:gap-4"
         style={{ width: `${size}%`, maxWidth: PHONE_WIDTH * 2 + 16 }}>
         <div>
           <Label>Now</Label>
@@ -121,7 +129,7 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <p className="mb-1.5 text-[11.5px] font-bold uppercase tracking-[.11em] text-faint">{children}</p>;
+  return <p className="mb-1.5 truncate text-[10px] font-bold uppercase tracking-[.09em] text-faint sm:text-[11.5px] sm:tracking-[.11em]">{children}</p>;
 }
 
 /** The frame carries the PHONE'S background, so any gap reads as the screen. */

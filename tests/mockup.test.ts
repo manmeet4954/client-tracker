@@ -470,23 +470,43 @@ test('the header is in Instagram’s order: name above the numbers', () => {
     'the name sits in the column beside the avatar');
 });
 
-test('one mockup, two links: solo and before-and-after', () => {
-  // Her request: "when i copy the link for client to preview it only shows the
-  // new or optimized view, it should also show comparison version, like make 2
-  // versions - just new one solo, and comparison."
+test('ONE link, both versions, and the person opening it chooses', () => {
+  // Her request first: "it should also show comparison version, like make 2
+  // versions." Then her correction, which was the better shape: "can we not
+  // have 1 link showing both the versions."
   //
-  // ONE record and ONE shareId serve both. Two records would be two things to
-  // keep in step, and the day they drift she sends a link showing an old
-  // profile without knowing it.
-  const page = readFileSync(join(process.cwd(), 'app/p/[shareId]/page.tsx'), 'utf8');
-  ok(/searchParams\?\.view === 'compare'/.test(page), 'the view is chosen by the link');
-  ok(/&& !!mockup\.beforeImageUrl/.test(page),
-    'and falls back to solo when there is no screenshot: half a comparison is not one');
-  ok(/<Compare mockup=\{mockup\} \/>/.test(page), 'it mounts HER compare view');
-  ok(!/onBefore|onSize/.test(page), 'read-only: no upload, no size control, ever');
-
+  // Two links was worse for a reason worth keeping: a link is a thing she
+  // pastes into a message, and the moment there are two she has to remember
+  // which is which, every time, forever. One link. The page carries the switch.
   const screen = readFileSync(join(process.cwd(), 'components/mockup/MockupScreen.tsx'), 'utf8');
-  ok(/\$\{share\}\?view=compare/.test(screen), 'she can copy the comparison link');
-  ok(/current\.beforeImageUrl && \(/.test(screen),
-    'and that button only exists once there is something to compare against');
+  const links = [...screen.matchAll(/label="Copy the[^"]*"/g)].map(m => m[0]);
+  eq(links.length, 1, 'she has exactly one link to copy');
+  ok(!/\?view=compare/.test(screen), 'and never has to know a second address exists');
+
+  const pub = readFileSync(join(process.cwd(), 'components/mockup/PublicMockup.tsx'), 'utf8');
+  ok(/Before and after/.test(pub) && /Just the new profile/.test(pub), 'both views are offered');
+  ok(/canCompare && initial !== 'solo' \? 'compare' : 'solo'/.test(pub),
+    'the comparison leads, because the difference is the point');
+  ok(/if \(!canCompare\)/.test(pub),
+    'with no screenshot there is nothing to switch between, so no switch is drawn');
+  ok(!/onBefore|onSize|onFraming/.test(pub), 'read-only: no editing affordance, in any state');
+});
+
+test('on a phone the pair stays side by side', () => {
+  // Her note, opening the link on her phone: "it doesn't look that good. From
+  // the edges, it's not cutting, but it's not optimized."
+  //
+  // It was `md:grid-cols-2`, so on a narrow screen the two STACKED and she had
+  // to scroll between them. Two things you cannot see at once are not a
+  // comparison — the one job this view has.
+  const c = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
+  // Assert on the MARKUP, not the file: the comment above it quotes the old
+  // class name on purpose, so a naive search finds itself.
+  const markup = c.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok(/className="mx-auto grid grid-cols-2/.test(markup), 'two columns');
+  ok(!/md:grid-cols-2/.test(markup), 'at EVERY width, not only on a desktop');
+
+  // Padding is width taken away from the profiles, so a phone gets less of it.
+  const pub = readFileSync(join(process.cwd(), 'components/mockup/PublicMockup.tsx'), 'utf8');
+  ok(/px-2 py-4 sm:px-4/.test(pub), 'the pair gets the edges back on a small screen');
 });

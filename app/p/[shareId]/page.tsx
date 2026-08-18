@@ -7,9 +7,8 @@ import { authConfigured, verifyToken, SESSION_COOKIE } from '@/lib/auth';
 import { normalizeState, type Role } from '@/lib/access';
 import { resolveDeepLink } from '@/lib/shell/deeplink';
 import InstagramPost from '@/components/InstagramPost';
-import Phone from '@/components/mockup/Phone';
-import Compare from '@/components/mockup/Compare';
-import { THEMES, findMockupByShareId, type ProfileMockupRecord } from '@/lib/mockup/profile';
+import PublicMockup from '@/components/mockup/PublicMockup';
+import { findMockupByShareId, type ProfileMockupRecord } from '@/lib/mockup/profile';
 import type { InstagramProfile, PreviewPost } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -117,44 +116,16 @@ export default async function PreviewPage({ params, searchParams }: {
   if (!found) {
     const mockup = await lookupMockup(params.shareId);
     if (mockup) {
-      const bg = THEMES[mockup.theme]?.bg ?? '#000';
-
-      // TWO LINKS, ONE MOCKUP (2026-08-17, her request: "when i copy the link
-      // for client to preview it only shows the new or optimized view, it
-      // should also show comparison version, like make 2 versions - just new
-      // one solo, and comparison").
+      // ONE LINK, BOTH VERSIONS (2026-08-17, her correction: "can we not have
+      // 1 link showing both the versions").
       //
-      // `?view=compare` is the only difference between them. Not two records,
-      // not two shareIds: one mockup, shown two ways, so editing it updates
-      // both links at once and neither can go stale against the other.
-      //
-      // The comparison falls back to the solo view when there is no screenshot
-      // yet, because a comparison with one side missing is not a comparison.
-      const wantsCompare = searchParams?.view === 'compare' && !!mockup.beforeImageUrl;
-
-      if (wantsCompare) {
-        // Read-only is the SAME component with the handlers left off (spec 35):
-        // no upload, no size control, no editing affordance in any state.
-        return (
-          <div className="min-h-screen bg-paper px-4 py-6 sm:py-10">
-            <main className="mx-auto w-full max-w-[980px]">
-              <Compare mockup={mockup} />
-            </main>
-            <p className="pt-6 text-center text-[11px] text-stone-400">Profile mockup</p>
-          </div>
-        );
-      }
-
-      // Read-only is the SAME component with the handlers left off (spec 35):
-      // no editing affordance exists on this render, in any state.
-      return (
-        <div className="min-h-screen flex flex-col items-center sm:py-8" style={{ background: bg }}>
-          <main className="w-full sm:max-w-[470px]">
-            <Phone mockup={mockup} />
-          </main>
-          <p className="py-4 text-[11px] text-stone-400">Profile mockup</p>
-        </div>
-      );
+      // The two-link version I built first was worse for a reason worth
+      // keeping: a link is a thing she pastes into a message, and the moment
+      // there are two she has to remember which is which, every time. One
+      // link; the person opening it chooses. `?view=solo` still opens on the
+      // single profile for anyone who wants that address, but she never has to
+      // know it exists.
+      return <PublicMockup mockup={mockup} initial={searchParams?.view === 'solo' ? 'solo' : 'compare'} />;
     }
 
     // Owner-only truth line (2026-08-09): when the person looking at a dead

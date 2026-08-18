@@ -162,28 +162,17 @@ export default function MockupScreen({ profileId }: { profileId: string }) {
             save(dup);
             setOpenId(dup.id);
           }} />
-        {/* TWO LINKS, ONE MOCKUP (2026-08-17). Her request: the link she sends
-            showed only the optimized profile, and she wants the comparison as
-            a link of its own. Same shareId, same record — only `?view=compare`
-            differs — so editing the mockup updates both at once and neither
-            can go stale against the other.
-
-            The comparison link only appears once a screenshot exists, because
-            a comparison with one side missing is not a comparison, and a link
-            that quietly falls back to the solo view would be a link she thinks
-            she sent and did not. */}
+        {/* ONE LINK, BOTH VERSIONS (2026-08-17). She had two buttons here for
+            an hour and her correction was right: a link is a thing she pastes
+            into a message, and two of them means remembering which is which
+            every time. The page she sends carries the switch instead. */}
         <Action icon={<Link2 size={14} strokeWidth={2.2} />} label="Copy the link"
           onClick={() => {
             navigator.clipboard?.writeText(share);
-            setNote('Link copied. It shows the new profile on its own.');
+            setNote(current.beforeImageUrl
+              ? 'Link copied. It opens on the before and after, and they can switch to the new profile alone.'
+              : 'Link copied. Anyone with it sees the mockup and cannot change it.');
           }} />
-        {current.beforeImageUrl && (
-          <Action icon={<Link2 size={14} strokeWidth={2.2} />} label="Copy the before and after link"
-            onClick={() => {
-              navigator.clipboard?.writeText(`${share}?view=compare`);
-              setNote('Link copied. It shows their profile now beside the new one.');
-            }} />
-        )}
         <Action icon={<Trash2 size={14} strokeWidth={2.2} />} label="Remove it"
           onClick={() => {
             if (!confirm(`Remove "${current.name}"? It is kept, not deleted.`)) return;
