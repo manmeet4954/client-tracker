@@ -30,11 +30,12 @@
 // ONE COMPONENT, mounted by her screen and by a client's alike. Their copy is
 // this view with the controls absent, never a second one (CLAUDE.md rule 0).
 
-import { useRef } from 'react';
-import { ImagePlus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Download, ImagePlus } from 'lucide-react';
 import Phone, { PHONE_WIDTH } from '@/components/mockup/Phone';
 import Scaled from '@/components/mockup/Scaled';
 import { THEMES, type ProfileMockupRecord } from '@/lib/mockup/profile';
+import { downloadPng, pngName } from '@/lib/exportPng';
 
 export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
   mockup: ProfileMockupRecord;
@@ -50,6 +51,50 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
   // One number for the pair. 100 fills the space it is given.
   const size = mockup.framing.after.zoom;
 
+  // ── Saving it as a picture ────────────────────────────────────────────────
+  //
+  // The capture points at an OFFSCREEN copy drawn at the phone's true width,
+  // never at what is on screen. What is on screen lives inside a
+  // `transform: scale()` — that is what makes it responsive — so capturing it
+  // would bake in whatever size the window happened to be and produce a small,
+  // soft file. Offscreen it is always 430 per phone, however the page is sized.
+  const shot = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!shot.current || saving) return;
+    setSaving(true);
+    try {
+      await downloadPng(shot.current, pngName([mockup.username || mockup.name, has ? 'before-and-after' : 'profile', mockup.date]), { background: bg });
+    } catch {
+      // A remote image that refuses to be read cross-origin is the one real
+      // failure here, and it is not worth a dialog: the picture is still on
+      // screen and she can screenshot it.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const saveButton = (
+    <button type="button" onClick={save} disabled={saving}
+      className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted hover:text-text disabled:opacity-50">
+      <Download size={14} strokeWidth={2.2} />
+      {saving ? 'Saving…' : 'Download as PNG'}
+    </button>
+  );
+
+  // Drawn at true size, off the side of the page, only so it can be captured.
+  const offscreen = (
+    <div aria-hidden className="pointer-events-none fixed left-[-99999px] top-0">
+      <div ref={shot} style={{ background: bg, padding: 16, display: 'flex', gap: 16 }}>
+        {has && (
+          <img src={mockup.beforeImageUrl} alt="" style={{ width: PHONE_WIDTH, alignSelf: 'flex-start' }} />
+        )}
+        <div style={{ width: PHONE_WIDTH }}><Phone mockup={mockup} /></div>
+      </div>
+    </div>
+  );
+
   if (!has) {
     return (
       <div>
@@ -57,6 +102,8 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
           <Label>{mine ? 'With KRNL' : 'Your profile'}</Label>
           <Frame bg={bg}><Scaled width={PHONE_WIDTH}><Phone mockup={mockup} /></Scaled></Frame>
         </div>
+        <div className="mt-3 flex justify-center">{saveButton}</div>
+        {offscreen}
         {mine && (
           <>
             <SizeControl value={size} onChange={onSize} />
@@ -107,6 +154,9 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
           <Frame bg={bg}><Scaled width={PHONE_WIDTH}><Phone mockup={mockup} /></Scaled></Frame>
         </div>
       </div>
+
+      <div className="mt-3 flex justify-center">{saveButton}</div>
+      {offscreen}
 
       {mine && (
         <>

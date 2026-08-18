@@ -510,3 +510,25 @@ test('on a phone the pair stays side by side', () => {
   const pub = readFileSync(join(process.cwd(), 'components/mockup/PublicMockup.tsx'), 'utf8');
   ok(/px-2 py-4 sm:px-4/.test(pub), 'the pair gets the edges back on a small screen');
 });
+
+test('the PNG is captured at true size, not at whatever the window was', () => {
+  // Her request: "also incorporate the version of downloading the mockup as a
+  // png."
+  //
+  // The catch, and the reason this test exists: what is ON SCREEN lives inside
+  // a `transform: scale()` — that is what makes it responsive — so capturing
+  // the visible node would bake in whatever size the window happened to be and
+  // hand her a small, soft file. The capture points at an offscreen copy drawn
+  // at the phone's true width instead.
+  const c = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
+  ok(/fixed left-\[-99999px\]/.test(c), 'there is an offscreen copy');
+  ok(/<div ref=\{shot\}/.test(c), 'and the capture points at THAT');
+  ok(/width: PHONE_WIDTH/.test(c), 'drawn at the phone’s true width');
+  ok(/downloadPng\(shot\.current/.test(c), 'never at the scaled, visible one');
+
+  // One helper, not a third copy of the pattern.
+  const helper = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
+  ok(/fonts\?\.ready/.test(helper),
+    'fonts are awaited: capturing early renders the fallback face, and on a mockup the type IS the design');
+  ok(/pixelRatio: opts\?\.pixelRatio \?\? 2/.test(helper), 'retina by default');
+});
