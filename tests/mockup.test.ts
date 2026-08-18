@@ -469,3 +469,24 @@ test('the header is in Instagram’s order: name above the numbers', () => {
   ok(row.includes('placeholder="Name | what they do"'),
     'the name sits in the column beside the avatar');
 });
+
+test('one mockup, two links: solo and before-and-after', () => {
+  // Her request: "when i copy the link for client to preview it only shows the
+  // new or optimized view, it should also show comparison version, like make 2
+  // versions - just new one solo, and comparison."
+  //
+  // ONE record and ONE shareId serve both. Two records would be two things to
+  // keep in step, and the day they drift she sends a link showing an old
+  // profile without knowing it.
+  const page = readFileSync(join(process.cwd(), 'app/p/[shareId]/page.tsx'), 'utf8');
+  ok(/searchParams\?\.view === 'compare'/.test(page), 'the view is chosen by the link');
+  ok(/&& !!mockup\.beforeImageUrl/.test(page),
+    'and falls back to solo when there is no screenshot: half a comparison is not one');
+  ok(/<Compare mockup=\{mockup\} \/>/.test(page), 'it mounts HER compare view');
+  ok(!/onBefore|onSize/.test(page), 'read-only: no upload, no size control, ever');
+
+  const screen = readFileSync(join(process.cwd(), 'components/mockup/MockupScreen.tsx'), 'utf8');
+  ok(/\$\{share\}\?view=compare/.test(screen), 'she can copy the comparison link');
+  ok(/current\.beforeImageUrl && \(/.test(screen),
+    'and that button only exists once there is something to compare against');
+});

@@ -8,6 +8,7 @@ import { normalizeState, type Role } from '@/lib/access';
 import { resolveDeepLink } from '@/lib/shell/deeplink';
 import InstagramPost from '@/components/InstagramPost';
 import Phone from '@/components/mockup/Phone';
+import Compare from '@/components/mockup/Compare';
 import { THEMES, findMockupByShareId, type ProfileMockupRecord } from '@/lib/mockup/profile';
 import type { InstagramProfile, PreviewPost } from '@/types';
 
@@ -89,7 +90,10 @@ function sessionRole(): Role | null {
   return verifyToken(cookies().get(SESSION_COOKIE)?.value);
 }
 
-export default async function PreviewPage({ params }: { params: { shareId: string } }) {
+export default async function PreviewPage({ params, searchParams }: {
+  params: { shareId: string };
+  searchParams?: { view?: string };
+}) {
   const { found, dbError } = await lookup(params.shareId);
 
   // ── Spec 28 §10 — the five-branch resolution, server side, in order ────────
@@ -114,6 +118,33 @@ export default async function PreviewPage({ params }: { params: { shareId: strin
     const mockup = await lookupMockup(params.shareId);
     if (mockup) {
       const bg = THEMES[mockup.theme]?.bg ?? '#000';
+
+      // TWO LINKS, ONE MOCKUP (2026-08-17, her request: "when i copy the link
+      // for client to preview it only shows the new or optimized view, it
+      // should also show comparison version, like make 2 versions - just new
+      // one solo, and comparison").
+      //
+      // `?view=compare` is the only difference between them. Not two records,
+      // not two shareIds: one mockup, shown two ways, so editing it updates
+      // both links at once and neither can go stale against the other.
+      //
+      // The comparison falls back to the solo view when there is no screenshot
+      // yet, because a comparison with one side missing is not a comparison.
+      const wantsCompare = searchParams?.view === 'compare' && !!mockup.beforeImageUrl;
+
+      if (wantsCompare) {
+        // Read-only is the SAME component with the handlers left off (spec 35):
+        // no upload, no size control, no editing affordance in any state.
+        return (
+          <div className="min-h-screen bg-paper px-4 py-6 sm:py-10">
+            <main className="mx-auto w-full max-w-[980px]">
+              <Compare mockup={mockup} />
+            </main>
+            <p className="pt-6 text-center text-[11px] text-stone-400">Profile mockup</p>
+          </div>
+        );
+      }
+
       // Read-only is the SAME component with the handlers left off (spec 35):
       // no editing affordance exists on this render, in any state.
       return (
