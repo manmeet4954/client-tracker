@@ -11,12 +11,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'My Clients',
-  description: 'Client content tracker — kanban, brand, studio',
+  title: 'KRNL',
+  description: 'Plan the content, review the work, and see how it performs.',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'My Clients',
+    title: 'KRNL',
   },
   icons: {
     icon: [

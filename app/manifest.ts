@@ -11,9 +11,9 @@ const shareTarget = {
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'My Clients',
-    short_name: 'My Clients',
-    description: 'Client content tracker — kanban, brand, studio',
+    name: 'KRNL',
+    short_name: 'KRNL',
+    description: 'Plan the content, review the work, and see how it performs.',
     start_url: '/',
     display: 'standalone',
     background_color: '#1c1917',

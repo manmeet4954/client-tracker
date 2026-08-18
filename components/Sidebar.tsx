@@ -118,7 +118,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                 <Briefcase size={14} className="text-white" />
               </div>
               {!collapsed && (
-                <span className="font-semibold text-sm text-white truncate">My Clients</span>
+                <span className="font-semibold text-sm text-white truncate">KRNL</span>
               )}
             </Link>
 
