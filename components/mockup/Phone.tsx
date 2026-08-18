@@ -68,7 +68,7 @@ export default function Phone(props: PhoneProps) {
       </div>
 
       {/* ── Avatar, and the numbers ──────────────────────────────────────── */}
-      <div className="flex items-center gap-6 px-4">
+      <div className="flex items-start gap-5 px-4">
         {/* The ring never changes. Her words, and there is no control for it. */}
         <ImageSlot
           url={m.avatarUrl}
@@ -81,22 +81,34 @@ export default function Phone(props: PhoneProps) {
           innerStyle={{ borderColor: t.bg }}
           label="profile picture"
         />
-        <div className="flex flex-1 justify-between pr-1">
-          {FURNITURE.stats.map(s => (
-            <div key={s.label} className="text-center">
-              <div className="text-[19px] font-bold tabular-nums leading-tight">{s.value}</div>
-              <div className="text-[14px]" style={{ color: t.muted }}>{s.label}</div>
-            </div>
-          ))}
+        {/* THE NAME SITS HERE, ABOVE THE NUMBERS (2026-08-17, her correction
+            against a real screenshot: "the name we are seeing is above Riti
+            Nauharia. In the mockup that we built, the name is coming below,
+            which I guess is not correct").
+            
+            She is right, and it matters more than it sounds: this screen exists
+            to look exactly like their phone, so a header in the wrong order is
+            the one flaw a client would notice immediately. Instagram puts the
+            full name in the column beside the avatar, above posts / followers /
+            following, and the BIO below at full width. */}
+        <div className="min-w-0 flex-1">
+          <Text value={m.fullName} onChange={v => props.onField?.('fullName', v)} editing={editing}
+            className="block text-[15px] font-semibold leading-[1.3]" placeholder="Name | what they do" multiline />
+          <div className="mt-2 flex justify-between pr-1">
+            {FURNITURE.stats.map(s => (
+              <div key={s.label} className="text-center">
+                <div className="text-[19px] font-bold tabular-nums leading-tight">{s.value}</div>
+                <div className="text-[14px]" style={{ color: t.muted }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* ── Name, bio, link ──────────────────────────────────────────────── */}
+      {/* ── Bio, link ────────────────────────────────────────────────────── */}
       <div className="px-4 pt-3">
-        <Text value={m.fullName} onChange={v => props.onField?.('fullName', v)} editing={editing}
-          className="block text-[15px] font-semibold leading-[1.35]" placeholder="Name | what they do" multiline />
         <Text value={m.bio} onChange={v => props.onField?.('bio', v)} editing={editing}
-          className="mt-1 block whitespace-pre-wrap text-[15px] leading-[1.35]" placeholder="Bio" multiline />
+          className="block whitespace-pre-wrap text-[15px] leading-[1.35]" placeholder="Bio" multiline />
         {(m.link || editing) && (
           <div className="mt-1 flex items-center gap-1.5 text-[15px]" style={{ color: t.link }}>
             <Link2 size={15} strokeWidth={2.2} className="flex-none -rotate-45" />

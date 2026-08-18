@@ -428,8 +428,14 @@ test('the two columns are the same width and the same height', () => {
 
   ok(/max-w-\[392px\]/.test(c), 'both columns are capped to the phone’s own width');
   ok(/items-stretch/.test(c), 'the grid stretches both cells to the taller one');
-  ok(/h-full w-full object-cover object-top/.test(c),
-    'so the screenshot ends exactly where the phone does, keeping the top');
+  // REWRITTEN on her correction, 2026-08-17: "it's trimmed from the left can i
+  // not adjust it myself." Matching the heights by CROPPING ate the left edge
+  // of a real screenshot's bio. Nothing is cropped by default any more.
+  ok(/object-contain object-top/.test(c),
+    'the whole screenshot is shown by default: no word is hidden unless she hid it');
+  ok(!/object-cover/.test(c), 'nothing crops on its own');
+  ok(/framing\.before/.test(c) && /framing\.after/.test(c),
+    'and BOTH sides carry framing she can set, which is what she asked for');
 
   // No fixed height may be guessed: the phone grows with the bio, and a
   // hard-coded number would drift the moment it does.
@@ -441,4 +447,27 @@ test('the two columns are the same width and the same height', () => {
   // The Replace/Remove row must not sit inside a column, or it pushes one out
   // of line with the other.
   ok(/md:col-span-2/.test(c), 'the controls sit under the pair, not inside one side');
+});
+
+test('the header is in Instagram’s order: name above the numbers', () => {
+  // 2026-08-17, her correction against a real screenshot: "the name we are
+  // seeing is above Riti Nauharia. In the mockup that we built, the name is
+  // coming below, which I guess is not correct."
+  //
+  // She is right, and it matters more than it sounds. This screen exists to
+  // look exactly like their phone, so a header in the wrong order is the one
+  // flaw a client notices immediately and the whole mockup loses its authority.
+  const phone = readFileSync(join(process.cwd(), 'components/mockup/Phone.tsx'), 'utf8');
+
+  const name = phone.indexOf("placeholder=\"Name | what they do\"");
+  const stats = phone.indexOf('FURNITURE.stats.map');
+  const bio = phone.indexOf('placeholder="Bio"');
+  ok(name > 0 && stats > 0 && bio > 0, 'all three parts are on the phone');
+  ok(name < stats, 'the name is drawn ABOVE posts / followers / following');
+  ok(stats < bio, 'and the bio comes after them, at full width');
+
+  // The name must be inside the avatar row, not in the block below it.
+  const row = phone.slice(phone.indexOf('Avatar, and the numbers'), bio);
+  ok(row.includes('placeholder="Name | what they do"'),
+    'the name sits in the column beside the avatar');
 });

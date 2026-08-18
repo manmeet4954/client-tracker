@@ -52,6 +52,23 @@ export interface MockupTile {
  * One mockup. §5: each carries a name and a date, because she builds one at
  * onboarding and another later, and comparing the two is the point.
  */
+/** Zoom is a percentage; x and y are percentages of the overflow. */
+export interface MockupFraming { zoom: number; x: number; y: number }
+
+export const FRAMING_DEFAULT: MockupFraming = { zoom: 100, x: 50, y: 0 };
+
+/** Clamped on the way in, so a bad number can never reach the screen. */
+export function normalizeFraming(raw: Partial<MockupFraming> | null | undefined): MockupFraming {
+  const r = raw ?? {};
+  const num = (v: unknown, fallback: number, lo: number, hi: number) =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
+  return {
+    zoom: num(r.zoom, FRAMING_DEFAULT.zoom, 100, 300),
+    x: num(r.x, FRAMING_DEFAULT.x, 0, 100),
+    y: num(r.y, FRAMING_DEFAULT.y, 0, 100),
+  };
+}
+
 export interface ProfileMockupRecord {
   id: string;
   /** Her name for this one. Only she sees it; it is not drawn on the phone. */
@@ -88,6 +105,21 @@ export interface ProfileMockupRecord {
    * mockup with no before is still a complete mockup.
    */
   beforeImageUrl: string;
+
+  /**
+   * HOW EACH SIDE IS FRAMED — hers to set, 2026-08-17.
+   *
+   * The first version matched the two columns by cropping, and it ate the left
+   * edge of a real screenshot's bio. Her answer was the right one: "can i not
+   * adjust it myself." Nothing here guesses at a crop any more.
+   *
+   * `zoom` 100 means the WHOLE thing is visible, letterboxed if it does not
+   * fill — so the default never hides a word she has not chosen to hide. Above
+   * 100 it scales up and `x`/`y` decide which part stays in view (percentages,
+   * 50/50 is centred). The same three numbers on both sides, because she asked
+   * for the setting on both.
+   */
+  framing: { before: MockupFraming; after: MockupFraming };
 
   createdAt: string;
   updatedAt: string;
@@ -156,6 +188,7 @@ export function newMockup(input: NewMockupInput): ProfileMockupRecord {
     link: '',
     avatarUrl: '',
     beforeImageUrl: '',
+    framing: { before: { ...FRAMING_DEFAULT }, after: { ...FRAMING_DEFAULT } },
     highlights: Array.from({ length: HIGHLIGHT_COUNT }, (_, i) => ({
       id: highlightId(i), label: '', imageUrl: '',
     })),
@@ -204,6 +237,10 @@ export function normalizeMockup(raw: Partial<ProfileMockupRecord> | null | undef
     highlights,
     tiles,
     beforeImageUrl: str(r.beforeImageUrl),
+    framing: {
+      before: normalizeFraming(r.framing?.before),
+      after: normalizeFraming(r.framing?.after),
+    },
     createdAt: str(r.createdAt),
     updatedAt: str(r.updatedAt),
   };
@@ -234,6 +271,18 @@ export function setAvatar(m: ProfileMockupRecord, url: string, now: string): Pro
  */
 export function setBeforeImage(m: ProfileMockupRecord, url: string, now: string): ProfileMockupRecord {
   return { ...m, beforeImageUrl: url, updatedAt: now };
+}
+
+/** One side's framing. The other side is untouched. */
+export function setFraming(
+  m: ProfileMockupRecord, side: 'before' | 'after',
+  patch: Partial<MockupFraming>, now: string,
+): ProfileMockupRecord {
+  return {
+    ...m,
+    framing: { ...m.framing, [side]: normalizeFraming({ ...m.framing[side], ...patch }) },
+    updatedAt: now,
+  };
 }
 
 /** Dark or light. Nothing else about the mockup changes with it. */

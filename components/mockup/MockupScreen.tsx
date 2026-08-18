@@ -19,7 +19,7 @@ import Phone from '@/components/mockup/Phone';
 import Compare from '@/components/mockup/Compare';
 import {
   archiveMockup, copyMockup, copyName, findMockup, newMockup, prettyDate, readMockups,
-  setBeforeImage,
+  setBeforeImage, setFraming,
   rename, setAvatar, setField, setHighlightImage, setHighlightLabel, setTheme, setTileImage,
   togglePin, writeMockup, mockupLine,
   type EditableField, type MockupTheme, type ProfileMockupRecord,
@@ -208,6 +208,7 @@ export default function MockupScreen({ profileId }: { profileId: string }) {
           mockup={current}
           onBefore={f => withUpload(f, url => save(setBeforeImage(current, url, new Date().toISOString())))}
           onClearBefore={() => save(setBeforeImage(current, '', new Date().toISOString()))}
+          onFraming={(side, patch) => save(setFraming(current, side, patch, new Date().toISOString()))}
         />
       </div>
 
