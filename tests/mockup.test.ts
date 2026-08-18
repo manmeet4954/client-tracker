@@ -536,11 +536,24 @@ test('the PNG is captured at true size, not at whatever the window was', () => {
   // browser taints the canvas, html-to-image drops each image WITHOUT AN ERROR,
   // and the file arrives with an empty avatar, empty highlights and a blank
   // grid. The silence is what made her first download hard to explain.
-  const phone = readFileSync(join(process.cwd(), 'components/mockup/Phone.tsx'), 'utf8');
-  ok(/<img src=\{url\} alt="" crossOrigin="anonymous"/.test(phone),
-    'every picture on the phone asks for a readable copy');
+  // SECOND ATTEMPT AT THIS BUG, and the lesson is the useful part. Adding
+  // `crossOrigin` to the tags was not enough: the browser had ALREADY cached
+  // those pictures without CORS for the copy on screen, and served the cached,
+  // unreadable one to the capture. Asking politely cannot undo a cached
+  // refusal. So the pictures are fetched by US and inlined before the shot,
+  // and there is nothing left for the browser to refuse.
   const helper2 = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');
-  ok(/mode: 'cors'/.test(helper2), 'and the export fetches them the same way');
+  ok(/export async function toDataUrl/.test(helper2), 'pictures are inlined, not linked');
+  ok(/cache: 'reload'/.test(helper2), 'and fetched past the poisoned cache entry');
+  ok(/cacheBust: false/.test(helper2),
+    'cache-busting is OFF: it appends a query string, which corrupts a data URL');
+  ok(/export async function imagesReady/.test(helper2),
+    'and every picture is decoded before the shot, so no half-drawn grid');
+
+  ok(/setShotMockup\(\{ \.\.\.mockup, avatarUrl, highlights, tiles \}\)/.test(c),
+    'the avatar, the highlights and the tiles are ALL inlined, not just the avatar');
+  ok(/const offscreen = shotMockup \? \(/.test(c),
+    'and the second copy only exists while she is saving');
 
   // One helper, not a third copy of the pattern.
   const helper = readFileSync(join(process.cwd(), 'lib/exportPng.ts'), 'utf8');

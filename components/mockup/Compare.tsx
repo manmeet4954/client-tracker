@@ -35,7 +35,7 @@ import { Download, ImagePlus } from 'lucide-react';
 import Phone, { PHONE_WIDTH } from '@/components/mockup/Phone';
 import Scaled from '@/components/mockup/Scaled';
 import { THEMES, type ProfileMockupRecord } from '@/lib/mockup/profile';
-import { downloadPng, pngName } from '@/lib/exportPng';
+import { downloadPng, imagesReady, pngName, toDataUrl } from '@/lib/exportPng';
 
 export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
   mockup: ProfileMockupRecord;
@@ -60,17 +60,38 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
   // soft file. Offscreen it is always 430 per phone, however the page is sized.
   const shot = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
+  // The record the offscreen copy draws, with every picture already inlined.
+  // Null until she asks for a download, so the page carries no second copy of
+  // the images while she is just looking at it.
+  const [shotMockup, setShotMockup] = useState<ProfileMockupRecord | null>(null);
 
   async function save() {
-    if (!shot.current || saving) return;
+    if (saving) return;
     setSaving(true);
     try {
-      await downloadPng(shot.current, pngName([mockup.username || mockup.name, 'profile', mockup.date]), { background: bg });
+      // FETCH THE PICTURES OURSELVES (2026-08-17, second attempt at this bug).
+      // `crossOrigin` on the tags was not enough: the browser had already
+      // cached those images without CORS for the copy on screen, and served
+      // the cached, unreadable one to the capture. Inlined here, there is
+      // nothing left for it to refuse.
+      const [avatarUrl, highlights, tiles] = await Promise.all([
+        toDataUrl(mockup.avatarUrl),
+        Promise.all(mockup.highlights.map(async h => ({ ...h, imageUrl: await toDataUrl(h.imageUrl) }))),
+        Promise.all(mockup.tiles.map(async t => ({ ...t, imageUrl: await toDataUrl(t.imageUrl) }))),
+      ]);
+      setShotMockup({ ...mockup, avatarUrl, highlights, tiles });
+
+      // Let React paint it, then let the pictures decode, before the shot.
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (shot.current) {
+        await imagesReady(shot.current);
+        await downloadPng(shot.current, pngName([mockup.username || mockup.name, 'profile', mockup.date]), { background: bg });
+      }
     } catch {
-      // A remote image that refuses to be read cross-origin is the one real
-      // failure here, and it is not worth a dialog: the picture is still on
-      // screen and she can screenshot it.
+      // One unreadable picture costs that picture, never the download, and
+      // never a dialog: the profile is still on screen either way.
     } finally {
+      setShotMockup(null);
       setSaving(false);
     }
   }
@@ -91,13 +112,15 @@ export default function Compare({ mockup, onBefore, onClearBefore, onSize }: {
   // The pair made a poor picture anyway: their screenshot and the mockup are
   // different heights, so one side always ended in a band of empty black. The
   // thing worth sending is the profile she has proposed.
-  const offscreen = (
+  const offscreen = shotMockup ? (
     <div aria-hidden className="pointer-events-none fixed left-[-99999px] top-0">
-      <div ref={shot} style={{ width: PHONE_WIDTH, background: bg }}>
-        <Phone mockup={mockup} />
+      {/* The rounded frame she sees on screen, so the file looks like the
+          thing she was looking at rather than a bare rectangle. */}
+      <div ref={shot} style={{ width: PHONE_WIDTH, background: bg, borderRadius: 22, overflow: 'hidden' }}>
+        <Phone mockup={shotMockup} />
       </div>
     </div>
-  );
+  ) : null;
 
   if (!has) {
     return (
