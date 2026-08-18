@@ -208,7 +208,7 @@ export default function MockupScreen({ profileId }: { profileId: string }) {
           mockup={current}
           onBefore={f => withUpload(f, url => save(setBeforeImage(current, url, new Date().toISOString())))}
           onClearBefore={() => save(setBeforeImage(current, '', new Date().toISOString()))}
-          onFraming={(side, patch) => save(setFraming(current, side, patch, new Date().toISOString()))}
+          onSize={pct => save(setFraming(current, 'after', { zoom: pct }, new Date().toISOString()))}
         />
       </div>
 

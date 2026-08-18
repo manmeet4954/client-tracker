@@ -38,6 +38,9 @@ export interface PhoneProps {
   onTogglePin?: (id: string) => void;
 }
 
+/** The true width the phone is laid out at. A current large iPhone. */
+export const PHONE_WIDTH = 430;
+
 export default function Phone(props: PhoneProps) {
   const { mockup: m } = props;
   const editing = !!props.onField;
@@ -48,8 +51,15 @@ export default function Phone(props: PhoneProps) {
   // draws Instagram and nothing else. `togglePin` owns the rule either way.
 
   return (
-    <div className="mx-auto w-full max-w-[392px] select-none"
+    // PHONE_WIDTH, not `w-full max-w-[...]` (2026-08-17). Laid out at ONE true
+    // width and scaled as a whole by <Scaled>, so the type never reflows to fit
+    // a narrower column. 430 is a current large iPhone's logical width, and it
+    // is the width her own screenshots come from — at 392 the name, the bio and
+    // "Followed by" each wrapped a line earlier than they do on her real phone,
+    // which is exactly what she caught.
+    <div className="select-none"
       style={{
+        width: PHONE_WIDTH,
         background: t.bg,
         color: t.text,
         fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',

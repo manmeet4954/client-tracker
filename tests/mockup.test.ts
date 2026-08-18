@@ -407,7 +407,8 @@ test('ONE compare view, and a client gets it with the upload absent', () => {
   const compare = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
   ok(/onBefore\?:/.test(compare), 'the upload is optional');
   ok(/const mine = !!onBefore/.test(compare), 'and its absence is what makes it read-only');
-  ok(/import Phone from/.test(compare), 'the after is HER phone, not a picture of one');
+  ok(/import Phone,? .*from '@\/components\/mockup\/Phone'/.test(compare),
+    'the after is HER phone, not a picture of one');
 
   const client = readFileSync(join(process.cwd(), 'components/shell/ClientWindows.tsx'), 'utf8');
   const brand = client.slice(client.indexOf('export function BrandWindow'), client.indexOf('function labelOf'));
@@ -417,36 +418,33 @@ test('ONE compare view, and a client gets it with the upload absent', () => {
     'it rides the same plug her own Profile mockup panel rides');
 });
 
-test('the two columns are the same width and the same height', () => {
-  // Her note, seeing it live: "both the mockups currently looks unbalanced,
-  // can u make the aspect ratio similar, easy for comparison." Two things were
-  // wrong: the screenshot filled its column while the phone capped itself at
-  // 392px, and each column's height was whatever its content happened to be.
-  // Comparing two things drawn at different scales is the one job this screen
-  // must not fail at.
+test('the phone is laid out at one true width and SCALED, never reflowed', () => {
+  // Her correction, and it was the second wrong fix in a row from me: "It's not
+  // the zoom I asked for. I want this to be a responsive thing, like it happens
+  // in frameworks... it's not like a PNG or something."
+  //
+  // The phone was `w-full max-w-[392px]`, so a narrower column made it NARROWER
+  // while its text stayed 15px. The name broke onto two lines, the bio onto
+  // two, "Followed by" onto two. A phone does not do that: it keeps its
+  // proportions and gets smaller. And 392 was too narrow anyway — her own
+  // screenshots come from a 430pt phone, which is why HER lines fit and the
+  // mockup's did not.
+  const phone = readFileSync(join(process.cwd(), 'components/mockup/Phone.tsx'), 'utf8');
+  ok(/export const PHONE_WIDTH = 430;/.test(phone), 'one true width, and it is a real phone’s');
+  ok(/style=\{\{\s*width: PHONE_WIDTH,/.test(phone), 'the phone is laid out AT it');
+  ok(!/max-w-\[392px\]/.test(phone), 'the old squashing width is gone');
+
+  const scaled = readFileSync(join(process.cwd(), 'components/mockup/Scaled.tsx'), 'utf8');
+  ok(/transform: `scale\(/.test(scaled), 'and resized by transform, so nothing reflows');
+  ok(/ResizeObserver/.test(scaled), 'measured against its container, so it is responsive');
+  ok(/offsetHeight \* s/.test(scaled), 'and reports its real height, so nothing overlaps below');
+
   const c = readFileSync(join(process.cwd(), 'components/mockup/Compare.tsx'), 'utf8');
-
-  ok(/max-w-\[392px\]/.test(c), 'both columns are capped to the phone’s own width');
-  ok(/items-stretch/.test(c), 'the grid stretches both cells to the taller one');
-  // REWRITTEN on her correction, 2026-08-17: "it's trimmed from the left can i
-  // not adjust it myself." Matching the heights by CROPPING ate the left edge
-  // of a real screenshot's bio. Nothing is cropped by default any more.
-  ok(/object-contain object-top/.test(c),
-    'the whole screenshot is shown by default: no word is hidden unless she hid it');
+  ok(/<Scaled width=\{PHONE_WIDTH\}>/.test(c), 'the compare view draws it that way too');
   ok(!/object-cover/.test(c), 'nothing crops on its own');
-  ok(/framing\.before/.test(c) && /framing\.after/.test(c),
-    'and BOTH sides carry framing she can set, which is what she asked for');
-
-  // No fixed height may be guessed: the phone grows with the bio, and a
-  // hard-coded number would drift the moment it does.
-  // `min-h-` on the EMPTY upload box is fine and deliberate: with no
-  // screenshot there is nothing to match a height to. What must never appear
-  // is a fixed height on either rendered column.
-  ok(!/(?<!min-)h-\[\d+px\]/.test(c), 'no hard-coded height on either column');
-
-  // The Replace/Remove row must not sit inside a column, or it pushes one out
-  // of line with the other.
-  ok(/md:col-span-2/.test(c), 'the controls sit under the pair, not inside one side');
+  ok(/min=\{40\} max=\{100\}/.test(c), 'one SIZE control, not a zoom');
+  // Two columns sized separately could not be compared. One number, one style.
+  ok(/style=\{\{ width: `\$\{size\}%`/.test(c), 'and it drives BOTH columns together');
 });
 
 test('the header is in Instagram’s order: name above the numbers', () => {
