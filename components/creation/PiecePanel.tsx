@@ -20,7 +20,7 @@
 // Chrome is ink. The profile's hue never appears in here.
 
 import { useEffect, useState } from 'react';
-import { Check, Copy, ExternalLink, Pencil, Send, X } from 'lucide-react';
+import { Check, Copy, ExternalLink, Pencil, Send, Trash2, X } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { formatDate, generateId, generateShareId } from '@/lib/utils';
 import {
@@ -171,6 +171,26 @@ export default function PiecePanel({ cardId, onClose }: {
     });
   }
 
+  /**
+   * Remove the piece.
+   *
+   * The confirm names the piece and says what is lost, because this one cannot
+   * be undone: the reducer drops it from `contentCards`, and a shared piece
+   * (`collabId`) leaves the other profile's board with it. A dialog that just
+   * says "Are you sure?" tells her nothing she did not already know.
+   */
+  function remove() {
+    const name = card.title?.trim() || 'this untitled post';
+    const shared = !!card.collabId;
+    const line = shared
+      ? `Delete "${name}"? It is shared, so it goes from the other profile's board too. This cannot be undone.`
+      : `Delete "${name}"? This cannot be undone.`;
+    if (!confirm(line)) return;
+    dispatch({ type: 'DELETE_CONTENT_CARD', payload: { clientId: profileId, cardId: card.id } });
+    void saveNow();
+    onClose();
+  }
+
   const moveNote = canMove({ locked, from: card.stage, to: card.stage }).reason;
 
   // Editing, 2026-08-11. This panel shipped read-only end to end: 427 lines
@@ -198,11 +218,31 @@ export default function PiecePanel({ cardId, onClose }: {
 
   return (
     <Panel title={card.title || 'Untitled post'} onClose={onClose}>
-      <button type="button" onClick={() => setEditing(true)}
-        className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-[12.5px] font-semibold text-muted hover:text-text">
-        <Pencil size={13} strokeWidth={2.2} />
-        Edit details
-      </button>
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setEditing(true)}
+          className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-[12.5px] font-semibold text-muted hover:text-text">
+          <Pencil size={13} strokeWidth={2.2} />
+          Edit details
+        </button>
+
+        {/* DELETE (2026-08-17, her request: "let's say I added a card and now I
+            want to delete it. There should be a feature to delete it").
+            
+            DELETE_CONTENT_CARD already existed and was already dispatched from
+            the LEGACY content screen. This panel - the one she actually works
+            from now - simply never got it, so a card added by mistake could be
+            edited and moved but never removed. Nothing new was built.
+            
+            It lives beside Edit because that is where the card is. And it is
+            HERS: a client moves and edits their board, never destroys it
+            (spec 36 §5). This panel is the owner's; the client's is
+            ClientPiecePanel, and it has no delete. */}
+        <button type="button" onClick={remove}
+          className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-[12.5px] font-semibold text-muted hover:border-accent hover:text-accent-text">
+          <Trash2 size={13} strokeWidth={2.2} />
+          Delete
+        </button>
+      </div>
 
       {/* The six stages, the current one filled. Before the lock they are not
           buttons at all: a refused control is not drawn as a dead one. */}

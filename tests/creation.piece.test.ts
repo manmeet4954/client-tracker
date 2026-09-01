@@ -344,3 +344,31 @@ test('it wears the Strategy panel geometry', () => {
   ok(PANEL.includes('shadow-panel'), 'the panel shadow, from the tokens');
   ok(PANEL.includes('justify-end'), 'and it comes from the right');
 });
+
+suite('a card can be deleted — 2026-08-17');
+
+test('the owner’s panel can delete a piece; the client’s cannot', () => {
+  // Her request: "let's say I added a card and now I want to delete it. There
+  // should be a feature to delete it."
+  //
+  // DELETE_CONTENT_CARD already existed and was already dispatched from the
+  // LEGACY content screen. The panel she actually works from now simply never
+  // got it, so a card added by mistake could be edited and moved but never
+  // removed. Nothing new was built for this.
+  const panel = readFileSync(join(process.cwd(), 'components/creation/PiecePanel.tsx'), 'utf8');
+  ok(/type: 'DELETE_CONTENT_CARD'/.test(panel), 'the owner can delete');
+  ok(/void saveNow\(\)/.test(panel), 'and it is persisted, not left to the debounce');
+  ok(/onClose\(\);/.test(panel.slice(panel.indexOf('function remove'))),
+    'the panel closes: a panel about a piece that no longer exists is a dead end');
+
+  // The confirm must say what is LOST. This one cannot be undone, and a shared
+  // piece leaves the other profile's board with it.
+  ok(/cannot be undone/.test(panel), 'the question says it is permanent');
+  ok(/It is shared, so it goes from the other profile's board too/.test(panel),
+    'and says so when a second board loses it too');
+
+  // Spec 36 §5: removal is hers. A client moves and edits their board, never
+  // destroys it. Their panel is a different component and must stay clean.
+  const client = readFileSync(join(process.cwd(), 'components/shell/ClientWindows.tsx'), 'utf8');
+  ok(!/DELETE_CONTENT_CARD/.test(client), 'a client can never delete a piece');
+});
