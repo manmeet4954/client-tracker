@@ -573,3 +573,25 @@ test('every phone is mounted at its own width — no frame wider than the screen
   ok(!/<Scaled/.test(editor), 'the editor hugs rather than scales, so typing stays accurate');
   ok(/overflow-x-auto/.test(editor), 'and a narrow window scrolls it rather than clipping it');
 });
+
+test('the name and the bio shrink to fit rather than wrapping', () => {
+  // Her ask: "the name line... and the second line... are coming in the next
+  // lines, and I don't want that. I want them to be in one line only."
+  //
+  // The column beside the avatar is genuinely narrower than a name like
+  // "Gautam Nauharia | Hybrid Athlete & Yoga Coach" at 15px. Instagram wraps
+  // it. Widening the phone would be lying about the phone, and cutting her
+  // words is her call — so the type shrinks, and only when it must.
+  const phone = readFileSync(join(process.cwd(), 'components/mockup/Phone.tsx'), 'utf8');
+  ok(/<FitText text=\{m\.fullName\} lines=\{1\}>/.test(phone), 'the name gets exactly one line');
+  ok(/<FitText text=\{m\.bio\} lines=\{Math\.max\(1, m\.bio\.split\('\\n'\)\.length\)\}>/.test(phone),
+    'the bio keeps the line breaks SHE typed and loses only accidental ones');
+
+  const fit = readFileSync(join(process.cwd(), 'components/mockup/FitText.tsx'), 'utf8');
+  // Measuring from a previous shrink compounds: the text would creep smaller
+  // every time she typed a character.
+  ok(/el\.style\.fontSize = '';/.test(fit), 'each fit is measured from full size');
+  ok(/const FLOOR/.test(fit),
+    'there is a floor: below it a wrap is better than text nobody can read');
+  ok(/ResizeObserver/.test(fit), 'and it re-fits when the phone is resized');
+});
