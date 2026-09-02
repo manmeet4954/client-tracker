@@ -538,3 +538,38 @@ test('the solo view is the phone’s own width, and the download is gone', () =>
   ok(/<Scaled width=\{PHONE_WIDTH\}><Phone/.test(pub),
     'and it scales to a narrow screen rather than reflowing');
 });
+
+test('every phone is mounted at its own width — no frame wider than the screen', () => {
+  // Her report, on the editor: "the profile mockup isn't built correctly, so
+  // it's cutting from the edges."
+  //
+  // It is the same defect three screens have now had, and the cause is always
+  // the same: the phone is laid out at PHONE_WIDTH, and if the box around it is
+  // wider, the difference shows as flat frame down one side and reads as the
+  // screen being cut off. This test exists so the FOURTH place cannot ship.
+  const mounts = [
+    ['components/mockup/Compare.tsx', 'the comparison'],
+    ['components/mockup/PublicMockup.tsx', 'the shared link'],
+    ['components/mockup/MockupScreen.tsx', 'the editor'],
+  ] as const;
+
+  for (const [file, what] of mounts) {
+    const src = readFileSync(join(process.cwd(), file), 'utf8');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    if (!/<Phone\b/.test(code)) continue;
+    // Either it scales to its container, or the box hugs it. Never neither.
+    const scaled = /<Scaled width=\{PHONE_WIDTH\}>\s*<Phone/.test(code);
+    const hugs = /w-fit/.test(code);
+    ok(scaled || hugs, `${what} lets its frame grow wider than the phone`);
+  }
+
+  // The editor is the one that must NOT scale: it is where she types, and a
+  // caret inside a CSS transform lands in the wrong place in some browsers.
+  // Comments stripped first. The note in that file explains why it does NOT
+  // use Scaled, so a naive search finds the explanation and fails. That has
+  // caught me three times today; the rule is written at the top of this file.
+  const editorRaw = readFileSync(join(process.cwd(), 'components/mockup/MockupScreen.tsx'), 'utf8');
+  const editor = editorRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok(!/<Scaled/.test(editor), 'the editor hugs rather than scales, so typing stays accurate');
+  ok(/overflow-x-auto/.test(editor), 'and a narrow window scrolls it rather than clipping it');
+});

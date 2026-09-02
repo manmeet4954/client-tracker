@@ -218,9 +218,21 @@ export default function MockupScreen({ profileId }: { profileId: string }) {
         />
       </div>
 
-      {/* The phone, editable. Nothing is drawn on top of it. */}
+      {/* The phone, editable. Nothing is drawn on top of it.
+      
+          `w-fit` (2026-08-17, her report: "it's cutting from the edges"). The
+          frame was full width of this panel while the phone inside it is laid
+          out at 430, so a few hundred pixels of empty frame ran down the right
+          of it and read as the screen being cut off. The frame hugs the phone
+          now.
+          
+          NOT <Scaled> here, and deliberately: this is the one screen where she
+          TYPES into the phone, and a caret inside a CSS transform lands in the
+          wrong place in some browsers. The outer div scrolls instead, so a
+          narrow window moves the phone rather than clipping or squashing it. */}
       <p className="mt-6 text-[11.5px] font-bold uppercase tracking-[.11em] text-faint">Edit the new one</p>
-      <div className="mt-1.5 overflow-hidden rounded-[28px] border border-hairline">
+      <div className="mt-1.5 max-w-full overflow-x-auto">
+      <div className="mx-auto w-fit overflow-hidden rounded-[28px] border border-hairline">
         <Phone
           mockup={current}
           onField={(f: EditableField, v: string) =>
@@ -241,6 +253,7 @@ export default function MockupScreen({ profileId }: { profileId: string }) {
             setNote('');
           }}
         />
+      </div>
       </div>
     </div>
   );
