@@ -23,7 +23,7 @@ import { Check, Copy, Plus, Undo2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { generateId } from '@/lib/utils';
 import {
-  bindingsFor, codeFrom, inviteLine, isLive, makeInvite, revoke, roleForInvite, type Invite,
+  INVITE_OPENABLE_ROLES, bindingsFor, codeFrom, inviteLine, isLive, makeInvite, revoke, roleForInvite, type Invite,
 } from '@/lib/access/invites';
 
 /** Twelve random letters, from the browser's own generator. */
@@ -36,6 +36,16 @@ function newCode(): string {
 
 export default function People() {
   const { state, dispatch } = useApp();
+  // Spec 37: a profile that already carries a fixed login (Sonia's Crochet has
+  // the `sonia` role). A code made for it opens THAT login, so her mother keeps
+  // her own screens instead of landing on the new, empty shell.
+  const fixedLoginFor = (profileIds: string[]): { role: string; profileId: string } | null => {
+    for (const pid of profileIds) {
+      const b = (state.bindings ?? []).find(x => x.profileId === pid && INVITE_OPENABLE_ROLES.includes(x.role));
+      if (b) return { role: b.role, profileId: pid };
+    }
+    return null;
+  };
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
@@ -62,9 +72,11 @@ export default function People() {
   function create() {
     const who = name.trim();
     if (!who) return;
+    const opens = fixedLoginFor(picked);
     const invite = makeInvite({
       id: generateId(), name: who, code: newCode(), profileIds: picked,
       now: new Date().toISOString(),
+      ...(opens ? { opensRole: opens.role } : {}),
     });
     save([...invites, invite]);
     setName('');
@@ -139,6 +151,16 @@ export default function People() {
               Tick at least one profile above. A code with none opens nothing.
             </p>
           )}
+          {(() => {
+            const opens = fixedLoginFor(picked);
+            if (!opens) return null;
+            return (
+              <p className="mt-2 text-[12.5px] font-semibold text-accent-text">
+                This code opens {nameOf(opens.profileId)}'s own login, with the
+                screens they already use. Their old password can be retired.
+              </p>
+            );
+          })()}
           <div className="mt-2.5 flex gap-2">
             <button type="button" onClick={create} disabled={!name.trim() || !picked.length}
               className="rounded-xl bg-ink px-4 py-2.5 text-[13px] font-semibold text-white disabled:opacity-40">

@@ -20,17 +20,31 @@ const invite = (over: Partial<Parameters<typeof makeInvite>[0]> = {}) => makeInv
 
 suite('invites — access without a deploy');
 
-test('an invite can never be the owner, or any environment role', () => {
+test('a plain invite is a powerless guest, never a fixed login', () => {
   // The whole safety question in one line: a database row must not be able to
-  // mint her login.
+  // mint her login. A default invite (no opensRole) is always a guest.
   const role = roleForInvite(invite());
   ok(isGuestRole(role), 'it is namespaced');
-  eq(role === 'owner', false, 'never the owner');
   for (const fixed of ['owner', 'intern', 'sonia', 'shiva', 'merushri']) {
-    eq(role === fixed, false, `an invite must never become ${fixed}`);
+    eq(role === fixed, false, `a plain invite must never become ${fixed}`);
   }
   eq(inviteIdOf(role), 'i1', 'and it says which invite it is');
   eq(inviteIdOf('owner'), null, 'the owner is not an invite');
+});
+
+test('an invite may open a client-shop login, but NEVER owner or intern (spec 37)', () => {
+  // Sonia's code opens her existing `sonia` login, so her mother keeps her
+  // screens. The guarantee that matters: a tampered opensRole of owner/intern
+  // falls back to a powerless guest and mints nothing.
+  eq(roleForInvite(invite({ opensRole: 'sonia' })), 'sonia', 'Sonia’s code opens her own login');
+  for (const forbidden of ['owner', 'intern']) {
+    const role = roleForInvite(invite({ opensRole: forbidden }));
+    ok(isGuestRole(role), `an invite can never open ${forbidden}`);
+    eq(role === forbidden, false, `never ${forbidden}, even when the row says so`);
+  }
+  // An opening invite grants no NEW access — the fixed role already has its own.
+  eq(bindingsFor(invite({ opensRole: 'sonia' })).length, 0, 'it adds no binding');
+  ok(bindingsFor(invite()).length >= 1, 'a plain guest invite still binds as before');
 });
 
 test('a code is matched forgivingly, because a person types it off a phone', () => {

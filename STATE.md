@@ -79,6 +79,22 @@ pending; wait for her direction.
 
 ## 5. Recent sessions
 
+## 2026-09-07, later — SONIA MOVED TO A CODE (SPEC 37, PART 2)
+
+A code can now open a fixed CLIENT login. Sonia's Crochet has the `sonia`
+role; a code made for her profile in Settings opens THAT login, so her mother
+keeps her exact legacy screens (Orders, Catalogue, Money) reached by a
+Settings-managed code instead of a server password. `Invite.opensRole`, guarded
+by `INVITE_OPENABLE_ROLES` (sonia/shiva/merushri only — NEVER owner or intern;
+a tampered value falls back to a powerless guest). People.tsx auto-detects a
+profile with a fixed login and sets it, showing a plain line. bindingsFor grants
+no new binding for an opening invite (the role already has its own). Revoking
+the code closes it; the env password stays until she removes MOM_PASSCODE in
+Vercel (her hands). 1045 tests, typecheck clean, build green.
+
+---
+
+
 ## 2026-09-07 — SONIA'S MONEY BOOK (SPEC 37), AND THE ORDERS REGRESSION FIXED
 
 1043 tests. Typecheck clean. Production build green. NOT yet checked in a

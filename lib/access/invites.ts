@@ -42,14 +42,38 @@ export interface Invite {
    *  state: an invite made before she has decided grants no access at all. */
   profileIds: string[];
   createdAt: string;
+  /**
+   * Spec 37, 2026-09-07. Normally an invite opens a fresh GUEST login. When she
+   * makes a code for a profile that already has a fixed legacy login (Sonia's
+   * Crochet, the `sonia` role), the code opens THAT login instead — so her
+   * mother keeps the exact screens she knows (Orders, Catalogue, Money on the
+   * legacy workspace), just reached by a code managed in Settings rather than a
+   * server password. Only a fixed CLIENT role may be opened this way; never
+   * owner or the intern. See INVITE_OPENABLE_ROLES.
+   */
+  opensRole?: string;
   /** Set when she takes it back. Kept, never deleted, so the record of who once
    *  had access survives (S9). */
   revokedAt?: string;
   lastUsedAt?: string;
 }
 
+/**
+ * The fixed logins an invite may open (spec 37). The client-shop roles only.
+ * Owner and intern can NEVER be opened by a code — a database read must never
+ * mint the two logins that run the whole studio.
+ */
+export const INVITE_OPENABLE_ROLES = ['sonia', 'shiva', 'merushri'];
+
+export function openableRole(role: string | undefined): string | null {
+  return role && INVITE_OPENABLE_ROLES.includes(role) ? role : null;
+}
+
 export function roleForInvite(invite: Invite): string {
-  return `${GUEST_PREFIX}${invite.id}`;
+  // A guarded open of a fixed login wins; anything not on the allowlist (an
+  // owner slipped in by a tampered payload, say) falls back to a powerless
+  // guest role that reaches nothing.
+  return openableRole(invite.opensRole) ?? `${GUEST_PREFIX}${invite.id}`;
 }
 
 export function isGuestRole(role: string): boolean {
@@ -87,18 +111,22 @@ export interface NewInviteInput {
   code: string;
   profileIds: string[];
   now: string;
+  /** See Invite.opensRole. Ignored unless it is one of INVITE_OPENABLE_ROLES. */
+  opensRole?: string;
 }
 
 export function makeInvite(input: NewInviteInput): Invite {
   const name = input.name.trim();
   if (!name) throw new Error('[invite] an invite needs a name, so she knows who it is for');
   if (!input.code.trim()) throw new Error('[invite] an invite needs a code');
+  const opensRole = openableRole(input.opensRole) ?? undefined;
   return {
     id: input.id,
     name,
     code: input.code.trim(),
     profileIds: [...new Set(input.profileIds)],
     createdAt: input.now,
+    ...(opensRole ? { opensRole } : {}),
   };
 }
 
@@ -138,6 +166,9 @@ export function markUsed(invites: Invite[], id: string, now: string): Invite[] {
  * can never reach a screen a client cannot reach.
  */
 export function bindingsFor(invite: Invite): { role: string; profileId: string; kind: 'client'; createdAt: string }[] {
+  // An invite that OPENS a fixed login grants no new access: that role already
+  // holds its own binding. It only provides a code-managed door to it.
+  if (openableRole(invite.opensRole)) return [];
   return invite.profileIds.map(profileId => ({
     role: roleForInvite(invite),
     profileId,
