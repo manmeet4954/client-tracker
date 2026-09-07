@@ -85,3 +85,17 @@ test('the Money tab is in her legacy workspace, filtered to her role', () => {
   ok(/\['\/references', '\/money', '\/orders', '\/catalogue'\]/.test(layout),
     "and is in sonia's visible set");
 });
+
+suite('spec 37 — the owner reaches the money book from her new dashboard');
+
+test('Money is a pipeline in the new shell, mounted beside Orders', () => {
+  // Her question: "where can I find these in my new dashboard? I should be able
+  // to access these things as well." The money book was built on Sonia's legacy
+  // layout only; the owner works from the new shell, so it has to live there too.
+  const logsLib = readFileSync(join(ROOT, 'lib/creation/logs.ts'), 'utf8');
+  ok(/id: 'money', label: 'Money'/.test(logsLib), 'Money is a registered pipeline');
+
+  const logs = readFileSync(join(ROOT, 'components/creation/Logs.tsx'), 'utf8');
+  ok(/open\.item\.id === 'money' && <MoneyView/.test(logs),
+    'and the new-shell Logs mounts it');
+});

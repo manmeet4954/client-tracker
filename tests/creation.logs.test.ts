@@ -87,14 +87,18 @@ test('1c. Pipelines is absent for a profile that uses no pipeline', () => {
 test('1d. Pipelines appears the moment ONE pipeline is on (the container rule)', () => {
   const one = resolver({ 'logs.pipelines.orders': 'active' });
   eq(liveLogTabs(one).map(t => t.item.id), ['pipelines'], 'that tab alone');
-  eq(livePipelines(one).map(p => p.item.id), ['orders'], 'holding only the one that is on');
+  // Spec 37: Money rides the orders switch (both are Sonia's-shop surfaces, and
+  // orders defaults hidden so both appear only where she turned orders on).
+  // Turning orders on brings Orders AND Money.
+  eq(livePipelines(one).map(p => p.item.id), ['orders', 'money'],
+    'orders brings the money book with it, and nothing else');
 });
 
 test('1e. a switched-off pipeline is kept, read-only, when it holds history (S9)', () => {
   const live = livePipelines(resolver({ ...ALL_ON, 'logs.pipelines.lists': 'history' }));
   eq(live.map(p => `${p.item.id}:${p.state}`),
-    ['lists:history', 'cold-calls:active', 'orders:active', 'replies:active'],
-    'history renders, hidden does not');
+    ['lists:history', 'cold-calls:active', 'orders:active', 'money:active', 'replies:active'],
+    'history renders, hidden does not; money sits beside orders');
 });
 
 test('1f. Saved replies is a pipeline, and it is Divine\'s Lead Answers', () => {

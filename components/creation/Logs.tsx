@@ -34,6 +34,7 @@ import { Segmented } from '@/components/shell/Screen';
 import ListsView from '@/components/ListsView';
 import ColdCallsView from '@/components/ColdCallsView';
 import OrdersView from '@/components/OrdersView';
+import MoneyView from '@/components/MoneyView';
 import AnswersView from '@/components/AnswersView';
 import MomentumMeter from '@/components/MomentumMeter';
 import {
@@ -156,6 +157,7 @@ export default function Logs({ profileId, readOnly = false }: LogsProps) {
               {open.item.id === 'lists' && <ListsView clientId={profileId} />}
               {open.item.id === 'cold-calls' && <ColdCallsView clientId={profileId} />}
               {open.item.id === 'orders' && <OrdersView clientId={profileId} />}
+              {open.item.id === 'money' && <MoneyView clientId={profileId} />}
               {open.item.id === 'replies' && <AnswersView clientId={profileId} />}
             </div>
           </>

@@ -76,6 +76,11 @@ export const PIPELINES: PipelineDef[] = [
   { id: 'lists', label: 'Lists', switchId: 'logs.pipelines.lists' },
   { id: 'cold-calls', label: 'Cold calls', switchId: 'logs.pipelines.cold_calls' },
   { id: 'orders', label: 'Orders', switchId: 'logs.pipelines.orders' },
+  // Spec 37: Sonia's money book, beside Orders in the owner's new shell so she
+  // can see it from her own dashboard, not only on Sonia's legacy layout. It
+  // rides the orders switch because both are Sonia's-shop surfaces that travel
+  // together; only her profile has either.
+  { id: 'money', label: 'Money', switchId: 'logs.pipelines.orders' },
   { id: 'replies', label: 'Saved replies', switchId: 'creation.funnel_replies' },
 ];
 
