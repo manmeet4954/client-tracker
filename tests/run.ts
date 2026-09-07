@@ -7,6 +7,7 @@ import './tree.declarations.test.ts';
 import './tree.scopes.test.ts';
 import './access.security.test.ts';
 import './access.plugs.test.ts';   // spec 36 — the plug layer
+import './money.test.ts';           // spec 37 — Sonia's money book
 import './tree.migrate.test.ts';
 import './intake.test.ts';
 import './strategy.test.ts';

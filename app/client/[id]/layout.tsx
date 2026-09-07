@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BookMarked, Palette, Menu, PhoneCall, ClipboardList, ShoppingBag, Images, Instagram, Columns3, FolderOpen, MessageCircle, ListTodo, Flag, BarChart3, BookOpen, Compass, Sparkles } from 'lucide-react';
+import { LayoutDashboard, BookMarked, Palette, Menu, PhoneCall, ClipboardList, ShoppingBag, Images, Wallet, Instagram, Columns3, FolderOpen, MessageCircle, ListTodo, Flag, BarChart3, BookOpen, Compass, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = { label: string; href: string; icon: LucideIcon };
@@ -102,6 +102,7 @@ export default function ClientLayout({
   }
   if (/shiva/i.test(client.name)) tabs.push({ label: 'Onboarding', href: '/onboarding', icon: ClipboardList });
   if (/sonia|crochet/i.test(client.name)) {
+    tabs.push({ label: 'Money', href: '/money', icon: Wallet });   // spec 37
     tabs.push({ label: 'Orders', href: '/orders', icon: ShoppingBag });
     tabs.push({ label: 'Catalogue', href: '/catalogue', icon: Images });
   }
@@ -115,7 +116,7 @@ export default function ClientLayout({
   // ever reaches its own client's tab, and the /api/analytics route re-checks
   // that server side.
   const visibleTabs = role === 'sonia'
-    ? tabs.filter(t => ['/references', '/orders', '/catalogue'].includes(t.href))
+    ? tabs.filter(t => ['/references', '/money', '/orders', '/catalogue'].includes(t.href))
     : role === 'shiva'
     ? tabs.filter(t => ['/content', '/analytics', '/assets', '/references', '/brand', '/previews'].includes(t.href))
     : tabs;

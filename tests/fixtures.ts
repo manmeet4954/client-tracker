@@ -14,7 +14,7 @@ function base(): ClientData {
     brand: { tagline: '', goals: [], strategy: '', audience: '', services: [] },
     brandKit: { colors: [], fonts: [] },
     postTarget: 0, evergreenIdeas: [], studioCompositions: [], coldCalls: [],
-    onboarding: [], orders: [], catalogueCategories: [], catalogueItems: [],
+    onboarding: [], orders: [], ledger: [], catalogueCategories: [], catalogueItems: [],
     instagram: { handle: '', avatarUrl: '' }, previewPosts: [], pillars: [],
     pillarCards: [], assetSets: [], assetItems: [], driveFolderUrl: '',
     leadAnswers: [], contentCards: [], lists: [], listRows: [], topics: [],

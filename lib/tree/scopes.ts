@@ -56,7 +56,7 @@ export const PROFILE_SCOPES: Record<string, (keyof ClientData)[]> = {
   'work-log/logs/tasks': ['monthData'],
   'work-log/logs/pipelines/lists': ['lists', 'listRows'],
   'work-log/logs/pipelines/cold-calls': ['coldCalls'],
-  'work-log/logs/pipelines/orders': ['orders'],
+  'work-log/logs/pipelines/orders': ['orders', 'ledger'],
   'work-log/logs/effort': ['momentum'],
   'work-log/analysis/goal-tracking': ['journey'],
   'frozen/legacy-cards': ['cards', 'pillarCards'],

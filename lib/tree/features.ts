@@ -613,6 +613,14 @@ export const FEATURES: FeatureDeclaration[] = [
     state: 'migrated', slices: ['clientData.orders'],
   }),
   F({
+    // Spec 37: Sonia's money book. Rides the orders write-scope (both her-shop
+    // legacy slices under logs, saved by the same login); no new switch, since
+    // her legacy workspace chooses tabs by role, not by the plug system.
+    id: 'logs.money', today: 'ledger[], MoneyView (Sonia)',
+    writes: 'work-log/logs/pipelines/orders', reads: [], switch: 'logs.pipelines.orders',
+    state: 'migrated', slices: ['clientData.ledger'],
+  }),
+  F({
     id: 'logs.effort', today: 'momentum (MomentumData, spec 11), MomentumMeter, app/api/momentum-read',
     writes: 'work-log/logs/effort', reads: ['work-log/creation'], switch: 'logs.effort_meter',
     state: 'migrated', slices: ['clientData.momentum'],

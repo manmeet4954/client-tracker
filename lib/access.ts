@@ -92,10 +92,11 @@ export function normalizeState(state: AppState): AppState {
   const rawData = state.clientData ?? {};
   const clientData: typeof rawData = {};
   for (const id of Object.keys(rawData)) {
-    const { orders, catalogueCategories, catalogueItems, pillars, pillarCards, leadAnswers, lists, listRows, topics, ...rest } = rawData[id];
+    const { orders, ledger, catalogueCategories, catalogueItems, pillars, pillarCards, leadAnswers, lists, listRows, topics, ...rest } = rawData[id];
     clientData[id] = {
       ...rest,
       orders: orders ?? [],
+      ledger: ledger ?? [],
       catalogueCategories: catalogueCategories ?? [],
       catalogueItems: catalogueItems ?? [],
       pillars: pillars ?? [],
@@ -289,15 +290,24 @@ function applySwitchStates(
  * emptied; the client's Brand window reads tagline, audience and voice from the
  * same object and those are theirs to see.
  */
-function withoutHerSlices(data: ClientData): Partial<ClientData> {
-  return {
+function withoutHerSlices(data: ClientData, legacy: boolean): Partial<ClientData> {
+  // The truly private slices are stripped from every non-owner login.
+  const base: Partial<ClientData> = {
     brand: { ...data.brand, strategy: '' },
     coldCalls: [],
-    orders: [],
     leadAnswers: [],
-    observations: undefined,
     momentum: undefined,
-  } as Partial<ClientData>;
+  };
+  // 2026-09-07, spec 37 §3. The SHOP slices — orders, and the money book — are
+  // Sonia's own data, and her legacy workspace exists to show them. Stripping
+  // `orders` here (added 2026-08-17 for content clients) is exactly what served
+  // her Orders tab empty. A login that stays on the legacy workspace keeps
+  // them; a content client (who never has them anyway) still gets nothing.
+  if (!legacy) {
+    base.orders = [];
+    base.ledger = [];
+  }
+  return base as Partial<ClientData>;
 }
 
 function filterBodyForNonOwner(
@@ -391,9 +401,10 @@ export function filterStateForRole(state: AppState, role: Role): AppState {
     // owner` has to mean the same thing for the intern as for a client.
     const kind = bindingKind(norm, role, id);
     const lifecycle = norm.clients.find(c => c.id === id)?.lifecycle;
+    const legacy = staysOnLegacy(role, kind);
     clientData[id] = {
       ...data,
-      ...(kind === 'client' ? withoutHerSlices(data) : {}),
+      ...(kind === 'client' ? withoutHerSlices(data, legacy) : {}),
       body: filterBodyForNonOwner(data.body, kind, lifecycle),
     };
   });

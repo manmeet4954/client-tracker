@@ -58,10 +58,10 @@ with one of them, the code is wrong.
 
 ## 3. The single next step
 
-**Spec 36 — Plug and Play: the client sees her dashboard.** Written 2026-08-17,
-not yet built. It is the inversion that makes rule 4 above real in code.
-
-Everything else waits behind it. Do not start a second thing.
+Hers to call. Spec 36 (the plug inversion) shipped 2026-08-17 and is live. Since
+then: pillars edit, a card can be deleted, the profile mockup (before/after,
+one share link, PNG removed), and spec 37 (Sonia's money book). No one build is
+pending; wait for her direction.
 
 ---
 
@@ -78,6 +78,46 @@ Everything else waits behind it. Do not start a second thing.
 ---
 
 ## 5. Recent sessions
+
+## 2026-09-07 — SONIA'S MONEY BOOK (SPEC 37), AND THE ORDERS REGRESSION FIXED
+
+1043 tests. Typecheck clean. Production build green. NOT yet checked in a
+browser (no local env on this machine); the deploy is verified in served
+chunks and she checks the live screen.
+
+**The regression, found while building and worth remembering.** The spec 36 §8
+privacy strip (`withoutHerSlices`, 2026-08-17) blanks `orders` from every login
+whose binding kind is `client`. Sonia's binding IS `client`
+(`legacyBindings.ts`), so since 08-17 her own Orders tab was served empty. That
+is the "not visible on her end" she reported. Fixed: a login that
+`staysOnLegacy` keeps its shop slices (`orders`, `ledger`); the truly private
+slices (`brand.strategy`, `coldCalls`, `leadAnswers`, `momentum`) stay stripped
+for every non-owner. The lesson: a blanket privacy strip has to ask WHOSE data
+it is, not just what kind of login is asking.
+
+**The money book.** New `ClientData.ledger: LedgerEntry[]` (note, amount,
+income/expense, received, month). One `MoneyView`: a three-tap recorder that
+saves on the tap, and a one-sentence balance sheet per month — money in hand
+(received income − spend), still to come (unpaid income), spent. A `Money` tab
+in Sonia's legacy workspace beside Orders and Catalogue.
+
+**Data-layer wiring (the load-bearing part).** `ledger` rides the ORDERS
+write-scope (`work-log/logs/pipelines/orders`) rather than minting a switch:
+both are Sonia's-shop legacy slices, saved by the same login, and her legacy
+tabs are chosen by role, not by the plug system. Addressed by a new
+`logs.money` feature in features.ts (slices: clientData.ledger), scoped in
+scopes.ts, defaulted in normalizeState + defaultClientData, completeness map in
+validate.ts, fixture updated, route in ROUTE_MAP. Reducer:
+ADD/UPDATE/DELETE_LEDGER_ENTRY.
+
+**Not linked to orders yet, by her instruction** ("keep it simple, manual").
+Wiring an order marked paid to count here on its own is a later step if she
+asks.
+
+---
+
+---
+
 
 ## 2026-08-17, night — SPEC 36 IS BUILT. THE TWO VETOES ARE GONE.
 

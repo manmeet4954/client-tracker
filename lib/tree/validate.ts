@@ -165,7 +165,7 @@ const APP_STATE_SLICES: Record<keyof AppState, true> = {
 const CLIENT_DATA_SLICES: Record<keyof ClientData, true> = {
   cards: true, customFields: true, monthData: true, references: true, brand: true,
   brandKit: true, postTarget: true, evergreenIdeas: true, studioCompositions: true,
-  coldCalls: true, onboarding: true, orders: true, catalogueCategories: true,
+  coldCalls: true, onboarding: true, orders: true, ledger: true, catalogueCategories: true,
   catalogueItems: true, instagram: true, previewPosts: true, pillars: true,
   pillarCards: true, assetSets: true, assetItems: true, driveFolderUrl: true,
   leadAnswers: true, contentCards: true, platforms: true, lists: true, listRows: true,

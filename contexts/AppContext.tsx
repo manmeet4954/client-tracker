@@ -9,7 +9,7 @@ import {
   CatalogueCategory, CatalogueItem, InstagramProfile, PreviewPost,
   ContentPillar, PillarCard, CollabRef, AssetSet, AssetItem, LeadAnswer,
   ContentCard, ContentStage, TrackList, ListRow, JourneyData, MomentumData, Topic, ClientGoal,
-  Observation, ChatMessage, ProfileOwnerKind, ProfileBinding,
+  Observation, ChatMessage, ProfileOwnerKind, ProfileBinding, LedgerEntry,
 } from '@/types';
 import type { Invite } from '@/lib/access/invites';
 import { migrateToContentCards } from '@/lib/migrateContent';
@@ -56,6 +56,7 @@ function defaultClientData(): ClientData {
     coldCalls: [],
     onboarding: [],
     orders: [],
+    ledger: [],
     catalogueCategories: [...DEFAULT_CATALOGUE_CATEGORIES],
     catalogueItems: [],
     instagram: { handle: '', avatarUrl: '' },
@@ -177,6 +178,9 @@ export type Action =
   | { type: 'ADD_CONTENT_CARD'; payload: { clientId: string; card: ContentCard } }
   | { type: 'UPDATE_CONTENT_CARD'; payload: { clientId: string; card: ContentCard } }
   | { type: 'DELETE_CONTENT_CARD'; payload: { clientId: string; cardId: string } }
+  | { type: 'ADD_LEDGER_ENTRY'; payload: { clientId: string; entry: LedgerEntry } }
+  | { type: 'UPDATE_LEDGER_ENTRY'; payload: { clientId: string; entry: LedgerEntry } }
+  | { type: 'DELETE_LEDGER_ENTRY'; payload: { clientId: string; entryId: string } }
   | { type: 'MOVE_CONTENT_CARD'; payload: { clientId: string; cardId: string; stage: ContentStage } }
   | { type: 'SHARE_CONTENT_CARD'; payload: { sourceClientId: string; sourceCard: ContentCard; targetClientId: string; targetPillarId: string } }
   | { type: 'SET_PLATFORMS'; payload: { clientId: string; platforms: string[] } }
@@ -230,6 +234,7 @@ function reducer(state: AppState, action: Action): AppState {
           // One-time migration: fold legacy kanban + pillar cards into the
           // unified content cards. Only when the client has never migrated.
           contentCards: cdata.contentCards ?? migrateToContentCards(cdata),
+          ledger: cdata.ledger ?? [],
         };
       }
       return {
@@ -504,6 +509,23 @@ function reducer(state: AppState, action: Action): AppState {
     case 'DELETE_ORDER':
       return updateClient(action.payload.clientId, {
         orders: (cd(action.payload.clientId).orders ?? []).filter(o => o.id !== action.payload.orderId),
+      });
+
+    case 'ADD_LEDGER_ENTRY':
+      return updateClient(action.payload.clientId, {
+        ledger: [action.payload.entry, ...(cd(action.payload.clientId).ledger ?? [])],
+      });
+
+    case 'UPDATE_LEDGER_ENTRY':
+      return updateClient(action.payload.clientId, {
+        ledger: (cd(action.payload.clientId).ledger ?? []).map(e =>
+          e.id === action.payload.entry.id ? action.payload.entry : e
+        ),
+      });
+
+    case 'DELETE_LEDGER_ENTRY':
+      return updateClient(action.payload.clientId, {
+        ledger: (cd(action.payload.clientId).ledger ?? []).filter(e => e.id !== action.payload.entryId),
       });
 
     case 'ADD_CATALOGUE_CATEGORY':

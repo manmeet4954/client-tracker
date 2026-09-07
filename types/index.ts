@@ -157,6 +157,24 @@ export interface SoniaOrder {
   createdAt: string;
 }
 
+// ── Money book (spec 37 — Sonia's Crochet) ──────────────────────────────────
+// One simple ledger her mother writes into: a note, an amount, income or
+// expense. Income also carries whether the money is in hand or still to come,
+// because "the revenue includes the things yet to be received" (her words).
+
+export interface LedgerEntry {
+  id: string;
+  /** What it was, in her own words: "Sold 2 scarves", "Yarn from market". */
+  note: string;
+  amount: number;
+  kind: 'income' | 'expense';
+  /** Income only. An expense is always money already gone, so this is ignored. */
+  received: boolean;
+  /** 'YYYY-MM' — the month this belongs to, so the sheet can total by month. */
+  month: string;
+  createdAt: string;
+}
+
 // ── Cold Calls (lead tracker — Divine Studio) ────────────────────────────────
 
 export type ColdCallStatus = 'open' | 'reached-out' | 'in-review' | 'closed' | 'not-interested';
@@ -542,6 +560,7 @@ export interface ClientData {
   coldCalls: ColdCall[];
   onboarding: OnboardingItem[];
   orders: SoniaOrder[];
+  ledger: LedgerEntry[];        // spec 37 — Sonia's money book
   catalogueCategories: CatalogueCategory[];
   catalogueItems: CatalogueItem[];
   instagram: InstagramProfile;

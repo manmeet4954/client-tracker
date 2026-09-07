@@ -65,6 +65,7 @@ export const ROUTE_MAP: RouteRecord[] = [
   { file: 'app/client/[id]/lists/page.tsx', fate: 'moved', to: '/profile/<id>/creation/logs' },
   { file: 'app/client/[id]/coldcalls/page.tsx', fate: 'moved', to: '/profile/<id>/creation/logs' },
   { file: 'app/client/[id]/orders/page.tsx', fate: 'moved', to: '/profile/<id>/creation/logs' },
+  { file: 'app/client/[id]/money/page.tsx', fate: 'active', note: "Spec 37: Sonia's money book. Legacy workspace only; she has no cutover yet (§19 open)." },
   { file: 'app/client/[id]/catalogue/page.tsx', fate: 'moved', to: '/profile/<id>/creation/assets' },
   { file: 'app/client/[id]/assets/page.tsx', fate: 'moved', to: '/profile/<id>/creation/assets' },
   { file: 'app/client/[id]/references/page.tsx', fate: 'moved', to: '/profile/<id>/creation/references' },
